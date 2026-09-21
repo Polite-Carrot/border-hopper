@@ -17,13 +17,15 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { feature } from 'topojson-client';
 import { presimplify, simplify } from 'topojson-simplify';
-import { geoNaturalEarth1, geoPath, geoArea, geoCentroid, geoContains } from 'd3-geo';
+import { geoEquirectangular, geoPath, geoArea, geoCentroid, geoContains } from 'd3-geo';
 import countries from 'i18n-iso-countries';
+import populationRows from 'country-json/src/country-by-population.json' with { type: 'json' };
 import enLocale from 'i18n-iso-countries/langs/en.json' with { type: 'json' };
 import topology from 'world-atlas/countries-50m.json' with { type: 'json' };
 import { NON_SOVEREIGN_ISO2, MERGE_INTO, DISPLAY_NAME, ALIASES, EXCLUDED_BORDERS } from './sovereign.ts';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson';
+import { seededRandom, weightedPick } from '../src/core/random.ts';
 
 countries.registerLocale(enLocale as never);
 
@@ -49,6 +51,10 @@ const MIN_POLYGON_SHARE = 0.002;
 const MIN_CROSSING_KM = 5;
 /** Furthest a sea crossing may span, in kilometres. */
 const MAX_CROSSING_KM = 2000;
+/** Flight routes offered from each country, on top of its nearest sea crossing. */
+const LONG_HAUL_PER_COUNTRY = 3;
+/** Below this, a flight is just a short hop and the crossing already covers it. */
+const LONG_HAUL_MIN_KM = 1200;
 /** How many nearby countries across water each country can fly to. */
 const CROSSINGS_PER_COUNTRY = 3;
 /** Coastline points kept per country when measuring water gaps. */
@@ -399,17 +405,157 @@ for (const [from, list] of crossings) {
 }
 for (const list of crossings.values()) list.sort((a, b) => a.km - b.km);
 
-const projection = geoNaturalEarth1();
+/**
+ * Equirectangular, scaled so MAP_WIDTH is exactly 360 degrees of longitude.
+ *
+ * The projection has to be cylindrical, because the map wraps: the player can
+ * keep dragging west past the Bering Strait and come back round through Asia,
+ * which the renderer does by drawing the canvas three times side by side. That
+ * only lines up if a whole turn of the globe is the same number of pixels at
+ * every latitude. Natural Earth 1 is prettier -- it pinches the poles, so the
+ * continents keep their shape -- but its width varies with latitude, so its
+ * copies would meet in a ragged wedge instead of a seam.
+ *
+ * Set explicitly rather than by `fitWidth`, which would fit the drawn land and
+ * leave the canvas a fraction of a degree short of a full turn.
+ */
+const projection = geoEquirectangular()
+  .scale(MAP_WIDTH / (2 * Math.PI))
+  .translate([MAP_WIDTH / 2, 0]);
 const all: FeatureCollection = { type: 'FeatureCollection', features: [...shapes.values()] };
-projection.fitWidth(MAP_WIDTH, all);
-const pathGen = geoPath(projection);
-const [[, minY], [, maxY]] = pathGen.bounds(all);
+const [[minX, minY], [maxX, maxY]] = geoPath(projection).bounds(all);
+if (minX < -0.5 || maxX > MAP_WIDTH + 0.5) {
+  throw new Error(`projected land escapes the canvas: ${minX}..${maxX} of ${MAP_WIDTH}`);
+}
 // Re-centre vertically so the canvas is exactly the drawn extent.
 const translate = projection.translate();
 projection.translate([translate[0], translate[1] - minY]);
+const pathGen = geoPath(projection);
 const MAP_HEIGHT = Math.ceil(maxY - minY);
 
 const round = (d: string): string => d.replace(/-?\d+\.\d+/g, (n) => String(Number(Number(n).toFixed(PRECISION))));
+
+// ---------------------------------------------------------------------------
+// 3b. Population, and the flight network built from it.
+// ---------------------------------------------------------------------------
+const fold = (value: string) =>
+  value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().replace(/^the /, '');
+
+const nameToIso = new Map<string, string>();
+for (const owner of playableOwners) {
+  nameToIso.set(fold(owner.name), owner.iso2!);
+  for (const alias of ALIASES[owner.iso2!] ?? []) nameToIso.set(fold(alias), owner.iso2!);
+}
+
+const populationByIso = new Map<string, number>();
+for (const row of populationRows as { country: string; population: number | null }[]) {
+  if (!row.population) continue;
+  const folded = fold(row.country);
+  let iso2 = nameToIso.get(folded);
+  if (!iso2) {
+    // "Fiji Islands" -> "fiji", "Micronesia, Federated States of" -> "micronesia"
+    for (const [known, code] of nameToIso) {
+      if (known.length >= 4 && folded.startsWith(`${known} `)) {
+        iso2 = code;
+        break;
+      }
+    }
+  }
+  if (iso2 && !populationByIso.has(iso2)) populationByIso.set(iso2, row.population);
+}
+const withoutPopulation = playableOwners.filter((o) => !populationByIso.has(o.iso2!));
+if (withoutPopulation.length > 3) {
+  throw new Error(`population joined for only ${playableOwners.length - withoutPopulation.length} countries`);
+}
+
+/**
+ * The flight network.
+ *
+ * Sea crossings alone make flight mode feel like a ferry timetable -- you can
+ * only ever hop to whatever is nearest. Real air travel goes a long way, so
+ * each country also gets a handful of long-haul routes: far away, and to
+ * places people have heard of, picked with a fixed seed so the network is the
+ * same for everyone and stays learnable.
+ */
+const geoCentres = new Map<string, [number, number]>();
+for (const owner of playableOwners) {
+  const shape = shapes.get(owner.key);
+  if (shape) geoCentres.set(owner.iso2!, geoCentroid(shape) as [number, number]);
+}
+
+const outAreaByIso = new Map<string, number>(
+  playableOwners.map((owner) => {
+    const shape = shapes.get(owner.key);
+    return [owner.iso2!, shape ? Number((geoArea(shape) * 1e4).toFixed(2)) : 0.01];
+  })
+);
+
+/**
+ * How likely a country is to be somewhere a player has heard of, 0..1.
+ *
+ * Scored by rank rather than by the raw figures. In log space a population of
+ * 12 million and one of 83 million come out at 7.1 against 7.9 -- close enough
+ * that no exponent separates Guinea from Germany. Ranking spreads them evenly
+ * and makes the weighting behave.
+ */
+const scored = playableOwners
+  .map((owner) => {
+    const iso2 = owner.iso2!;
+    return {
+      iso2,
+      score:
+        0.7 * Math.log10(populationByIso.get(iso2) ?? 1e5) +
+        0.3 * Math.log10(Math.max(1, outAreaByIso.get(iso2) ?? 0.01)) * 2,
+    };
+  })
+  .sort((a, b) => b.score - a.score);
+
+const reach = new Map<string, number>(
+  scored.map((entry, rank) => [entry.iso2, 1 - rank / scored.length])
+);
+
+const flights = new Map<string, Map<string, number>>(playableOwners.map((o) => [o.iso2!, new Map()]));
+
+function addFlight(from: string, to: string, km: number) {
+  flights.get(from)?.set(to, km);
+  flights.get(to)?.set(from, km);
+}
+
+// The nearest sea crossing keeps the short-hop character: Dover to Calais.
+for (const owner of playableOwners) {
+  const nearest = crossings.get(owner.iso2!)?.[0];
+  if (nearest) addFlight(owner.iso2!, nearest.iso2, nearest.km);
+}
+
+for (const owner of playableOwners) {
+  const from = owner.iso2!;
+  const origin = geoCentres.get(from);
+  if (!origin) continue;
+  const landNeighbours = neighbours.get(owner.key)!;
+  const rand = seededRandom(`borderhopper-flights:${from}`);
+
+  const options: { iso2: string; km: number }[] = [];
+  const weights: number[] = [];
+  for (const other of playableOwners) {
+    const to = other.iso2!;
+    const target = geoCentres.get(to);
+    if (to === from || landNeighbours.has(other.key) || !target) continue;
+    const km = Math.round(haversineKm(origin, target));
+    if (km < LONG_HAUL_MIN_KM) continue;
+    options.push({ iso2: to, km });
+    // Far and well-known beats near and obscure, which is roughly how route
+    // maps actually look.
+    weights.push((reach.get(to) ?? 0.2) ** 4 * Math.min(1, km / 6000));
+  }
+
+  const taken = new Set<string>();
+  for (let i = 0; i < LONG_HAUL_PER_COUNTRY && options.length > 0; i++) {
+    const pick = weightedPick(options, weights, rand);
+    if (taken.has(pick.iso2) || flights.get(from)!.has(pick.iso2)) continue;
+    taken.add(pick.iso2);
+    addFlight(from, pick.iso2, pick.km);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // 4. Emit.
@@ -422,8 +568,11 @@ interface OutCountry {
   flag: string;
   aliases: string[];
   neighbours: string[];
-  /** Nearby countries across water, nearest first, for flight mode. */
+  /** Nearby countries across water, nearest first. */
   crossings: { iso2: string; km: number }[];
+  /** Everywhere flight mode can reach from here: the short hop plus long haul. */
+  flights: { iso2: string; km: number }[];
+  population: number;
   /** Centre of the main landmass, in projected map units. */
   centroid: [number, number];
   /** Bounding box of the main landmass: [minX, minY, maxX, maxY]. */
@@ -480,6 +629,10 @@ for (const owner of [...owners.values()].sort((a, b) => a.name.localeCompare(b.n
     aliases: [...aliasSet].sort(),
     neighbours: [...neighbours.get(owner.key)!].filter((k) => playableKeys.has(k)).sort(),
     crossings: crossings.get(iso2) ?? [],
+    flights: [...(flights.get(iso2) ?? new Map())]
+      .map(([to, km]) => ({ iso2: to, km }))
+      .sort((a, b) => a.km - b.km),
+    population: populationByIso.get(iso2) ?? 0,
     centroid: projected
       ? [Number(projected[0].toFixed(1)), Number(projected[1].toFixed(1))]
       : [Number(((x0 + x1) / 2).toFixed(1)), Number(((y0 + y1) / 2).toFixed(1))],
@@ -492,7 +645,7 @@ mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(
   OUT,
   JSON.stringify({
-    generated: 'scripts/build-country-data.ts from world-atlas/countries-50m (Natural Earth 1:50m)',
+    generated: 'scripts/build-country-data.ts from world-atlas/countries-50m (Natural Earth 1:50m data, equirectangular)',
     width: MAP_WIDTH,
     height: MAP_HEIGHT,
     countries: outCountries,

@@ -11,11 +11,15 @@ export interface Country {
   aliases: string[];
   /** ISO codes of countries sharing a land border. Always symmetric. */
   neighbours: string[];
-  /**
-   * Nearby countries reachable across open water, nearest first. Only flight
-   * mode uses these; every other mode is land borders alone.
-   */
+  /** Nearby countries across open water, nearest first. */
   crossings: { iso2: string; km: number }[];
+  /**
+   * Everywhere flight mode can reach from here: the nearest sea crossing plus
+   * a few long-haul routes. Only flight mode uses these; every other mode is
+   * land borders alone.
+   */
+  flights: { iso2: string; km: number }[];
+  population: number;
   /** Projected map coordinates of the country's centre. */
   centroid: [number, number];
   /** Projected bounding box: [minX, minY, maxX, maxY]. */

@@ -15,6 +15,17 @@ export const DIFFICULTY_MOVES: Record<Difficulty, [number, number]> = {
   hard: [5, 7],
 };
 
+/**
+ * Flight mode's own bands. Long-haul routes shrink the world hard -- the flight
+ * graph's diameter is four moves, so the land bands would ask for routes that
+ * do not exist. Four flights across the planet is this mode's "hard".
+ */
+export const FLIGHT_DIFFICULTY_MOVES: Record<Difficulty, [number, number]> = {
+  easy: [2, 2],
+  medium: [3, 3],
+  hard: [4, 5],
+};
+
 /** Classifies a route length into a difficulty band. */
 export function difficultyFor(moves: number): Difficulty {
   if (moves <= 2) return 'easy';
@@ -82,9 +93,9 @@ export function generateGame(options: GenerateOptions = {}): GameConfig {
   const seed = options.seed ?? `${Date.now()}:${Math.random()}`;
   const rand = seededRandom(seed);
   const difficulty = options.difficulty ?? pickDifficulty(rand);
-  const [minMoves, maxMoves] = DIFFICULTY_MOVES[difficulty];
   const mode = options.mode ?? 'classic';
   const flights = mode === 'flight';
+  const [minMoves, maxMoves] = (flights ? FLIGHT_DIFFICULTY_MOVES : DIFFICULTY_MOVES)[difficulty];
   const pool = flights ? FLIGHT_ENDPOINT_CANDIDATES : ENDPOINT_CANDIDATES;
   const poolWeights = flights ? FLIGHT_WEIGHTS : ENDPOINT_WEIGHTS;
   const weightByCode = flights ? FLIGHT_WEIGHT_BY_CODE : WEIGHT_BY_CODE;
@@ -114,9 +125,12 @@ export function generateGame(options: GenerateOptions = {}): GameConfig {
   }
 
   // Every candidate start failed the band, which only happens if the graph is
-  // broken. Fall back to any solvable pairing rather than returning nothing.
+  // broken. Fall back to the furthest solvable pairing rather than returning
+  // nothing -- furthest, so a broken band never hands out a one-move game.
   const start = pool[0];
-  const fallback = [...distancesFrom(start.iso2, flights)].find(([iso, d]) => d > 0 && weightByCode.has(iso));
+  const fallback = [...distancesFrom(start.iso2, flights)]
+    .filter(([iso, d]) => d > 0 && weightByCode.has(iso))
+    .sort((a, b) => b[1] - a[1])[0];
   if (!fallback) throw new Error('No solvable game could be generated');
   return {
     mode,

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { cameraOffset, frameBoxes, makeStage, projectToScreen, worldCamera } from '../src/ui/map/camera';
+import {
+  cameraOffset, frameBoxes, makeStage, nearestTurn, projectToScreen, worldCamera,
+} from '../src/ui/map/camera';
 import { LAND_BOUNDS, MAP_HEIGHT, MAP_WIDTH, requireCountry } from '../src/core/world';
 
 const PHONE = makeStage(430, 932, { y: 120, height: 430 });
@@ -69,5 +71,45 @@ describe('map camera', () => {
     const camera = frameBoxes([requireCountry('FR').bbox], tiny);
     expect(Number.isFinite(camera.k)).toBe(true);
     expect(camera.k).toBeGreaterThan(0);
+  });
+});
+
+describe('wrapping round the seam', () => {
+  it('leaves a camera alone when it is already the nearest way', () => {
+    const from = { x: 500, y: 300, k: 1 };
+    const target = { x: 620, y: 300, k: 1 };
+    expect(nearestTurn(target, from)).toBe(target);
+  });
+
+  it('takes the short way west rather than across the whole map', () => {
+    const from = { x: MAP_WIDTH - 60, y: 300, k: 1 };
+    const target = { x: 40, y: 300, k: 1 };
+    const aimed = nearestTurn(target, from);
+    expect(aimed.x).toBe(40 + MAP_WIDTH);
+    expect(Math.abs(aimed.x - from.x)).toBeLessThan(MAP_WIDTH / 2);
+  });
+
+  it('takes the short way east too', () => {
+    const from = { x: 40, y: 300, k: 1 };
+    const target = { x: MAP_WIDTH - 60, y: 300, k: 1 };
+    const aimed = nearestTurn(target, from);
+    expect(aimed.x).toBe(MAP_WIDTH - 60 - MAP_WIDTH);
+    expect(Math.abs(aimed.x - from.x)).toBeLessThan(MAP_WIDTH / 2);
+  });
+
+  it('never moves the camera more than half a world, wherever it starts', () => {
+    for (const start of [-3 * MAP_WIDTH, -40, 0, 900, MAP_WIDTH, 4 * MAP_WIDTH + 17]) {
+      for (const iso of ['US', 'RU', 'FJ', 'NZ', 'FR', 'CL']) {
+        const [x, y] = requireCountry(iso).centroid;
+        const aimed = nearestTurn({ x, y, k: 1 }, { x: start, y: 0, k: 1 });
+        expect(Math.abs(aimed.x - start), `${iso} from ${start}`).toBeLessThanOrEqual(MAP_WIDTH / 2);
+      }
+    }
+  });
+
+  it('keeps the zoom and the latitude untouched', () => {
+    const aimed = nearestTurn({ x: 10, y: 321, k: 4.5 }, { x: MAP_WIDTH - 10, y: 0, k: 1 });
+    expect(aimed.y).toBe(321);
+    expect(aimed.k).toBe(4.5);
   });
 });

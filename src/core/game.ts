@@ -1,4 +1,4 @@
-import { canTravel, isCrossing, shortestMoveCount } from './graph';
+import { areNeighbours, canTravel, isFlightRoute, shortestMoveCount } from './graph';
 import { getCountry, countryName } from './world';
 import type { GameConfig, GameResult, GameState, MoveResult } from './types';
 
@@ -7,9 +7,9 @@ export function allowsFlights(config: GameConfig): boolean {
   return config.mode === 'flight';
 }
 
-/** True when this step of a route was a sea crossing rather than a land border. */
-export function wasCrossing(config: GameConfig, from: string, to: string): boolean {
-  return allowsFlights(config) && isCrossing(from, to);
+/** True when this step of a route was flown rather than walked over a border. */
+export function wasFlown(config: GameConfig, from: string, to: string): boolean {
+  return allowsFlights(config) && !areNeighbours(from, to) && isFlightRoute(from, to);
 }
 
 export function createGame(config: GameConfig, now: number = Date.now()): GameState {

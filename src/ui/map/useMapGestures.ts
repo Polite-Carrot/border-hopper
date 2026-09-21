@@ -36,7 +36,11 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
  * within that framing. The transform is driven straight into Animated values
  * from the gesture, so dragging never re-renders the map.
  */
-export function useMapGestures(size: { width: number; height: number }): MapGestures {
+export function useMapGestures(
+  size: { width: number; height: number },
+  /** On-screen size of one copy of the world under the current camera. */
+  world: { width: number; height: number }
+): MapGestures {
   const containerRef = useRef<View | null>(null);
   const [adjusted, setAdjusted] = useState(false);
 
@@ -58,12 +62,50 @@ export function useMapGestures(size: { width: number; height: number }): MapGest
   const centre = useRef({ x: size.width / 2, y: size.height / 2 });
   centre.current = { x: size.width / 2, y: size.height / 2 };
 
+  const bounds = useRef({ size, world });
+  bounds.current = { size, world };
+
+  /**
+   * Folds the horizontal offset back inside one world width.
+   *
+   * The map is drawn as three copies of the canvas side by side, so moving it
+   * by exactly one world width changes nothing on screen -- which means the
+   * player can keep dragging west forever and the offset never grows. Without
+   * this, three copies would only buy one world width of dragging before the
+   * edge showed up again.
+   */
+  const wrapX = (x: number, scale: number): number => {
+    const period = bounds.current.world.width * scale;
+    if (!(period > 1)) return x;
+    return (((x + period / 2) % period) + period) % period - period / 2;
+  };
+
+  /**
+   * Vertical drag has no wrap -- there is no world north of the north pole --
+   * so it is bounded instead, keeping a good part of the map on screen. The
+   * allowance grows with the zoom, so looking around a country close up is
+   * never cramped.
+   */
+  const clampY = (y: number, scale: number): number => {
+    const { size: view, world: canvas } = bounds.current;
+    const slack = Math.max(
+      view.height * 0.4,
+      (canvas.height * scale - view.height) / 2 + view.height * 0.4
+    );
+    return clamp(y, -slack, slack);
+  };
+
   const apply = useCallback(
     (next: { scale: number; x: number; y: number }) => {
-      current.current = next;
-      scale.setValue(next.scale);
-      translateX.setValue(next.x);
-      translateY.setValue(next.y);
+      const settled = {
+        scale: next.scale,
+        x: wrapX(next.x, next.scale),
+        y: clampY(next.y, next.scale),
+      };
+      current.current = settled;
+      scale.setValue(settled.scale);
+      translateX.setValue(settled.x);
+      translateY.setValue(settled.y);
     },
     [scale, translateX, translateY]
   );

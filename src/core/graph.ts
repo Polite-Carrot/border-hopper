@@ -18,32 +18,36 @@ export function neighboursOf(iso2: string): readonly string[] {
 }
 
 /**
- * Countries reachable across open water from here, nearest first.
+ * Everywhere flight mode can fly from here, nearest first.
  *
- * These are short sea crossings measured between real coastlines, not flights
- * to anywhere: the United States reaches Russia because the Bering Strait is
- * 113km wide, and a landlocked country has none at all.
+ * A short sea crossing where there is one -- Dover to Calais -- plus a few
+ * long-haul routes, so the mode is air travel rather than a ferry timetable.
  */
+export function flightsOf(iso2: string): readonly { iso2: string; km: number }[] {
+  return requireCountry(iso2).flights;
+}
+
+export function isFlightRoute(a: string, b: string): boolean {
+  return requireCountry(a).flights.some((flight) => flight.iso2 === b);
+}
+
+/** Short sea crossings only, kept for the geography rather than the rules. */
 export function crossingsOf(iso2: string): readonly { iso2: string; km: number }[] {
   return requireCountry(iso2).crossings;
 }
 
-export function isCrossing(a: string, b: string): boolean {
-  return requireCountry(a).crossings.some((crossing) => crossing.iso2 === b);
-}
-
 /**
  * Everywhere a player can travel from here. Land borders only by default;
- * flight mode adds the sea crossings.
+ * flight mode adds the flight routes.
  */
 export function travelOptions(iso2: string, flights = false): string[] {
   const country = requireCountry(iso2);
   if (!flights) return [...country.neighbours];
-  return [...country.neighbours, ...country.crossings.map((crossing) => crossing.iso2)];
+  return [...country.neighbours, ...country.flights.map((flight) => flight.iso2)];
 }
 
 export function canTravel(from: string, to: string, flights = false): boolean {
-  return areNeighbours(from, to) || (flights && isCrossing(from, to));
+  return areNeighbours(from, to) || (flights && isFlightRoute(from, to));
 }
 
 /**

@@ -135,6 +135,27 @@ home-screen icons and a web manifest. Expo's export ships only a favicon, so
 without it iOS uses a screenshot of the page as the icon when someone adds the
 game to their home screen.
 
+## The map
+
+The camera frames the country you are in and animates to the next one; that
+animation is a single group transform, so travelling costs one prop update per
+frame however much of the world is on screen.
+
+You can drag and pinch it yourself at any time, and **the map wraps**: keep
+dragging west past Alaska and you arrive in Russia, round and round without
+ever reaching an edge. The renderer draws the canvas three times side by side
+and folds the pan offset back inside one canvas width, so the offset never
+grows no matter how long you drag. Vertical drag has no wrap — there is
+nothing north of the north pole — so it is bounded instead, with the allowance
+growing as you zoom in.
+
+This is why the map is equirectangular rather than the better-looking Natural
+Earth 1: only a cylindrical projection repeats cleanly. See "The country data"
+below for what that costs.
+
+The recentre button appears as soon as you move the map, and travelling puts
+the camera back in charge.
+
 ## The keyboard
 
 The game draws its own keyboard instead of using the platform's, so that its
@@ -220,8 +241,15 @@ Liechtenstein, Andorra and Vatican City are legal moves and appear in search,
 but are never chosen as a start or destination, where they would make for a
 frustrating puzzle.
 
-**Antarctica is omitted.** It has no land borders, and Natural Earth 1
-stretches it into a distorted band across the bottom of the map.
+**Antarctica is omitted.** It has no land borders, and an equirectangular
+projection stretches it into a distorted band across the bottom of the map.
+
+**The map is equirectangular, so the far north is stretched.** Greenland and
+northern Russia are wider than they should be. That is the cost of a map that
+wraps: only a cylindrical projection repeats cleanly, and being able to keep
+scrolling west into Asia was judged worth more than accurate shapes at 70
+degrees north. Every distance, area and adjacency in the game is computed on
+the sphere before projection, so nothing the game *decides* is affected.
 
 **Two known gaps in the source data.** Natural Earth 1:50m does not model
 Spain's exclaves at Ceuta and Melilla, so Spain does not border Morocco even
@@ -247,23 +275,36 @@ never shifts under a player mid-climb.
 
 **Random** — a one-off game at the difficulty set in Settings.
 
-**Flight** — the same game with sea crossings allowed, which opens up every
-island the land rules shut out. Crossings are measured between real
-coastlines, not invented: the United States reaches Russia because the Bering
-Strait is 113km wide, Britain reaches France across 47km of Channel, and a
-landlocked country has none at all. Each country gets its three nearest
-crossings under 2000km, and the pairing is always two-way.
+**Flight** — the same game with a flight network on top of the land borders,
+which opens up every island the land rules shut out. The network is in two
+parts, because either one alone is wrong.
 
-A segment only counts as a sea crossing if it is open water the whole way,
+*Sea crossings* are measured between real coastlines, not invented: the United
+States reaches Russia because the Bering Strait is 113km wide, Britain reaches
+France across 47km of Channel, and a landlocked country has none at all. Each
+country gets its three nearest crossings under 2000km, and the pairing is
+always two-way. A segment only counts if it is open water the whole way,
 anchored at sea on both ends. Without that last part France's nearest
 non-neighbour is Austria — 143km away with Switzerland in between — and
 landlocked Andorra ends up with a route to Malta.
 
-The available crossings are shown during play, because nobody knows off-hand
+*Long hauls* are what stop it feeling like a ferry timetable. Crossings alone
+mean you can only ever hop to whatever happens to be nearest, which is not what
+flying is. So each country also gets three routes of at least 1200km, weighted
+towards places that are far away and widely known — roughly how a real route
+map looks. They are drawn with a fixed seed, so the network is the same for
+everyone and can be learned. Only the nearest sea crossing carries over into
+the flight network, so a country that borders a busy sea does not get a dozen
+short hops instead of anywhere interesting. The result averages seven routes
+per country, spread across every distance band from a 47km Channel hop to
+Australia–Mauritania at 16,400km.
+
+The available flights are shown during play, because nobody knows off-hand
 that the United States can reach Russia. Land borders stay hidden; working
-those out is still the game. This turns the two land masses into one world:
-United States to France is four moves, over the Bering Strait and across
-Russia.
+those out is still the game. This turns the world into one piece — every
+country is reachable from every other — and shrinks it hard: nowhere is more
+than four flights from anywhere, which is why flight mode has its own
+difficulty bands rather than the land ones.
 
 **Daily challenge** — the same start and destination for every player, once a
 day.
@@ -276,15 +317,19 @@ day.
 3. Pick a destination at a distance inside the requested difficulty band.
 4. Store the shortest route length for scoring. The player never sees it.
 
-| Difficulty | Moves |
-| --- | --- |
-| Easy | 2 |
-| Medium | 3–4 |
-| Hard | 5–7 |
+| Difficulty | Moves (land) | Moves (flight) |
+| --- | --- | --- |
+| Easy | 2 | 2 |
+| Medium | 3–4 | 3 |
+| Hard | 5–7 | 4–5 |
 
 Every generated game is solvable by construction, because the destination is
 chosen from countries already known to be reachable. Easy is pinned to exactly
 two moves so a game never opens with the destination already next door.
+
+Flight mode gets its own bands because long-haul routes shrink the world: the
+flight graph's diameter is four, so asking for a seven-move route would be
+asking for one that does not exist.
 
 The **daily challenge** is a pure function of the calendar date: the same date
 produces the same start and destination for every player on every device, with

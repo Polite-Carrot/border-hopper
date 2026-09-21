@@ -30,8 +30,8 @@ export interface ControlPanelProps {
   keyboardUp: boolean;
   /** Width the keyboard lays its keys out across. */
   keyboardWidth: number;
-  /** Sea crossings from the current country, in flight mode only. */
-  crossings?: readonly { iso2: string; km: number }[] | null;
+  /** Flights from the current country, in flight mode only. */
+  flights?: readonly { iso2: string; km: number }[] | null;
   /** Docks to the side instead of the bottom on wide screens. */
   docked: boolean;
   bottomInset: number;
@@ -52,7 +52,7 @@ export interface ControlPanelProps {
 export function ControlPanel({
   query, results, onSelect, onFocusSearch, onClearSearch, onKey, onBackspace, onSubmit,
   onHideKeyboard, currentIso, visited, listHeight, reservedHeight, keyboardUp,
-  keyboardWidth, crossings, docked, bottomInset,
+  keyboardWidth, flights, docked, bottomInset,
 }: ControlPanelProps) {
   const visitedSet = new Set(visited);
 
@@ -97,7 +97,7 @@ export function ControlPanel({
         <SearchField value={query} focused={keyboardUp} onPress={onFocusSearch} onClear={onClearSearch} />
       </View>
 
-      {crossings && !keyboardUp ? <FlightStrip crossings={crossings} onSelect={onSelect} /> : null}
+      {flights && !keyboardUp ? <FlightStrip flights={flights} onSelect={onSelect} /> : null}
 
       <View style={{ height: reservedHeight }}>
         {keyboardUp ? (

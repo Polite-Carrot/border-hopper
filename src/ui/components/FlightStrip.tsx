@@ -3,25 +3,29 @@ import { colors, fonts, radius, spacing } from '../../theme';
 import { countryFlag, countryName } from '../../core/world';
 import { Icon } from './Icon';
 
+/** "47 km", "12,343 km" -- a departures board, not a rounding exercise. */
+const distance = (km: number) => `${km.toLocaleString('en-GB')} km`;
+
 export interface FlightStripProps {
-  /** Sea crossings available from the country the player is standing in. */
-  crossings: readonly { iso2: string; km: number }[];
+  /** Flights available from the country the player is standing in. */
+  flights: readonly { iso2: string; km: number }[];
   onSelect: (iso2: string) => void;
 }
 
 /**
  * The departures board.
  *
- * Flight mode is only fair if the player can see where the water goes: nobody
- * knows off-hand that the United States can reach Russia across the Bering
- * Strait. Land borders stay hidden -- working those out is still the game.
+ * Flight mode is only fair if the player can see where the routes go: the
+ * network is deliberately part sea crossing and part long haul, and nobody is
+ * expected to memorise it. Land borders stay hidden -- working those out is
+ * still the game.
  */
-export function FlightStrip({ crossings, onSelect }: FlightStripProps) {
-  if (crossings.length === 0) {
+export function FlightStrip({ flights, onSelect }: FlightStripProps) {
+  if (flights.length === 0) {
     return (
       <View style={styles.empty}>
         <Icon name="plane" size={13} color={colors.textFaint} />
-        <Text style={styles.emptyText}>No sea crossings from here</Text>
+        <Text style={styles.emptyText}>No flights from here</Text>
       </View>
     );
   }
@@ -36,19 +40,19 @@ export function FlightStrip({ crossings, onSelect }: FlightStripProps) {
       <View style={styles.label}>
         <Icon name="plane" size={13} color={colors.destination} />
       </View>
-      {crossings.map((crossing) => (
+      {flights.map((flight) => (
         <Pressable
-          key={crossing.iso2}
+          key={flight.iso2}
           accessibilityRole="button"
-          accessibilityLabel={`Fly to ${countryName(crossing.iso2)}, ${crossing.km} kilometres`}
-          onPress={() => onSelect(crossing.iso2)}
+          accessibilityLabel={`Fly to ${countryName(flight.iso2)}, ${flight.km} kilometres`}
+          onPress={() => onSelect(flight.iso2)}
           style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
         >
-          <Text style={styles.flag}>{countryFlag(crossing.iso2)}</Text>
+          <Text style={styles.flag}>{countryFlag(flight.iso2)}</Text>
           <Text style={styles.name} numberOfLines={1}>
-            {countryName(crossing.iso2)}
+            {countryName(flight.iso2)}
           </Text>
-          <Text style={styles.km}>{crossing.km}km</Text>
+          <Text style={styles.km}>{distance(flight.km)}</Text>
         </Pressable>
       ))}
     </ScrollView>

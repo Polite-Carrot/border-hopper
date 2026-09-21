@@ -1,14 +1,26 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop, Use } from 'react-native-svg';
 import { MAP_HEIGHT, MAP_WIDTH, getCountry } from '../../core/world';
 import { mapColors } from '../../theme';
-import { cameraOffset, type Camera, type Stage } from './camera';
+import { cameraOffset, nearestTurn, type Camera, type Stage } from './camera';
 import { BaseLayer } from './BaseLayer';
 import { PATH_BY_KEY } from './shapes';
 
 const AnimatedG = Animated.createAnimatedComponent(G);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+/**
+ * The map is drawn once into `<Defs>` and stamped three times side by side, so
+ * dragging west past Alaska arrives in Russia instead of running out of world.
+ * The projection is equirectangular precisely so these copies meet cleanly.
+ *
+ * Three is enough because the gestures wrap the pan offset back inside one
+ * canvas width (see `useMapGestures`): the middle copy is never more than half
+ * a world from home, and the outer two cover whatever that exposes.
+ */
+const WORLD_ID = 'bh-world';
+const COPIES = [-1, 0, 1] as const;
 
 /** Sample points used to interpolate scale geometrically rather than linearly. */
 const CURVE = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
@@ -62,10 +74,14 @@ export function WorldMap({
   const to = useRef<Camera>(camera);
   const ping = useRef(new Animated.Value(0)).current;
 
-  // Re-aim the camera whenever the target changes.
-  if (to.current !== camera) {
+  // Re-aim the camera whenever the target changes, across the seam if that is
+  // the shorter way. `seen` tracks the prop itself, because `to` holds the
+  // re-aimed copy of it rather than the object that came in.
+  const seen = useRef<Camera>(camera);
+  if (seen.current !== camera) {
+    seen.current = camera;
     from.current = to.current;
-    to.current = camera;
+    to.current = nearestTurn(camera, from.current);
   }
 
   useEffect(() => {
@@ -127,36 +143,31 @@ export function WorldMap({
   const pingRadius = ping.interpolate({ inputRange: [0, 1], outputRange: [0, 46] });
   const pingOpacity = ping.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.75, 0] });
 
-  // The player's own pinch and pan ride on top of the camera. Keeping them on
-  // the container rather than inside the SVG means a drag is a single native
-  // transform, with nothing re-rendering.
-  const userStyle = userTransform
-    ? {
-        transform: [
-          { translateX: userTransform.translateX },
-          { translateY: userTransform.translateY },
-          { scale: userTransform.scale },
-        ],
-      }
-    : undefined;
+  /**
+   * The player's own pinch and pan ride on top of the camera, as a group
+   * *inside* the SVG rather than a transform on the container.
+   *
+   * Transforming the container moves the SVG's clipping box along with its
+   * contents, so a drag slides the whole map off the screen and reveals
+   * nothing: the wrapped copies stay clipped away exactly as they were. Moving
+   * the group instead leaves the viewport where it is, so dragging uncovers
+   * the next copy of the world. `originX`/`originY` put the pinch focus at the
+   * middle of the viewport, which is where the gestures measure it from.
+   */
+  const stageCentre = { x: stage.width / 2, y: stage.height / 2 };
 
   return (
     <>
     <Animated.View
       ref={containerRef}
-      style={[StyleSheet.absoluteFill, userStyle]}
+      style={StyleSheet.absoluteFill}
       pointerEvents={panHandlers ? 'auto' : 'none'}
       {...(panHandlers ?? {})}
     >
       <Svg width={stage.width} height={stage.height}>
         <Rect x={0} y={0} width={stage.width} height={stage.height} fill={mapColors.ocean} />
-        <AnimatedG
-          originX={0}
-          originY={0}
-          scale={transform.scale as unknown as number}
-          translateX={transform.x as unknown as number}
-          translateY={transform.y as unknown as number}
-        >
+        <Defs>
+          <G id={WORLD_ID}>
           <Rect x={0} y={0} width={MAP_WIDTH} height={MAP_HEIGHT} fill="transparent" />
           <BaseLayer />
 
@@ -217,29 +228,53 @@ export function WorldMap({
               vectorEffect="non-scaling-stroke"
             />
           ) : null}
+          </G>
+        </Defs>
+
+        <AnimatedG
+          originX={stageCentre.x}
+          originY={stageCentre.y}
+          scale={(userTransform?.scale ?? 1) as unknown as number}
+          translateX={(userTransform?.translateX ?? 0) as unknown as number}
+          translateY={(userTransform?.translateY ?? 0) as unknown as number}
+        >
+          <AnimatedG
+            originX={0}
+            originY={0}
+            scale={transform.scale as unknown as number}
+            translateX={transform.x as unknown as number}
+            translateY={transform.y as unknown as number}
+          >
+            {COPIES.map((copy) => (
+              <Use key={copy} href={`#${WORLD_ID}`} x={copy * MAP_WIDTH} />
+            ))}
+          </AnimatedG>
+
+          {/* Markers sit outside the camera group so they keep a constant size. */}
+          {COPIES.map((copy) => (
+            <DestinationMarker
+              key={copy}
+              copy={copy}
+              destination={destination}
+              camera={to.current}
+              from={from.current}
+              stage={stage}
+              progress={progress}
+            />
+          ))}
+
+          {current ? (
+            <AnimatedCircle
+              cx={stage.visible.x + stage.visible.width / 2}
+              cy={stage.visible.y + stage.visible.height / 2}
+              r={pingRadius as unknown as number}
+              stroke={mapColors.current}
+              strokeWidth={2}
+              fill="none"
+              opacity={pingOpacity as unknown as number}
+            />
+          ) : null}
         </AnimatedG>
-
-        {/* Markers sit outside the camera group so they keep a constant size. */}
-        <DestinationMarker
-          destination={destination}
-          camera={to.current}
-          from={from.current}
-          stage={stage}
-          progress={progress}
-        />
-
-
-        {current ? (
-          <AnimatedCircle
-            cx={stage.visible.x + stage.visible.width / 2}
-            cy={stage.visible.y + stage.visible.height / 2}
-            r={pingRadius as unknown as number}
-            stroke={mapColors.current}
-            strokeWidth={2}
-            fill="none"
-            opacity={pingOpacity as unknown as number}
-          />
-        ) : null}
       </Svg>
     </Animated.View>
 
@@ -280,15 +315,17 @@ interface MarkerProps {
   from: Camera;
   stage: Stage;
   progress: Animated.Value;
+  /** Which wrapped copy of the world this marker belongs to: -1, 0 or 1. */
+  copy: number;
 }
 
 /** A small reticle over the destination: visible, but it gives no route away. */
-function DestinationMarker({ destination, camera, from, stage, progress }: MarkerProps) {
+function DestinationMarker({ destination, camera, from, stage, progress, copy }: MarkerProps) {
   if (!destination) return null;
   const at = (c: Camera) => {
     const offset = cameraOffset(c, stage);
     return {
-      x: destination.centroid[0] * c.k + offset.x,
+      x: (destination.centroid[0] + copy * MAP_WIDTH) * c.k + offset.x,
       y: destination.centroid[1] * c.k + offset.y,
     };
   };

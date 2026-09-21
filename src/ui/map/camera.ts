@@ -102,6 +102,23 @@ export function cameraOffset(camera: Camera, stage: Stage): { x: number; y: numb
   };
 }
 
+/**
+ * Re-aims a camera at whichever wrapped copy of the world is closest to where
+ * the camera already is.
+ *
+ * The map repeats horizontally, so the same place exists at x, x - MAP_WIDTH
+ * and x + MAP_WIDTH. Flying the Bering Strait moves 113km on the ground but
+ * most of the canvas on paper, and without this the camera would pan the long
+ * way round the whole world to cover it. The returned x may sit outside the
+ * canvas, which is exactly what the tiled copies are for.
+ */
+export function nearestTurn(target: Camera, from: Camera): Camera {
+  let x = target.x;
+  while (x - from.x > MAP_WIDTH / 2) x -= MAP_WIDTH;
+  while (from.x - x > MAP_WIDTH / 2) x += MAP_WIDTH;
+  return x === target.x ? target : { ...target, x };
+}
+
 /** Where a map point ends up on screen under a given camera. */
 export function projectToScreen(
   point: readonly [number, number],

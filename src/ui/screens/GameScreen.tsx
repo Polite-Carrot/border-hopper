@@ -5,9 +5,9 @@ import {
   allowsFlights, applyMove, createGame, currentCountry, elapsedSeconds, moveCount,
   recordWrongGuess, toResult,
 } from '../../core/game';
-import { crossingsOf } from '../../core/graph';
+import { flightsOf } from '../../core/graph';
 import { bestMatch, searchCountries } from '../../core/search';
-import { requireCountry } from '../../core/world';
+import { MAP_HEIGHT, MAP_WIDTH, requireCountry } from '../../core/world';
 import type { GameConfig, GameResult, GameState } from '../../core/types';
 import { colors, radius, timing } from '../../theme';
 import { Icon } from '../components/Icon';
@@ -62,7 +62,6 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
   const [phase, setPhase] = useState<'establishing' | 'playing'>('establishing');
   const [showResult, setShowResult] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const gestures = useMapGestures({ width: layout.width, height: layout.height });
 
   const iso = currentCountry(state);
   const docked = layout.mode === 'sidebar';
@@ -122,6 +121,15 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
     if (phase === 'establishing') return frameBoxes([requireCountry(config.start).bbox, target], stage);
     return frameBoxes([requireCountry(iso).bbox], stage);
   }, [phase, iso, config.start, config.destination, stage]);
+
+  /**
+   * Pan and pinch, told how big a copy of the world currently is on screen so
+   * it can wrap a westward drag round the back of the map.
+   */
+  const gestures = useMapGestures(
+    { width: layout.width, height: layout.height },
+    { width: MAP_WIDTH * camera.k, height: MAP_HEIGHT * camera.k }
+  );
 
   // Travelling to a new country earns the full camera move. Everything else
   // that nudges the camera -- the keyboard opening, a rotation -- should just
@@ -317,7 +325,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
           reservedHeight={reserved}
           keyboardUp={keyboardUp}
           keyboardWidth={panelInnerWidth}
-          crossings={allowsFlights(config) ? crossingsOf(iso) : null}
+          flights={allowsFlights(config) ? flightsOf(iso) : null}
           docked={docked}
           bottomInset={safeBottom}
         />

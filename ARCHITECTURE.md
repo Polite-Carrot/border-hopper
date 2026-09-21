@@ -27,9 +27,23 @@ game never needs tiles, streets, labels or arbitrary zoom. It needs about two
 hundred country shapes it can recolour instantly.
 
 Country geometry is **projected at build time** into SVG path strings, so the
-app ships no projection code and never re-projects at runtime. The projection
-is Natural Earth 1, which keeps continent shapes recognisable at world scale
-and stays sane when the camera closes in.
+app ships no projection code and never re-projects at runtime.
+
+The projection is **equirectangular**, chosen for one property: a whole turn
+of the globe is the same number of pixels at every latitude. That is what lets
+the map wrap. The renderer draws the canvas three times side by side and the
+gestures fold the pan offset back inside one canvas width, so dragging west
+past Alaska arrives in Russia and never runs out of world. This used to be
+Natural Earth 1, which is the better-looking map -- it pinches the poles, so
+the continents keep their shape instead of smearing towards the top -- but it
+is pseudocylindrical: its width varies with latitude, so its copies would meet
+in a ragged wedge rather than a seam. Wrapping was worth the trade.
+
+Two things follow from the wrap. The camera re-aims at whichever copy of the
+target is nearest (`nearestTurn`), so flying the Bering Strait pans 113km
+rather than most of the canvas. And anything drawn at a fixed map position --
+the destination reticle, the off-screen pointer -- has to exist three times
+over, or pick the nearest copy.
 
 ### The game brings its own keyboard
 
