@@ -17,7 +17,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
-      - name: Country data is up to date with the generator
+      - name: Generated data is up to date with its generators
         run: |
           npm run build:data
-          git diff --exit-code src/data/world.generated.json
+          npm run build:campaign
+          git diff --exit-code src/data/world.generated.json src/data/campaign.generated.json

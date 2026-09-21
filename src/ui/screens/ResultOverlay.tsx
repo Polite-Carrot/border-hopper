@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { countryFlag, countryName } from '../../core/world';
 import { formatDuration, pluralise } from '../../core/format';
 import { shareText } from '../../core/share';
+import { CAMPAIGN_LENGTH } from '../../core/campaign';
 import type { GameResult } from '../../core/types';
 import { colors, fonts, radius, spacing } from '../../theme';
 import { Button } from '../components/Button';
@@ -62,7 +63,13 @@ export function ResultOverlay({ result, onNewGame, onExit }: ResultOverlayProps)
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.eyebrow}>{result.mode === 'daily' ? `DAILY · ${result.dailyKey}` : 'ROUTE COMPLETE'}</Text>
+        <Text style={styles.eyebrow}>
+          {result.mode === 'campaign'
+            ? `LEVEL ${result.level} OF ${CAMPAIGN_LENGTH}`
+            : result.mode === 'daily'
+              ? `DAILY · ${result.dailyKey}`
+              : 'ROUTE COMPLETE'}
+        </Text>
         <Text style={styles.title}>MADE IT</Text>
 
         {result.optimal ? (
@@ -100,10 +107,25 @@ export function ResultOverlay({ result, onNewGame, onExit }: ResultOverlayProps)
         </Text>
 
         <View style={styles.actions}>
-          <Button label="New game" variant="primary" icon="again" onPress={onNewGame} />
+          <Button
+            label={
+              result.mode === 'campaign'
+                ? result.level !== undefined && result.level < CAMPAIGN_LENGTH
+                  ? `Level ${result.level + 1}`
+                  : 'Back to campaign'
+                : 'New game'
+            }
+            variant="primary"
+            icon={result.mode === 'campaign' ? 'play' : 'again'}
+            onPress={onNewGame}
+          />
           <View style={styles.secondaryRow}>
             <Button label="Share" icon="share" onPress={onShare} style={styles.half} />
-            <Button label="Menu" onPress={onExit} style={styles.half} />
+            <Button
+              label={result.mode === 'campaign' ? 'Levels' : 'Menu'}
+              onPress={onExit}
+              style={styles.half}
+            />
           </View>
         </View>
       </ScrollView>

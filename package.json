@@ -20,6 +20,7 @@
     "@types/d3-geo": "^3.1.1",
     "@types/react": "~19.2.2",
     "@types/topojson-client": "^3.1.5",
+    "country-json": "^2.3.0",
     "d3-geo": "^3.1.1",
     "d3-geo-projection": "^4.0.0",
     "i18n-iso-countries": "^7.14.0",
@@ -39,7 +40,8 @@
     "build:web": "expo export -p web && node scripts/finish-web-build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:campaign": "tsx scripts/build-campaign.ts"
   },
   "private": true,
   "description": "A geography game about crossing the world one land border at a time"

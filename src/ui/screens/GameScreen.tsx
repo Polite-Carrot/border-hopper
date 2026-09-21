@@ -256,7 +256,13 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
           destination={config.destination}
           moves={moveCount(state)}
           seconds={seconds}
-          isDaily={config.mode === 'daily'}
+          caption={
+            config.mode === 'campaign'
+              ? `LEVEL ${config.level} · TRAVEL TO`
+              : config.mode === 'daily'
+                ? 'DAILY · TRAVEL TO'
+                : 'TRAVEL TO'
+          }
           onExit={onExit}
         />
         <View style={styles.trail}>

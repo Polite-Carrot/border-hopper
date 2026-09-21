@@ -74,6 +74,7 @@ export function toResult(state: GameState, now: number = Date.now()): GameResult
   return {
     mode: state.config.mode,
     dailyKey: state.config.dailyKey,
+    level: state.config.level,
     difficulty: state.config.difficulty,
     route: state.route,
     moves,

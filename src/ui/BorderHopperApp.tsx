@@ -2,12 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { dailyGame, dateKey } from '../core/daily';
+import {
+  CAMPAIGN_LENGTH, campaignGame, nextLevel, recordLevel, type CampaignProgress,
+} from '../core/campaign';
 import { generateGame } from '../core/generate';
 import { EMPTY_STATS, recordGameAbandoned, recordGameCompleted, recordGameStarted, type Stats } from '../core/stats';
 import type { GameConfig, GameResult } from '../core/types';
 import {
-  DEFAULT_SETTINGS, loadDailyResults, loadOnboarded, loadSettings, loadStats,
-  resetEverything, saveDailyResults, saveOnboarded, saveSettings, saveStats,
+  DEFAULT_SETTINGS, loadCampaign, loadDailyResults, loadOnboarded, loadSettings, loadStats,
+  resetEverything, saveCampaign, saveDailyResults, saveOnboarded, saveSettings, saveStats,
   type DailyResults, type Settings,
 } from '../storage/storage';
 import { setSoundEnabled } from '../audio/sounds';
@@ -19,8 +22,9 @@ import { StatsScreen } from './screens/StatsScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { OnboardingOverlay } from './screens/OnboardingOverlay';
 import { DailyDoneScreen } from './screens/DailyDoneScreen';
+import { CampaignScreen } from './screens/CampaignScreen';
 
-type Screen = 'menu' | 'game' | 'stats' | 'settings' | 'daily-done';
+type Screen = 'menu' | 'game' | 'campaign' | 'stats' | 'settings' | 'daily-done';
 
 /**
  * The whole app. Screens are a single piece of state rather than a navigation
@@ -32,17 +36,19 @@ export function BorderHopperApp() {
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [dailyResults, setDailyResults] = useState<DailyResults>({});
+  const [campaign, setCampaign] = useState<CampaignProgress>({});
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     void (async () => {
-      const [savedStats, savedSettings, savedDaily, onboarded] = await Promise.all([
-        loadStats(), loadSettings(), loadDailyResults(), loadOnboarded(),
+      const [savedStats, savedSettings, savedDaily, savedCampaign, onboarded] = await Promise.all([
+        loadStats(), loadSettings(), loadDailyResults(), loadCampaign(), loadOnboarded(),
       ]);
       setStats(savedStats);
       setSettings(savedSettings);
       setDailyResults(savedDaily);
+      setCampaign(savedCampaign);
       setNeedsOnboarding(!onboarded);
       setReady(true);
     })();
@@ -62,6 +68,15 @@ export function BorderHopperApp() {
     setSettings(next);
     void saveSettings(next);
   }, []);
+
+  const startLevel = useCallback(
+    (level: number) => {
+      setConfig(campaignGame(level));
+      setScreen('game');
+      persistStats(recordGameStarted(stats));
+    },
+    [stats, persistStats]
+  );
 
   const startClassic = useCallback(() => {
     const difficulty = settings.difficulty === 'mixed' ? undefined : settings.difficulty;
@@ -84,22 +99,28 @@ export function BorderHopperApp() {
   const handleComplete = useCallback(
     (result: GameResult) => {
       persistStats(recordGameCompleted(stats, result));
+      if (result.mode === 'campaign') {
+        const next = recordLevel(campaign, result);
+        setCampaign(next);
+        void saveCampaign(next);
+      }
       if (result.mode === 'daily' && result.dailyKey) {
         const next = { ...dailyResults, [result.dailyKey]: result };
         setDailyResults(next);
         void saveDailyResults(next);
       }
     },
-    [stats, dailyResults, persistStats]
+    [stats, dailyResults, campaign, persistStats]
   );
 
   const leaveGame = useCallback(
     (unfinished: boolean) => {
       if (unfinished) persistStats(recordGameAbandoned(stats));
+      const wasCampaign = config?.mode === 'campaign';
       setConfig(null);
-      setScreen('menu');
+      setScreen(wasCampaign ? 'campaign' : 'menu');
     },
-    [stats, persistStats]
+    [stats, config, persistStats]
   );
 
   const finishOnboarding = useCallback(() => {
@@ -108,6 +129,15 @@ export function BorderHopperApp() {
   }, []);
 
   const todayKey = dateKey();
+  const campaignNext = nextLevel(campaign);
+
+  /** After a campaign level, go straight on to the next one. */
+  const advanceCampaign = useCallback(() => {
+    const level = config?.level;
+    const following = level !== undefined ? level + 1 : campaignNext;
+    if (following && following <= CAMPAIGN_LENGTH) startLevel(following);
+    else setScreen('campaign');
+  }, [config, campaignNext, startLevel]);
 
   return (
     <SafeAreaProvider>
@@ -120,8 +150,20 @@ export function BorderHopperApp() {
             config={config}
             reduceMotion={settings.reduceMotion}
             onExit={() => leaveGame(true)}
-            onNewGame={config.mode === 'daily' ? () => leaveGame(false) : startClassic}
+            onNewGame={
+              config.mode === 'campaign'
+                ? advanceCampaign
+                : config.mode === 'daily'
+                  ? () => leaveGame(false)
+                  : startClassic
+            }
             onComplete={handleComplete}
+          />
+        ) : screen === 'campaign' ? (
+          <CampaignScreen
+            progress={campaign}
+            onPlayLevel={startLevel}
+            onBack={() => setScreen('menu')}
           />
         ) : screen === 'stats' ? (
           <StatsScreen stats={stats} onBack={() => setScreen('menu')} />
@@ -134,6 +176,7 @@ export function BorderHopperApp() {
               setStats(EMPTY_STATS);
               setSettings(DEFAULT_SETTINGS);
               setDailyResults({});
+              setCampaign({});
             }}
             onBack={() => setScreen('menu')}
           />
@@ -146,12 +189,15 @@ export function BorderHopperApp() {
           />
         ) : (
           <MenuScreen
-            onPlay={startClassic}
+            onCampaign={() => setScreen('campaign')}
+            onRandom={startClassic}
             onDaily={startDaily}
             onStats={() => setScreen('stats')}
             onSettings={() => setScreen('settings')}
             dailyDone={Boolean(dailyResults[todayKey])}
             dailyStreak={stats.dailyStreak}
+            campaignLevel={campaignNext}
+            campaignDone={Object.keys(campaign).length}
             reduceMotion={settings.reduceMotion}
           />
         )}

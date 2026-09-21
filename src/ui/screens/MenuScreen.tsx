@@ -9,12 +9,16 @@ import { frameBoxes, makeStage } from '../map/camera';
 import { Button } from '../components/Button';
 
 export interface MenuScreenProps {
-  onPlay: () => void;
+  onCampaign: () => void;
+  onRandom: () => void;
   onDaily: () => void;
   onStats: () => void;
   onSettings: () => void;
   /** True once today's daily challenge has been finished. */
   dailyDone: boolean;
+  /** Level the player is up to, or null once the campaign is finished. */
+  campaignLevel: number | null;
+  campaignDone: number;
   dailyStreak: number;
   reduceMotion: boolean;
 }
@@ -23,7 +27,8 @@ export interface MenuScreenProps {
 const BACKDROP_TOUR = ['IT', 'ID', 'BR', 'KE', 'JP', 'NO'];
 
 export function MenuScreen({
-  onPlay, onDaily, onStats, onSettings, dailyDone, dailyStreak, reduceMotion,
+  onCampaign, onRandom, onDaily, onStats, onSettings, dailyDone, dailyStreak,
+  campaignLevel, campaignDone, reduceMotion,
 }: MenuScreenProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -71,12 +76,21 @@ export function MenuScreen({
         </View>
 
         <View style={styles.actions}>
-          <Button label="Play" variant="primary" icon="play" onPress={onPlay} />
           <Button
-            label={dailyDone ? `Daily challenge · done` : 'Daily challenge'}
-            icon="calendar"
-            onPress={onDaily}
+            label={campaignLevel === null ? 'Campaign · complete' : `Campaign · level ${campaignLevel}`}
+            variant="primary"
+            icon="play"
+            onPress={onCampaign}
           />
+          <View style={styles.row}>
+            <Button label="Random" icon="again" onPress={onRandom} style={styles.half} />
+            <Button
+              label={dailyDone ? 'Daily · done' : 'Daily'}
+              icon="calendar"
+              onPress={onDaily}
+              style={styles.half}
+            />
+          </View>
           <View style={styles.row}>
             <Button label="Statistics" icon="stats" onPress={onStats} style={styles.half} />
             <Button label="Settings" icon="settings" onPress={onSettings} style={styles.half} />
@@ -84,7 +98,10 @@ export function MenuScreen({
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>{dateKey()}</Text>
+          <Text style={styles.footerText}>
+            {campaignDone > 0 ? `${campaignDone} levels cleared · ` : ''}
+            {dateKey()}
+          </Text>
           {dailyStreak > 0 ? (
             <View style={styles.streak}>
               <Text style={styles.streakText}>{dailyStreak} day streak</Text>

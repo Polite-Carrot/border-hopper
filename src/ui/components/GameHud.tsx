@@ -8,12 +8,13 @@ export interface GameHudProps {
   destination: string;
   moves: number;
   seconds: number;
-  isDaily: boolean;
+  /** Short label above the destination: the mode, or the campaign level. */
+  caption: string;
   onExit: () => void;
 }
 
 /** Destination, moves and clock. Nothing else competes with the map. */
-export function GameHud({ destination, moves, seconds, isDaily, onExit }: GameHudProps) {
+export function GameHud({ destination, moves, seconds, caption, onExit }: GameHudProps) {
   return (
     <View style={styles.bar}>
       <Pressable
@@ -27,7 +28,7 @@ export function GameHud({ destination, moves, seconds, isDaily, onExit }: GameHu
       </Pressable>
 
       <View style={styles.target}>
-        <Text style={styles.caption}>{isDaily ? 'DAILY · TRAVEL TO' : 'TRAVEL TO'}</Text>
+        <Text style={styles.caption}>{caption}</Text>
         <View style={styles.targetRow}>
           <Text style={styles.flag}>{countryFlag(destination)}</Text>
           <Text style={styles.targetName} numberOfLines={1}>

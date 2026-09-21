@@ -59,7 +59,7 @@ export const ALIASES: Record<string, string[]> = {
   AE: ['uae', 'u.a.e.', 'emirates'],
   CZ: ['czech republic', 'czech'],
   NL: ['holland', 'the netherlands'],
-  CD: ['drc', 'democratic republic of the congo', 'congo-kinshasa', 'zaire', 'congo kinshasa'],
+  CD: ['drc', 'democratic republic of the congo', 'democratic republic of congo', 'congo-kinshasa', 'zaire', 'congo kinshasa'],
   CG: ['congo', 'congo-brazzaville', 'congo brazzaville'],
   KR: ['south korea', 'republic of korea', 'korea'],
   KP: ['north korea', 'dprk', "democratic people's republic of korea"],

@@ -229,7 +229,28 @@ though it does in reality. And simplifying polygons for performance means very
 short borders can be approximate — but every border in the graph was derived
 before simplification, so what is drawn and what is playable always agree.
 
-## How a game is generated
+## Game modes
+
+**Campaign** — 250 fixed levels that everyone climbs in the same order,
+getting harder two ways at once. Routes grow from two moves to eight, and the
+countries used as start and destination get steadily less familiar: level 1 is
+Canada to Mexico, level 250 is a trek between places most people could not
+place on a map. A level opens when the one before it is finished, and
+replaying can only improve a score.
+
+Recognisability is scored from population (60%), land area (25%) and number of
+land neighbours (15%) — a big country with many borders gets met often even
+when few people live there. Early levels draw only from the top of that
+ranking and the pool widens as the ladder climbs. The ladder is built at build
+time by `npm run build:campaign` into `src/data/campaign.generated.json`, so it
+never shifts under a player mid-climb.
+
+**Random** — a one-off game at the difficulty set in Settings.
+
+**Daily challenge** — the same start and destination for every player, once a
+day.
+
+## How a random game is generated
 
 1. Pick a starting country, weighted so larger and more recognisable countries
    come up more often.

@@ -132,8 +132,14 @@ second client reuse them unchanged.
 These were designed for but deliberately not built:
 
 - **Game modes.** `GameConfig.mode` selects a mode and `generateGame` takes a
-  difficulty and an optional seed. Timed, endless or no-mistakes modes are new
-  rules over the same generator and the same `GameState`.
+  difficulty and an optional seed. Campaign, random and daily all produce the
+  same `GameConfig` and run through the same `GameState`; timed, endless or
+  no-mistakes modes would be new rules over the same pieces.
+
+  The campaign ladder is generated at build time rather than at runtime, so a
+  player's level 137 is the same next week as it is today. Changing the curve
+  is a deliberate act of regenerating the file, not a side effect of editing
+  a function.
 - **Hints.** `movesRemaining()` and `shortestRoute()` already compute
   everything a hint needs; nothing surfaces them during play.
 - **Audio.** Every point that should make a noise calls `play(sound)` in

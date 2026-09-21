@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { EMPTY_STATS, type Stats } from '../core/stats';
 import type { GameResult } from '../core/types';
+import type { CampaignProgress } from '../core/campaign';
 
 /**
  * Local persistence. Everything the game remembers lives on the device; there
@@ -15,6 +16,7 @@ const KEYS = {
   dailyResults: 'borderbound:daily:v1',
   settings: 'borderbound:settings:v1',
   onboarded: 'borderbound:onboarded:v1',
+  campaign: 'borderbound:campaign:v1',
 } as const;
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
@@ -75,6 +77,10 @@ export async function saveOnboarded(): Promise<void> {
     // Worst case the player sees the three-line intro twice.
   }
 }
+
+/** Campaign progress: the best result for each level the player has finished. */
+export const loadCampaign = (): Promise<CampaignProgress> => readJson<CampaignProgress>(KEYS.campaign, {});
+export const saveCampaign = (progress: CampaignProgress): Promise<void> => writeJson(KEYS.campaign, progress);
 
 export async function resetEverything(): Promise<void> {
   try {

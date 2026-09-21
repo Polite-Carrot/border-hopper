@@ -3,6 +3,7 @@ export * from './world';
 export * from './graph';
 export * from './generate';
 export * from './daily';
+export * from './campaign';
 export * from './game';
 export * from './search';
 export * from './stats';

@@ -35,7 +35,7 @@ export interface WorldData {
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
-export type GameMode = 'classic' | 'daily';
+export type GameMode = 'classic' | 'daily' | 'campaign';
 
 export interface GameConfig {
   mode: GameMode;
@@ -48,6 +48,8 @@ export interface GameConfig {
   difficulty: Difficulty;
   /** Stable identifier for daily games, e.g. "2026-09-21". */
   dailyKey?: string;
+  /** Which campaign level this is, for campaign games. */
+  level?: number;
 }
 
 export interface GameState {
@@ -70,6 +72,7 @@ export type MoveResult =
 export interface GameResult {
   mode: GameMode;
   dailyKey?: string;
+  level?: number;
   difficulty: Difficulty;
   route: string[];
   moves: number;
