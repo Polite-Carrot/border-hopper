@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, fonts, radius, spacing } from '../../theme';
 import { Icon } from './Icon';
 
@@ -10,6 +10,12 @@ export interface SearchFieldProps {
   onBlur?: () => void;
   onSubmit?: () => void;
   placeholder?: string;
+  /**
+   * The country the go key would travel to, shown inside the field while the
+   * keyboard is hiding the list. Inline so the field keeps its height and
+   * nothing in the panel shifts.
+   */
+  hint?: { flag: string; name: string; onPress: () => void } | null;
 }
 
 /**
@@ -17,7 +23,7 @@ export interface SearchFieldProps {
  * `returnKeyType="go"` lets the player travel straight from the keyboard.
  */
 export const SearchField = forwardRef<TextInput, SearchFieldProps>(function SearchField(
-  { value, onChangeText, onFocus, onBlur, onSubmit, placeholder = 'Search country…' },
+  { value, onChangeText, onFocus, onBlur, onSubmit, placeholder = 'Search country…', hint },
   ref
 ) {
   return (
@@ -41,6 +47,22 @@ export const SearchField = forwardRef<TextInput, SearchFieldProps>(function Sear
         accessibilityLabel="Search for a country"
         selectionColor={colors.current}
       />
+      {hint ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Travel to ${hint.name}`}
+          onPress={hint.onPress}
+          hitSlop={6}
+          style={({ pressed }) => [styles.hint, pressed && styles.hintPressed]}
+        >
+          <Text style={styles.hintFlag}>{hint.flag}</Text>
+          <Text style={styles.hintName} numberOfLines={1}>
+            {hint.name}
+          </Text>
+          <Text style={styles.hintKey}>↵</Text>
+        </Pressable>
+      ) : null}
+
       {value.length > 0 ? (
         <Pressable
           accessibilityRole="button"
@@ -67,6 +89,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.hairline,
   },
+  hint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    maxWidth: '52%',
+    paddingLeft: 9,
+    paddingRight: 8,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(61, 189, 248, 0.16)',
+  },
+  hintPressed: { opacity: 0.6 },
+  hintFlag: { fontSize: 13 },
+  hintName: { color: colors.current, fontFamily: fonts.body, fontSize: 13.5, fontWeight: '600', flexShrink: 1 },
+  hintKey: { color: colors.current, fontSize: 12, opacity: 0.7 },
   input: {
     flex: 1,
     color: colors.text,

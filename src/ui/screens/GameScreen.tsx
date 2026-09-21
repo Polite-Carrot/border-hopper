@@ -84,10 +84,10 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
       const available = layout.height - (SIDEBAR_TOP_PAD + SEARCH_BLOCK + safeBottom) - keyboard.height;
       return Math.max(COUNTRY_ROW_HEIGHT * 3, available);
     }
-    if (keyboardUp) {
-      const above = layout.height - keyboard.height - topInset - SEARCH_BLOCK - GRABBER_BLOCK;
-      return Math.max(COUNTRY_ROW_HEIGHT * 2, Math.min(above, COUNTRY_ROW_HEIGHT * 5));
-    }
+    // With the keyboard up the list is hidden behind it, so its height is
+    // whatever the keyboard actually covers -- which keeps the search field on
+    // the keyboard's edge exactly, not just approximately.
+    if (keyboardUp) return keyboard.height;
     return reserved;
   }, [docked, keyboardUp, keyboard.height, layout.height, topInset, safeBottom, reserved]);
 
@@ -200,7 +200,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
       );
 
   return (
-    <View style={styles.root}>
+    <View style={styles.root} onLayout={layout.onLayout}>
       <WorldMap
         stage={stage}
         camera={camera}
@@ -291,6 +291,11 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
           listHeight={renderedListHeight}
           reservedHeight={reserved}
           keyboardUp={keyboardUp}
+          hint={
+            query.trim() && results[0]
+              ? { flag: results[0].flag, name: results[0].name, onPress: () => handleSelect(results[0].iso2) }
+              : null
+          }
           docked={docked}
           bottomInset={safeBottom}
         />

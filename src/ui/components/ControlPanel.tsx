@@ -26,10 +26,12 @@ export interface ControlPanelProps {
   reservedHeight: number;
   /**
    * True while the keyboard is covering the space below the search field. The
-   * results move above the field, since the list's usual home is under the
-   * keyboard.
+   * country list is simply not drawn: the keyboard is standing in its place,
+   * and putting the results anywhere else would move the search field.
    */
   keyboardUp: boolean;
+  /** Best match for the current query, for the inline go hint. */
+  hint?: { flag: string; name: string; onPress: () => void } | null;
   /** Docks to the side instead of the bottom on wide screens. */
   docked: boolean;
   /**
@@ -50,9 +52,10 @@ export interface ControlPanelProps {
  * when it does the keyboard simply takes the list's place -- the field itself
  * does not move at all.
  *
- * While the keyboard is up the results render *above* the field instead.
- * Because the panel is anchored at its bottom, growing upward like that leaves
- * the search field exactly where it was.
+ * While the keyboard is up the list is not drawn at all -- the keyboard is
+ * standing exactly where it would be. Typing then narrows to a best match that
+ * the keyboard's go key travels to, and dismissing the keyboard brings the
+ * list back already filtered.
  *
  * The list always shows the current search results, and an empty query means
  * "every country", so tapping into the field never leaves a blank space where
@@ -61,7 +64,7 @@ export interface ControlPanelProps {
 export const ControlPanel = forwardRef<TextInput, ControlPanelProps>(function ControlPanel(
   {
     query, onQueryChange, results, onSelect, onFocus, onBlur, onSubmit,
-    currentIso, visited, listHeight, reservedHeight, keyboardUp, docked, bottomInset,
+    currentIso, visited, listHeight, reservedHeight, keyboardUp, hint, docked, bottomInset,
   },
   inputRef
 ) {
@@ -102,8 +105,6 @@ export const ControlPanel = forwardRef<TextInput, ControlPanelProps>(function Co
     <View style={[styles.panel, docked ? styles.docked : styles.bottom]}>
       {!docked ? <View style={styles.grabber} /> : null}
 
-      {keyboardUp && !docked ? <View style={{ height: listHeight }}>{list}</View> : null}
-
       <View style={styles.searchWrap}>
         <SearchField
           ref={inputRef}
@@ -112,6 +113,7 @@ export const ControlPanel = forwardRef<TextInput, ControlPanelProps>(function Co
           onFocus={onFocus}
           onBlur={onBlur}
           onSubmit={onSubmit}
+          hint={keyboardUp ? hint : null}
         />
       </View>
 
