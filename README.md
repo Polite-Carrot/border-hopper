@@ -80,46 +80,54 @@ npx serve dist           # serve it locally
 
 ## Deploying to GitHub Pages
 
-`.github/workflows/deploy-web.yml` builds and publishes on every push to
-`main`. To turn it on once:
+Already set up, and it needs nothing configured in the repository settings.
 
-1. **Settings → Pages → Build and deployment → Source**: choose
-   **GitHub Actions**.
-2. Push to `main`. The workflow typechecks, tests, builds and deploys.
+GitHub Pages for this repository publishes the **root of `main`** directly.
+So `.github/workflows/publish-web.yml` rebuilds the game on every push to
+`main` and commits the result — `index.html`, `404.html`, `.nojekyll` and
+`_expo/` — back to that root, which is what Pages then serves. Push code, and
+the live site follows a minute later.
 
-The site lands at the custom domain configured for the repository, or at
-`https://<owner>.github.io/<repo>/` if there isn't one.
+The site is at <https://borderhopper.politecarrot.com>.
+
+That means the built bundle is committed to the repository. That is the price
+of publishing from a branch rather than from a build artifact, and it is why
+`_expo/` is wiped before each copy: bundle filenames are content-hashed, so
+old ones would otherwise pile up forever.
+
+If you would rather not commit build output, switch **Settings → Pages →
+Source** to **GitHub Actions** and change the workflow's last two steps to
+`actions/upload-pages-artifact` and `actions/deploy-pages`. Everything else,
+including the base path handling below, stays as it is.
 
 ### About the base path
 
 Where the site lives decides how asset URLs have to be written, so the
 workflow works it out rather than hard-coding it:
 
-- **Custom domain** (a `CNAME` file in the repo root) — the site is served
-  from the root of that domain, so the base path is empty. This repository
-  has one: `borderhopper.politecarrot.com`.
-- **No custom domain** — GitHub Pages serves a project site from
+- **Custom domain** (a `CNAME` file in the repo root) — served from the root
+  of that domain, so the base path is empty. This repository has one.
+- **No custom domain** — Pages serves a project site from
   `https://<owner>.github.io/<repo>/`, so every asset URL needs that prefix.
 
 Either way the value goes into `EXPO_PUBLIC_BASE_URL`, which `app.config.ts`
 feeds to Expo's `experiments.baseUrl`. Nothing is hard-coded to this
-repository's name or domain; delete the `CNAME` and the next deploy switches
+repository's name or domain; delete the `CNAME` and the next build switches
 back to the project-site path on its own.
 
-Three details the workflow handles that are easy to miss:
+Two details that are easy to miss, both handled by the workflow:
 
-- `.nojekyll`, without which GitHub Pages' Jekyll step silently drops the
-  `_expo/` directory and the page loads blank.
+- `.nojekyll`, without which Pages runs the root through Jekyll — which
+  renders `README.md` as the home page and drops the `_expo/` directory for
+  starting with an underscore.
 - `404.html`, a copy of `index.html`, so deep links fall back to the app.
-- `CNAME` copied into the published output, so the custom domain survives a
-  deploy.
 
-To reproduce either build by hand:
+To reproduce the published root by hand:
 
 ```bash
-npm run build:web                                    # custom domain / root
-EXPO_PUBLIC_BASE_URL=/border-hopper npm run build:web  # project site
-touch dist/.nojekyll && cp dist/index.html dist/404.html
+npm run build:web       # or EXPO_PUBLIC_BASE_URL=/border-hopper for a project site
+rm -rf _expo && cp -R dist/. . && rm -rf dist
+touch .nojekyll && cp index.html 404.html
 ```
 
 ## Testing

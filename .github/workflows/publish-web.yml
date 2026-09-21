@@ -1,0 +1,83 @@
+name: Publish web build
+
+# GitHub Pages for this repository publishes the root of `main` directly.
+# So rather than uploading an artifact, this rebuilds the game and commits the
+# result back to the root, which is what Pages then serves. Nothing needs
+# configuring in the repository settings.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-web
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Work out the base path
+        id: base
+        run: |
+          # A custom domain (CNAME) serves the site from the root of that
+          # domain. Without one, GitHub Pages serves a project site from
+          # /<repo>/ and every asset URL needs that prefix.
+          if [ -f CNAME ]; then
+            echo "Custom domain: $(cat CNAME) -- building for the domain root"
+            echo "url=" >> "$GITHUB_OUTPUT"
+          else
+            echo "Project site -- building for /${{ github.event.repository.name }}"
+            echo "url=/${{ github.event.repository.name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        env:
+          EXPO_PUBLIC_BASE_URL: ${{ steps.base.outputs.url }}
+        run: npm run build:web
+
+      - name: Move the build to the repository root
+        run: |
+          # Clear the previous bundle first: filenames are content-hashed, so
+          # without this every build would leave its predecessor behind.
+          rm -rf _expo
+          cp -R dist/. .
+          rm -rf dist
+          # Stops Jekyll from rendering README.md over the game, and from
+          # dropping the _expo directory for starting with an underscore.
+          touch .nojekyll
+          # Single-page app: unknown paths fall back to the entry point.
+          cp index.html 404.html
+
+      - name: Commit the build if it changed
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A -- _expo index.html 404.html .nojekyll favicon.ico metadata.json
+          if git diff --cached --quiet; then
+            echo 'Build output is unchanged; nothing to publish.'
+          else
+            # Pushes made with GITHUB_TOKEN do not start another workflow run,
+            # so this cannot loop.
+            git commit -m 'Publish web build [skip ci]'
+            git push
+          fi
