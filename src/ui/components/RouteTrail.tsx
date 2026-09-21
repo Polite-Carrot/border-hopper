@@ -2,17 +2,20 @@ import { useEffect, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius, spacing } from '../../theme';
 import { countryFlag, countryName } from '../../core/world';
+import { isCrossing } from '../../core/graph';
 
 export interface RouteTrailProps {
   route: readonly string[];
   destination: string;
+  /** True when this game allows sea crossings, so steps can be flights. */
+  flights?: boolean;
 }
 
 /**
  * The journey so far, as compact flag chips. Scrolls sideways so a ten-country
  * route takes no more room than a two-country one.
  */
-export function RouteTrail({ route, destination }: RouteTrailProps) {
+export function RouteTrail({ route, destination, flights = false }: RouteTrailProps) {
   const scroller = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -31,7 +34,11 @@ export function RouteTrail({ route, destination }: RouteTrailProps) {
     >
       {route.map((iso, index) => (
         <View key={`${iso}-${index}`} style={styles.step}>
-          {index > 0 ? <Text style={styles.arrow}>→</Text> : null}
+          {index > 0 ? (
+            <Text style={[styles.arrow, flights && isCrossing(route[index - 1], iso) && styles.flown]}>
+              {flights && isCrossing(route[index - 1], iso) ? '✈' : '→'}
+            </Text>
+          ) : null}
           <View style={[styles.chip, index === route.length - 1 && styles.chipCurrent]}>
             <Text style={styles.flag}>{countryFlag(iso)}</Text>
             <Text
@@ -60,6 +67,7 @@ const styles = StyleSheet.create({
   content: { alignItems: 'center', paddingHorizontal: spacing.lg, gap: 2 },
   step: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   arrow: { color: colors.textMuted, fontSize: 13, marginHorizontal: 3 },
+  flown: { color: colors.destination },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',

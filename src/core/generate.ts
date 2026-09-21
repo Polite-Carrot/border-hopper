@@ -34,9 +34,22 @@ export const ENDPOINT_CANDIDATES: readonly Country[] = COUNTRIES.filter(
   (c) => c.neighbours.length > 0 && c.area >= MIN_ENDPOINT_AREA
 );
 
+/**
+ * Flight mode opens up every island that a sea crossing can reach, so its
+ * pool is wider than the land one.
+ */
+export const FLIGHT_ENDPOINT_CANDIDATES: readonly Country[] = COUNTRIES.filter(
+  (c) => (c.neighbours.length > 0 || c.crossings.length > 0) && c.area >= MIN_ENDPOINT_AREA
+);
+
 /** Larger countries come up more often, so objectives stay recognisable. */
-const ENDPOINT_WEIGHTS = ENDPOINT_CANDIDATES.map((c) => Math.sqrt(c.area));
+const weightsFor = (pool: readonly Country[]) => pool.map((c) => Math.sqrt(c.area));
+const ENDPOINT_WEIGHTS = weightsFor(ENDPOINT_CANDIDATES);
+const FLIGHT_WEIGHTS = weightsFor(FLIGHT_ENDPOINT_CANDIDATES);
 const WEIGHT_BY_CODE = new Map(ENDPOINT_CANDIDATES.map((c, i) => [c.iso2, ENDPOINT_WEIGHTS[i]]));
+const FLIGHT_WEIGHT_BY_CODE = new Map(
+  FLIGHT_ENDPOINT_CANDIDATES.map((c, i) => [c.iso2, FLIGHT_WEIGHTS[i]])
+);
 
 export interface GenerateOptions {
   mode?: GameMode;
@@ -70,15 +83,20 @@ export function generateGame(options: GenerateOptions = {}): GameConfig {
   const rand = seededRandom(seed);
   const difficulty = options.difficulty ?? pickDifficulty(rand);
   const [minMoves, maxMoves] = DIFFICULTY_MOVES[difficulty];
+  const mode = options.mode ?? 'classic';
+  const flights = mode === 'flight';
+  const pool = flights ? FLIGHT_ENDPOINT_CANDIDATES : ENDPOINT_CANDIDATES;
+  const poolWeights = flights ? FLIGHT_WEIGHTS : ENDPOINT_WEIGHTS;
+  const weightByCode = flights ? FLIGHT_WEIGHT_BY_CODE : WEIGHT_BY_CODE;
 
   for (let attempt = 0; attempt < 200; attempt++) {
-    const start = weightedPick(ENDPOINT_CANDIDATES, ENDPOINT_WEIGHTS, rand);
-    const distances = distancesFrom(start.iso2);
+    const start = weightedPick(pool, poolWeights, rand);
+    const distances = distancesFrom(start.iso2, flights);
     const reachable: string[] = [];
     const weights: number[] = [];
     for (const [iso, distance] of distances) {
       if (distance < minMoves || distance > maxMoves) continue;
-      const weight = WEIGHT_BY_CODE.get(iso);
+      const weight = weightByCode.get(iso);
       if (weight === undefined) continue;
       reachable.push(iso);
       weights.push(weight);
@@ -86,7 +104,7 @@ export function generateGame(options: GenerateOptions = {}): GameConfig {
     if (reachable.length === 0) continue;
     const destination = weightedPick(reachable, weights, rand);
     return {
-      mode: options.mode ?? 'classic',
+      mode,
       start: start.iso2,
       destination,
       optimalMoves: distances.get(destination)!,
@@ -97,11 +115,11 @@ export function generateGame(options: GenerateOptions = {}): GameConfig {
 
   // Every candidate start failed the band, which only happens if the graph is
   // broken. Fall back to any solvable pairing rather than returning nothing.
-  const start = ENDPOINT_CANDIDATES[0];
-  const fallback = [...distancesFrom(start.iso2)].find(([iso, d]) => d > 0 && WEIGHT_BY_CODE.has(iso));
+  const start = pool[0];
+  const fallback = [...distancesFrom(start.iso2, flights)].find(([iso, d]) => d > 0 && weightByCode.has(iso));
   if (!fallback) throw new Error('No solvable game could be generated');
   return {
-    mode: options.mode ?? 'classic',
+    mode,
     start: start.iso2,
     destination: fallback[0],
     optimalMoves: fallback[1],
@@ -112,5 +130,7 @@ export function generateGame(options: GenerateOptions = {}): GameConfig {
 
 /** Rebuilds a config's optimal move count from the graph. Used by tests. */
 export function verifyConfig(config: GameConfig): boolean {
-  return shortestMoveCount(config.start, config.destination) === config.optimalMoves;
+  return (
+    shortestMoveCount(config.start, config.destination, config.mode === 'flight') === config.optimalMoves
+  );
 }

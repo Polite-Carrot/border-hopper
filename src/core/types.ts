@@ -11,6 +11,11 @@ export interface Country {
   aliases: string[];
   /** ISO codes of countries sharing a land border. Always symmetric. */
   neighbours: string[];
+  /**
+   * Nearby countries reachable across open water, nearest first. Only flight
+   * mode uses these; every other mode is land borders alone.
+   */
+  crossings: { iso2: string; km: number }[];
   /** Projected map coordinates of the country's centre. */
   centroid: [number, number];
   /** Projected bounding box: [minX, minY, maxX, maxY]. */
@@ -35,7 +40,7 @@ export interface WorldData {
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
-export type GameMode = 'classic' | 'daily' | 'campaign';
+export type GameMode = 'classic' | 'daily' | 'campaign' | 'flight';
 
 export interface GameConfig {
   mode: GameMode;

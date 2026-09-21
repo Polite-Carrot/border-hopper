@@ -17,7 +17,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { feature } from 'topojson-client';
 import { presimplify, simplify } from 'topojson-simplify';
-import { geoNaturalEarth1, geoPath, geoArea, geoCentroid } from 'd3-geo';
+import { geoNaturalEarth1, geoPath, geoArea, geoCentroid, geoContains } from 'd3-geo';
 import countries from 'i18n-iso-countries';
 import enLocale from 'i18n-iso-countries/langs/en.json' with { type: 'json' };
 import topology from 'world-atlas/countries-50m.json' with { type: 'json' };
@@ -45,6 +45,14 @@ const SIMPLIFY_WEIGHT = 0.004;
  * Every country always keeps its largest polygon, so nothing disappears.
  */
 const MIN_POLYGON_SHARE = 0.002;
+/** Shortest a sea crossing may be: touching countries are a land border. */
+const MIN_CROSSING_KM = 5;
+/** Furthest a sea crossing may span, in kilometres. */
+const MAX_CROSSING_KM = 2000;
+/** How many nearby countries across water each country can fly to. */
+const CROSSINGS_PER_COUNTRY = 3;
+/** Coastline points kept per country when measuring water gaps. */
+const CROSSING_SAMPLE = 260;
 /**
  * Share of a country's largest polygon that a second polygon must reach to
  * count as part of its main landmass for camera framing.
@@ -55,7 +63,10 @@ const EXCLUDED_NAMES = new Set(['Antarctica', 'Fr. S. Antarctic Lands', 'Heard I
 
 type NeGeom = (Polygon | MultiPolygon) & { id?: string; properties: { name: string } };
 
-const topo = topology as unknown as Topology<{ countries: GeometryCollection<{ name: string }> }>;
+const topo = topology as unknown as Topology<{
+  countries: GeometryCollection<{ name: string }>;
+  land: GeometryCollection;
+}>;
 const rawGeometries = topo.objects.countries.geometries as unknown as NeGeom[];
 
 // ---------------------------------------------------------------------------
@@ -173,7 +184,14 @@ function dequantize<T extends Topology>(t: T): T {
 
 // Simplify for rendering only. Adjacency above was derived from the full
 // topology, and simplify() preserves arc indices and geometry order.
-const simplified = simplify(presimplify(dequantize(structuredClone(topo))), SIMPLIFY_WEIGHT);
+const dequantized = dequantize(structuredClone(topo));
+/**
+ * Every landmass at full detail. Used to tell a sea crossing from a hop over
+ * a neighbouring country -- simplified geometry would close narrow straits
+ * like Gibraltar and turn them into land.
+ */
+const landFeature = feature(dequantized, dequantized.objects.land) as unknown as Feature<MultiPolygon>;
+const simplified = simplify(presimplify(structuredClone(dequantized)), SIMPLIFY_WEIGHT);
 const fc = feature(simplified, simplified.objects.countries) as unknown as FeatureCollection;
 /** Merge every Natural Earth feature belonging to one owner into one shape. */
 const shapes = new Map<string, Feature<MultiPolygon>>();
@@ -196,6 +214,190 @@ for (const shape of shapes.values()) {
   const largest = Math.max(...areas);
   shape.geometry.coordinates = polys.filter((_, i) => areas[i] >= largest * MIN_POLYGON_SHARE);
 }
+
+// ---------------------------------------------------------------------------
+// 2b. Sea crossings: the nearest countries across open water.
+// ---------------------------------------------------------------------------
+// Flight mode lets the player hop a stretch of water to a nearby country, so
+// every country needs to know which ones are actually close to it by sea.
+// This measures the real gap between coastlines rather than between centres,
+// which is why the United States reaches Russia -- the Bering Strait is 82km
+// even though the countries' middles are a world apart.
+
+const EARTH_RADIUS_KM = 6371;
+const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+
+function haversineKm(a: [number, number], b: [number, number]): number {
+  const dLat = toRadians(b[1] - a[1]);
+  const dLon = toRadians(b[0] - a[0]);
+  const lat1 = toRadians(a[1]);
+  const lat2 = toRadians(b[1]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
+}
+
+/** Coastline points for a country, thinned to keep the pairwise sweep quick. */
+function coastlineSample(shape: Feature<MultiPolygon>): [number, number][] {
+  const points: [number, number][] = [];
+  for (const polygon of shape.geometry.coordinates) {
+    for (const ring of polygon) {
+      for (const point of ring) points.push(point as [number, number]);
+    }
+  }
+  if (points.length <= CROSSING_SAMPLE) return points;
+  const step = points.length / CROSSING_SAMPLE;
+  return Array.from({ length: CROSSING_SAMPLE }, (_, i) => points[Math.floor(i * step)]);
+}
+
+const playableOwners = [...owners.values()].filter((o) => o.playable && o.iso2);
+const samples = new Map<string, [number, number][]>();
+const sampleBounds = new Map<string, [number, number, number, number]>();
+for (const owner of playableOwners) {
+  const shape = shapes.get(owner.key);
+  if (!shape) continue;
+  const points = coastlineSample(shape);
+  samples.set(owner.iso2!, points);
+  sampleBounds.set(owner.iso2!, [
+    Math.min(...points.map((p) => p[0])),
+    Math.min(...points.map((p) => p[1])),
+    Math.max(...points.map((p) => p[0])),
+    Math.max(...points.map((p) => p[1])),
+  ]);
+}
+
+/** Cheap lower bound on the gap between two countries, for skipping pairs. */
+function boundsGapKm(a: string, b: string): number {
+  const [aMinX, aMinY, aMaxX, aMaxY] = sampleBounds.get(a)!;
+  const [bMinX, bMinY, bMaxX, bMaxY] = sampleBounds.get(b)!;
+  const dLon = Math.max(0, Math.max(aMinX - bMaxX, bMinX - aMaxX));
+  const dLat = Math.max(0, Math.max(aMinY - bMaxY, bMinY - aMaxY));
+  // Longitude degrees shrink towards the poles; use the equator so this stays
+  // an underestimate and never prunes a pair that might qualify.
+  return Math.hypot(dLon, dLat) * 111;
+}
+
+/**
+ * True when the gap between two countries is open water the whole way.
+ *
+ * "Nearest country I share no border with" is not the same thing as a sea
+ * crossing: France's nearest such country is Austria, 143km away with
+ * Switzerland in between, and a landlocked country like Zimbabwe would reach
+ * Madagascar by crossing Mozambique first. Requiring the whole segment to be
+ * water rules both out, and lets exactly one sample fail so a lone islet in
+ * the channel does not veto a real crossing.
+ */
+const WATER_SAMPLES = 10;
+const ALLOWED_LAND_SAMPLES = 1;
+
+function isOverWater(a: [number, number], b: [number, number]): boolean {
+  // Take the short way round. Interpolating raw longitudes sends a crossing
+  // between Fiji and Kiribati the wrong way across the planet, over Africa.
+  let deltaLon = b[0] - a[0];
+  if (deltaLon > 180) deltaLon -= 360;
+  else if (deltaLon < -180) deltaLon += 360;
+
+  const at = (t: number): [number, number] => {
+    let lon = a[0] + deltaLon * t;
+    if (lon > 180) lon -= 360;
+    else if (lon < -180) lon += 360;
+    return [lon, a[1] + (b[1] - a[1]) * t];
+  };
+
+  // Both ends must already be at sea. Checking only the overall proportion is
+  // not enough: over a long enough line the land part looks like noise, which
+  // is how landlocked Andorra ended up with a crossing to Malta.
+  if (geoContains(landFeature, at(0.05)) || geoContains(landFeature, at(0.95))) return false;
+
+  let onLand = 0;
+  for (let i = 1; i < WATER_SAMPLES; i++) {
+    if (geoContains(landFeature, at(0.05 + (0.9 * i) / WATER_SAMPLES))) {
+      onLand += 1;
+      if (onLand > ALLOWED_LAND_SAMPLES) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Candidate crossings between two countries, shortest first: for each of the
+ * origin's coastal points, its closest approach to the target.
+ *
+ * Taking only the single closest pair of points is not enough. Ukraine's
+ * nearest point to Türkiye sits on its western land border, so that segment
+ * starts inland and gets rejected -- while the real crossing, Crimea to the
+ * Turkish coast, is a little longer and entirely at sea.
+ */
+function crossingSegments(from: string, to: string) {
+  const fromPoints = samples.get(from)!;
+  const toPoints = samples.get(to)!;
+  const segments: { km: number; a: [number, number]; b: [number, number] }[] = [];
+  for (const a of fromPoints) {
+    let best = Infinity;
+    let bestB = toPoints[0];
+    for (const b of toPoints) {
+      const km = haversineKm(a, b);
+      if (km < best) {
+        best = km;
+        bestB = b;
+      }
+    }
+    segments.push({ km: best, a, b: bestB });
+  }
+  return segments.sort((x, y) => x.km - y.km);
+}
+
+/** How many candidate segments to test per country pair before giving up. */
+const SEGMENTS_TESTED = 8;
+
+const crossings = new Map<string, { iso2: string; km: number }[]>();
+const excluded = new Set(EXCLUDED_BORDERS.map((pair) => pair.slice().sort().join('-')));
+
+for (const owner of playableOwners) {
+  const from = owner.iso2!;
+  if (!samples.has(from)) continue;
+  const landNeighbours = neighbours.get(owner.key)!;
+
+  const nearby = playableOwners
+    .filter((other) => {
+      const to = other.iso2!;
+      return (
+        to !== from &&
+        !landNeighbours.has(other.key) &&
+        samples.has(to) &&
+        !excluded.has([from, to].sort().join('-')) &&
+        boundsGapKm(from, to) <= MAX_CROSSING_KM
+      );
+    })
+    .map((other) => ({ iso2: other.iso2!, segments: crossingSegments(from, other.iso2!) }))
+    .filter((entry) => entry.segments[0].km <= MAX_CROSSING_KM)
+    .sort((x, y) => x.segments[0].km - y.segments[0].km);
+
+  const found: { iso2: string; km: number }[] = [];
+  for (const entry of nearby) {
+    if (found.length >= CROSSINGS_PER_COUNTRY) break;
+    for (const segment of entry.segments.slice(0, SEGMENTS_TESTED)) {
+      if (segment.km < MIN_CROSSING_KM || segment.km > MAX_CROSSING_KM) continue;
+      if (!isOverWater(segment.a, segment.b)) continue;
+      found.push({ iso2: entry.iso2, km: Math.round(segment.km) });
+      break;
+    }
+  }
+  crossings.set(from, found);
+
+  if (process.env.CROSSING_DEBUG && process.env.CROSSING_DEBUG.split(',').includes(from)) {
+    console.log(`\n  [debug] ${from}: ${found.map((f) => `${f.iso2} ${f.km}km`).join(', ') || '(none)'}`);
+  }
+}
+
+// Crossings are a two-way street: if one country can fly to another, the
+// return leg has to exist too, or routes would only work in one direction.
+for (const [from, list] of crossings) {
+  for (const { iso2: to, km } of list) {
+    const back = crossings.get(to);
+    if (back && !back.some((entry) => entry.iso2 === from)) back.push({ iso2: from, km });
+  }
+}
+for (const list of crossings.values()) list.sort((a, b) => a.km - b.km);
 
 const projection = geoNaturalEarth1();
 const all: FeatureCollection = { type: 'FeatureCollection', features: [...shapes.values()] };
@@ -220,6 +422,8 @@ interface OutCountry {
   flag: string;
   aliases: string[];
   neighbours: string[];
+  /** Nearby countries across water, nearest first, for flight mode. */
+  crossings: { iso2: string; km: number }[];
   /** Centre of the main landmass, in projected map units. */
   centroid: [number, number];
   /** Bounding box of the main landmass: [minX, minY, maxX, maxY]. */
@@ -275,6 +479,7 @@ for (const owner of [...owners.values()].sort((a, b) => a.name.localeCompare(b.n
     flag: flagOf(iso2),
     aliases: [...aliasSet].sort(),
     neighbours: [...neighbours.get(owner.key)!].filter((k) => playableKeys.has(k)).sort(),
+    crossings: crossings.get(iso2) ?? [],
     centroid: projected
       ? [Number(projected[0].toFixed(1)), Number(projected[1].toFixed(1))]
       : [Number(((x0 + x1) / 2).toFixed(1)), Number(((y0 + y1) / 2).toFixed(1))],
@@ -312,4 +517,14 @@ console.log(`asymmetric edges   : ${asym.length}`);
 for (const iso of ['FR', 'ES', 'PT', 'DE', 'GB', 'US', 'SO', 'DJ', 'CN', 'IN', 'RS', 'CY', 'MA', 'MR', 'IT', 'CH', 'RU']) {
   const c = byIso.get(iso);
   console.log(`  ${iso} ${c?.name}: ${c?.neighbours.map((n) => byIso.get(n)?.name).join(', ') || '(none)'}`);
+}
+
+console.log('\nsea crossings:');
+const noCrossing = outCountries.filter((c) => c.crossings.length === 0);
+console.log(`  countries with none: ${noCrossing.length}${noCrossing.length ? ` (${noCrossing.map((c) => c.iso2).join(', ')})` : ''}`);
+for (const iso of ['US', 'GB', 'FR', 'JP', 'IS', 'NZ', 'MG', 'CU', 'AU', 'LK', 'ID', 'PH', 'MT', 'CY']) {
+  const c = byIso.get(iso);
+  console.log(
+    `  ${iso} ${c?.name}: ${c?.crossings.map((x) => `${byIso.get(x.iso2)?.name} ${x.km}km`).join(', ') || '(none)'}`
+  );
 }

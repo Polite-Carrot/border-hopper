@@ -11,6 +11,7 @@ import { Button } from '../components/Button';
 export interface MenuScreenProps {
   onCampaign: () => void;
   onRandom: () => void;
+  onFlight: () => void;
   onDaily: () => void;
   onStats: () => void;
   onSettings: () => void;
@@ -27,7 +28,7 @@ export interface MenuScreenProps {
 const BACKDROP_TOUR = ['IT', 'ID', 'BR', 'KE', 'JP', 'NO'];
 
 export function MenuScreen({
-  onCampaign, onRandom, onDaily, onStats, onSettings, dailyDone, dailyStreak,
+  onCampaign, onRandom, onFlight, onDaily, onStats, onSettings, dailyDone, dailyStreak,
   campaignLevel, campaignDone, reduceMotion,
 }: MenuScreenProps) {
   const { width, height } = useWindowDimensions();
@@ -84,13 +85,13 @@ export function MenuScreen({
           />
           <View style={styles.row}>
             <Button label="Random" icon="again" onPress={onRandom} style={styles.half} />
-            <Button
-              label={dailyDone ? 'Daily · done' : 'Daily'}
-              icon="calendar"
-              onPress={onDaily}
-              style={styles.half}
-            />
+            <Button label="Flight" icon="plane" onPress={onFlight} style={styles.half} />
           </View>
+          <Button
+            label={dailyDone ? 'Daily challenge · done' : 'Daily challenge'}
+            icon="calendar"
+            onPress={onDaily}
+          />
           <View style={styles.row}>
             <Button label="Statistics" icon="stats" onPress={onStats} style={styles.half} />
             <Button label="Settings" icon="settings" onPress={onSettings} style={styles.half} />

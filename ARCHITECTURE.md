@@ -136,6 +136,13 @@ These were designed for but deliberately not built:
   same `GameConfig` and run through the same `GameState`; timed, endless or
   no-mistakes modes would be new rules over the same pieces.
 
+  Flight mode is the one mode that changes the graph rather than the
+  objective: `travelOptions` adds each country's sea crossings, and the same
+  BFS, generator and rules run over the wider edge set. The crossings
+  themselves are computed at build time from the coastlines, because deciding
+  whether a line between two countries is open water needs the full-detail
+  land geometry and a few thousand point-in-polygon tests.
+
   The campaign ladder is generated at build time rather than at runtime, so a
   player's level 137 is the same next week as it is today. Changing the curve
   is a deliberate act of regenerating the file, not a side effect of editing

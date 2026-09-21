@@ -1,6 +1,16 @@
-import { areNeighbours, shortestMoveCount } from './graph';
+import { canTravel, isCrossing, shortestMoveCount } from './graph';
 import { getCountry, countryName } from './world';
 import type { GameConfig, GameResult, GameState, MoveResult } from './types';
+
+/** Flight mode is the only mode where a sea crossing counts as a move. */
+export function allowsFlights(config: GameConfig): boolean {
+  return config.mode === 'flight';
+}
+
+/** True when this step of a route was a sea crossing rather than a land border. */
+export function wasCrossing(config: GameConfig, from: string, to: string): boolean {
+  return allowsFlights(config) && isCrossing(from, to);
+}
 
 export function createGame(config: GameConfig, now: number = Date.now()): GameState {
   return {
@@ -39,11 +49,14 @@ export function applyMove(state: GameState, iso2: string, now: number = Date.now
   if (iso2 === from) {
     return { ok: false, reason: 'already-here', message: `You are already in ${target.name}.` };
   }
-  if (!areNeighbours(from, iso2)) {
+  const flights = allowsFlights(state.config);
+  if (!canTravel(from, iso2, flights)) {
     return {
       ok: false,
       reason: 'not-adjacent',
-      message: `${target.name} doesn't border ${countryName(from)}.`,
+      message: flights
+        ? `You can't reach ${target.name} from ${countryName(from)}.`
+        : `${target.name} doesn't border ${countryName(from)}.`,
     };
   }
 
@@ -90,5 +103,5 @@ export function toResult(state: GameState, now: number = Date.now()): GameResult
  * system; never surfaced during normal play.
  */
 export function movesRemaining(state: GameState): number | null {
-  return shortestMoveCount(currentCountry(state), state.config.destination);
+  return shortestMoveCount(currentCountry(state), state.config.destination, allowsFlights(state.config));
 }

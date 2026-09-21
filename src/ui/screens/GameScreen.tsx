@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { applyMove, createGame, currentCountry, elapsedSeconds, moveCount, recordWrongGuess, toResult } from '../../core/game';
+import {
+  allowsFlights, applyMove, createGame, currentCountry, elapsedSeconds, moveCount,
+  recordWrongGuess, toResult,
+} from '../../core/game';
+import { crossingsOf } from '../../core/graph';
 import { bestMatch, searchCountries } from '../../core/search';
 import { requireCountry } from '../../core/world';
 import type { GameConfig, GameResult, GameState } from '../../core/types';
@@ -31,6 +35,8 @@ const SEARCH_BLOCK = 58;
 const GRABBER_BLOCK = 20;
 /** Padding above the list when the panel is docked to the side. */
 const SIDEBAR_TOP_PAD = 16;
+/** The flight departures strip, shown in flight mode only. */
+const FLIGHT_STRIP = 46;
 /** How long the opening shot holds both start and destination in view. */
 const ESTABLISH_HOLD = 1300;
 
@@ -75,7 +81,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
    */
   const reserved = Math.min(
     onScreenKeyboardHeight(panelInnerWidth),
-    layout.height - topInset - SEARCH_BLOCK - GRABBER_BLOCK
+    layout.height - topInset - SEARCH_BLOCK - GRABBER_BLOCK - (allowsFlights(config) ? FLIGHT_STRIP : 0)
   );
 
   const listHeight = useMemo(() => {
@@ -89,7 +95,9 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
    * How much of the screen the panel occupies. Identical whether the keyboard
    * is up or not, so the map never resizes and the camera never moves.
    */
-  const panelHeight = GRABBER_BLOCK + SEARCH_BLOCK + reserved;
+  /** The departures strip only shows in flight mode, and only with the keyboard down. */
+  const flightStrip = allowsFlights(config) ? FLIGHT_STRIP : 0;
+  const panelHeight = GRABBER_BLOCK + SEARCH_BLOCK + flightStrip + reserved;
 
   const stage = useMemo(() => {
     if (docked) {
@@ -261,12 +269,14 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
               ? `LEVEL ${config.level} · TRAVEL TO`
               : config.mode === 'daily'
                 ? 'DAILY · TRAVEL TO'
-                : 'TRAVEL TO'
+                : config.mode === 'flight'
+                  ? 'FLIGHT · TRAVEL TO'
+                  : 'TRAVEL TO'
           }
           onExit={onExit}
         />
         <View style={styles.trail}>
-          <RouteTrail route={state.route} destination={config.destination} />
+          <RouteTrail route={state.route} destination={config.destination} flights={allowsFlights(config)} />
         </View>
       </View>
 
@@ -307,6 +317,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
           reservedHeight={reserved}
           keyboardUp={keyboardUp}
           keyboardWidth={panelInnerWidth}
+          crossings={allowsFlights(config) ? crossingsOf(iso) : null}
           docked={docked}
           bottomInset={safeBottom}
         />

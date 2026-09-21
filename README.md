@@ -178,8 +178,8 @@ agrees it is one.
 A geography game has to take a position on a handful of genuinely ambiguous
 cases. These are the positions this one takes.
 
-**Land borders only.** Two countries are neighbours when their territory
-touches on land. Sea crossings never count, however short: the United Kingdom
+**Land borders only** — outside flight mode. Two countries are neighbours when
+their territory touches on land. Sea crossings never count, however short: the United Kingdom
 borders only Ireland, Spain does not border Morocco, and Japan borders nobody.
 This is the single rule the whole game rests on.
 
@@ -246,6 +246,24 @@ time by `npm run build:campaign` into `src/data/campaign.generated.json`, so it
 never shifts under a player mid-climb.
 
 **Random** — a one-off game at the difficulty set in Settings.
+
+**Flight** — the same game with sea crossings allowed, which opens up every
+island the land rules shut out. Crossings are measured between real
+coastlines, not invented: the United States reaches Russia because the Bering
+Strait is 113km wide, Britain reaches France across 47km of Channel, and a
+landlocked country has none at all. Each country gets its three nearest
+crossings under 2000km, and the pairing is always two-way.
+
+A segment only counts as a sea crossing if it is open water the whole way,
+anchored at sea on both ends. Without that last part France's nearest
+non-neighbour is Austria — 143km away with Switzerland in between — and
+landlocked Andorra ends up with a route to Malta.
+
+The available crossings are shown during play, because nobody knows off-hand
+that the United States can reach Russia. Land borders stay hidden; working
+those out is still the game. This turns the two land masses into one world:
+United States to France is four moves, over the Bering Strait and across
+Russia.
 
 **Daily challenge** — the same start and destination for every player, once a
 day.

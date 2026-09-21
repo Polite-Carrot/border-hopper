@@ -3,7 +3,7 @@ import { colors } from '../../theme';
 
 export type IconName =
   | 'search' | 'close' | 'back' | 'target' | 'play' | 'calendar'
-  | 'stats' | 'settings' | 'share' | 'again' | 'check' | 'chevron';
+  | 'stats' | 'settings' | 'share' | 'again' | 'check' | 'chevron' | 'plane';
 
 const PATHS: Record<IconName, string> = {
   search: 'M10.5 3a7.5 7.5 0 1 0 4.55 13.46l4.24 4.25 1.42-1.42-4.25-4.24A7.5 7.5 0 0 0 10.5 3Zm0 2a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Z',
@@ -18,6 +18,7 @@ const PATHS: Record<IconName, string> = {
   again: 'M12 4V1L7.5 5.5 12 10V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-8Z',
   check: 'M9.6 16.2 4.8 11.4l-1.4 1.4 6.2 6.2L20.6 7 19.2 5.6 9.6 16.2Z',
   chevron: 'M9.3 6 8 7.4l4.6 4.6L8 16.6 9.3 18l6-6-6-6Z',
+  plane: 'M21 16.5v-2l-8-4.5V4.2a1.7 1.7 0 0 0-3.4 0V10l-8 4.5v2l8-2.4v4.6l-2.3 1.5V22l3.9-1.1L15 22v-1.8l-2.3-1.5v-4.6l8.3 2.4Z',
 };
 
 export interface IconProps {

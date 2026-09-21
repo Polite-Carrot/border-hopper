@@ -85,6 +85,13 @@ export function BorderHopperApp() {
     persistStats(recordGameStarted(stats));
   }, [settings.difficulty, stats, persistStats]);
 
+  const startFlight = useCallback(() => {
+    const difficulty = settings.difficulty === 'mixed' ? undefined : settings.difficulty;
+    setConfig(generateGame({ mode: 'flight', difficulty }));
+    setScreen('game');
+    persistStats(recordGameStarted(stats));
+  }, [settings.difficulty, stats, persistStats]);
+
   const startDaily = useCallback(() => {
     const key = dateKey();
     if (dailyResults[key]) {
@@ -155,7 +162,9 @@ export function BorderHopperApp() {
                 ? advanceCampaign
                 : config.mode === 'daily'
                   ? () => leaveGame(false)
-                  : startClassic
+                  : config.mode === 'flight'
+                    ? startFlight
+                    : startClassic
             }
             onComplete={handleComplete}
           />
@@ -191,6 +200,7 @@ export function BorderHopperApp() {
           <MenuScreen
             onCampaign={() => setScreen('campaign')}
             onRandom={startClassic}
+            onFlight={startFlight}
             onDaily={startDaily}
             onStats={() => setScreen('stats')}
             onSettings={() => setScreen('settings')}
