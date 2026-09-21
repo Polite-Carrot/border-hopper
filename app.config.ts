@@ -1,0 +1,57 @@
+import type { ExpoConfig } from 'expo/config';
+
+/**
+ * GitHub Pages serves a project site from `https://<user>.github.io/<repo>/`,
+ * so the web build needs every asset path prefixed with that subpath. The
+ * deploy workflow sets `EXPO_PUBLIC_BASE_URL`; local builds leave it empty and
+ * are served from the root.
+ */
+const baseUrl = process.env.EXPO_PUBLIC_BASE_URL ?? '';
+
+const config: ExpoConfig = {
+  name: 'Borderbound',
+  slug: 'borderbound',
+  scheme: 'borderbound',
+  version: '1.0.0',
+  orientation: 'default',
+  icon: './assets/icon.png',
+  userInterfaceStyle: 'dark',
+  backgroundColor: '#050A12',
+  primaryColor: '#3DBDF8',
+  ios: {
+    supportsTablet: true,
+    bundleIdentifier: 'com.borderbound.game',
+    userInterfaceStyle: 'dark',
+  },
+  android: {
+    package: 'com.borderbound.game',
+    userInterfaceStyle: 'dark',
+    adaptiveIcon: {
+      backgroundColor: '#050A12',
+      foregroundImage: './assets/android-icon-foreground.png',
+      monochromeImage: './assets/android-icon-monochrome.png',
+    },
+  },
+  web: {
+    favicon: './assets/favicon.png',
+    bundler: 'metro',
+    // A single-page app: there is no router, just one entry point.
+    output: 'single',
+  },
+  plugins: [
+    [
+      'expo-splash-screen',
+      {
+        image: './assets/splash-icon.png',
+        resizeMode: 'contain',
+        backgroundColor: '#050A12',
+        imageWidth: 220,
+      },
+    ],
+  ],
+  experiments: {
+    baseUrl,
+  },
+};
+
+export default config;

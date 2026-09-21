@@ -1,5 +1,5 @@
 {
-  "name": "border-hopper",
+  "name": "borderbound",
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
@@ -7,6 +7,7 @@
     "@react-native-async-storage/async-storage": "^2.2.0",
     "expo": "~57.0.24",
     "expo-haptics": "~57.0.3",
+    "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-dom": "^19.2.3",
@@ -35,9 +36,11 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build:data": "tsx scripts/build-country-data.ts",
+    "build:web": "expo export -p web",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "test:watch": "vitest"
   },
-  "private": true
+  "private": true,
+  "description": "A geography game about crossing the world one land border at a time"
 }

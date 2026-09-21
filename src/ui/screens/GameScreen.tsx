@@ -171,7 +171,11 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
   // A short result list shrinks the panel instead of leaving dead space below it.
   const renderedListHeight = docked
     ? listHeight
-    : Math.min(listHeight, Math.max(COUNTRY_ROW_HEIGHT, results.length * COUNTRY_ROW_HEIGHT + 8));
+    : Math.min(
+        listHeight,
+        // The "no match" message needs more room than a single row.
+        Math.max(COUNTRY_ROW_HEIGHT * 1.6, results.length * COUNTRY_ROW_HEIGHT + 8)
+      );
 
   return (
     <View style={styles.root}>
