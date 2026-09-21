@@ -26,6 +26,15 @@ export interface WorldMapProps {
   invalidIso?: string | null;
   /** Bumped to replay the arrival ping. */
   arrivalToken?: number;
+  /** Pinch/drag transform layered on top of the camera, if the map is interactive. */
+  userTransform?: {
+    scale: Animated.Value;
+    translateX: Animated.Value;
+    translateY: Animated.Value;
+  };
+  /** Gesture handlers from `useMapGestures`. */
+  panHandlers?: Record<string, unknown>;
+  containerRef?: React.Ref<View>;
 }
 
 /**
@@ -44,6 +53,9 @@ export function WorldMap({
   visited,
   invalidIso,
   arrivalToken = 0,
+  userTransform,
+  panHandlers,
+  containerRef,
 }: WorldMapProps) {
   const progress = useRef(new Animated.Value(1)).current;
   const from = useRef<Camera>(camera);
@@ -115,8 +127,27 @@ export function WorldMap({
   const pingRadius = ping.interpolate({ inputRange: [0, 1], outputRange: [0, 46] });
   const pingOpacity = ping.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.75, 0] });
 
+  // The player's own pinch and pan ride on top of the camera. Keeping them on
+  // the container rather than inside the SVG means a drag is a single native
+  // transform, with nothing re-rendering.
+  const userStyle = userTransform
+    ? {
+        transform: [
+          { translateX: userTransform.translateX },
+          { translateY: userTransform.translateY },
+          { scale: userTransform.scale },
+        ],
+      }
+    : undefined;
+
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <>
+    <Animated.View
+      ref={containerRef}
+      style={[StyleSheet.absoluteFill, userStyle]}
+      pointerEvents={panHandlers ? 'auto' : 'none'}
+      {...(panHandlers ?? {})}
+    >
       <Svg width={stage.width} height={stage.height}>
         <Rect x={0} y={0} width={stage.width} height={stage.height} fill={mapColors.ocean} />
         <AnimatedG
@@ -197,23 +228,6 @@ export function WorldMap({
           progress={progress}
         />
 
-        {/*
-          The HUD sits over the top of the map. Fading the map out underneath it
-          keeps the destination name and the route legible whatever country
-          happens to be up there.
-        */}
-        {stage.visible.y > 0 ? (
-          <>
-            <Defs>
-              <LinearGradient id="hudScrim" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={mapColors.ocean} stopOpacity="0.96" />
-                <Stop offset="0.65" stopColor={mapColors.ocean} stopOpacity="0.72" />
-                <Stop offset="1" stopColor={mapColors.ocean} stopOpacity="0" />
-              </LinearGradient>
-            </Defs>
-            <Rect x={0} y={0} width={stage.width} height={stage.visible.y} fill="url(#hudScrim)" />
-          </>
-        ) : null}
 
         {current ? (
           <AnimatedCircle
@@ -227,9 +241,38 @@ export function WorldMap({
           />
         ) : null}
       </Svg>
-    </View>
+    </Animated.View>
+
+    {/*
+      The HUD sits over the top of the map. Fading the map out underneath it
+      keeps the destination name and the route legible whatever country happens
+      to be up there.
+
+      This is deliberately outside the transformed container: inside it, the
+      player's own pinch and pan would drag the scrim off the HUD along with
+      the map.
+    */}
+    {stage.visible.y > 0 ? (
+      <View style={styles.scrim} pointerEvents="none">
+        <Svg width={stage.width} height={stage.visible.y}>
+          <Defs>
+            <LinearGradient id="hudScrim" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={mapColors.ocean} stopOpacity="0.98" />
+              <Stop offset="0.6" stopColor={mapColors.ocean} stopOpacity="0.86" />
+              <Stop offset="1" stopColor={mapColors.ocean} stopOpacity="0" />
+            </LinearGradient>
+          </Defs>
+          <Rect x={0} y={0} width={stage.width} height={stage.visible.y} fill="url(#hudScrim)" />
+        </Svg>
+      </View>
+    ) : null}
+    </>
   );
 }
+
+const styles = StyleSheet.create({
+  scrim: { position: 'absolute', top: 0, left: 0, right: 0 },
+});
 
 interface MarkerProps {
   destination: ReturnType<typeof getCountry>;

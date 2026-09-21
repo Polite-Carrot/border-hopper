@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { applyMove, createGame, currentCountry, elapsedSeconds, moveCount, recordWrongGuess, toResult } from '../../core/game';
 import { bestMatch, searchCountries } from '../../core/search';
 import { requireCountry } from '../../core/world';
 import type { GameConfig, GameResult, GameState } from '../../core/types';
-import { colors, timing } from '../../theme';
+import { colors, radius, timing } from '../../theme';
+import { Icon } from '../components/Icon';
 import { play } from '../../audio/sounds';
 import { WorldMap } from '../map/WorldMap';
+import { useMapGestures } from '../map/useMapGestures';
 import { frameBoxes, makeStage } from '../map/camera';
 import { ControlPanel } from '../components/ControlPanel';
 import { GameHud } from '../components/GameHud';
@@ -54,6 +56,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
   const [phase, setPhase] = useState<'establishing' | 'playing'>('establishing');
   const [showResult, setShowResult] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const gestures = useMapGestures({ width: layout.width, height: layout.height });
 
   const iso = currentCountry(state);
   const docked = layout.mode === 'sidebar';
@@ -161,6 +164,8 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
       setQuery('');
       setToast(null);
       setArrivalToken((token) => token + 1);
+      // The camera is about to re-frame, so let go of any manual zoom.
+      gestures.reset();
       Keyboard.dismiss();
       haptic(result.won ? 'success' : 'light');
       play(result.won ? 'win' : 'move');
@@ -172,7 +177,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
         setTimeout(() => setShowResult(true), travelDuration + 250);
       }
     },
-    [state, onComplete, travelDuration]
+    [state, onComplete, travelDuration, gestures]
   );
 
   const handleSubmit = useCallback(() => {
@@ -202,14 +207,36 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
         visited={visited}
         invalidIso={invalidIso}
         arrivalToken={arrivalToken}
+        userTransform={gestures.transform}
+        panHandlers={gestures.panHandlers}
+        containerRef={gestures.containerRef}
       />
 
-      <OffscreenTarget
-        destination={config.destination}
-        destinationCentroid={requireCountry(config.destination).centroid}
-        camera={camera}
-        stage={stage}
-      />
+      {/* The edge marker is worked out from the camera, so it would point in
+          the wrong direction once the player has moved the map themselves. */}
+      {!gestures.adjusted ? (
+        <OffscreenTarget
+          destination={config.destination}
+          destinationCentroid={requireCountry(config.destination).centroid}
+          camera={camera}
+          stage={stage}
+        />
+      ) : null}
+
+      {gestures.adjusted ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Recentre the map"
+          onPress={() => gestures.reset()}
+          style={({ pressed }) => [
+            styles.recentre,
+            { top: insets.top + HUD_HEIGHT + TRAIL_HEIGHT + 22, right: (docked ? layout.panelWidth : 0) + 16 },
+            pressed && styles.recentrePressed,
+          ]}
+        >
+          <Icon name="target" size={18} color={colors.current} />
+        </Pressable>
+      ) : null}
 
       <View
         style={[styles.top, { paddingTop: insets.top + 6, right: docked ? layout.panelWidth : 0 }]}
@@ -281,4 +308,16 @@ const styles = StyleSheet.create({
   bottomPanel: { position: 'absolute', left: 0, right: 0 },
   sidebar: { position: 'absolute', top: 0, right: 0 },
   hidden: { opacity: 0 },
+  recentre: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceSolid,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+  },
+  recentrePressed: { opacity: 0.6 },
 });
