@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { MAP_HEIGHT, MAP_WIDTH, getCountry } from '../../core/world';
 import { mapColors } from '../../theme';
 import { cameraOffset, type Camera, type Stage } from './camera';
@@ -196,6 +196,25 @@ export function WorldMap({
           stage={stage}
           progress={progress}
         />
+
+        {/*
+          The HUD sits over the top of the map. Fading the map out underneath it
+          keeps the destination name and the route legible whatever country
+          happens to be up there.
+        */}
+        {stage.visible.y > 0 ? (
+          <>
+            <Defs>
+              <LinearGradient id="hudScrim" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={mapColors.ocean} stopOpacity="0.96" />
+                <Stop offset="0.65" stopColor={mapColors.ocean} stopOpacity="0.72" />
+                <Stop offset="1" stopColor={mapColors.ocean} stopOpacity="0" />
+              </LinearGradient>
+            </Defs>
+            <Rect x={0} y={0} width={stage.width} height={stage.visible.y} fill="url(#hudScrim)" />
+          </>
+        ) : null}
+
         {current ? (
           <AnimatedCircle
             cx={stage.visible.x + stage.visible.width / 2}

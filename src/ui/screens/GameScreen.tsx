@@ -22,8 +22,11 @@ import { haptic } from '../hooks/useHaptics';
 
 const HUD_HEIGHT = 46;
 const TRAIL_HEIGHT = 40;
-const SEARCH_BLOCK = 74;
-/** Padding above the search field when the panel is docked to the side. */
+/** The search field plus the padding above it. Safe-area inset is separate. */
+const SEARCH_BLOCK = 58;
+/** The drag handle strip at the top of the bottom panel. */
+const GRABBER_BLOCK = 12;
+/** Padding above the list when the panel is docked to the side. */
 const SIDEBAR_TOP_PAD = 16;
 /** How long the opening shot holds both start and destination in view. */
 const ESTABLISH_HOLD = 1300;
@@ -58,26 +61,36 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
 
   // ---- layout ------------------------------------------------------------
   const topInset = insets.top + HUD_HEIGHT + TRAIL_HEIGHT + 18;
-  const bottomInset = docked ? insets.bottom : Math.max(insets.bottom, 10);
+  const safeBottom = docked ? insets.bottom : Math.max(insets.bottom, 10);
+  /**
+   * The keyboard already covers the home-indicator area, so the panel drops
+   * its safe-area padding while one is open. That is what puts the bottom edge
+   * of the search field exactly on the top edge of the keyboard.
+   */
+  const bottomInset = keyboardHeight > 0 ? 0 : safeBottom;
 
   /**
-   * The height the list is allowed to take. The map is laid out against this
-   * rather than against the list's actual content, so narrowing the results
-   * while typing never drags the camera around.
+   * The height the list is allowed to take.
+   *
+   * This deliberately asks for the same height whether or not the keyboard is
+   * open, and only gives ground when there genuinely is not room. The panel is
+   * anchored above the keyboard, so on most phones opening one slides the
+   * panel up without resizing anything inside it.
+   *
+   * The map is laid out against this rather than against the list's actual
+   * content, so narrowing the results while typing never moves the camera.
    */
   const listHeight = useMemo(() => {
-    if (docked) {
-      // The docked panel starts at the top of the screen, so it is not the
-      // map's chrome that eats into it -- only its own padding.
-      const available = layout.height - keyboardHeight - (SIDEBAR_TOP_PAD + SEARCH_BLOCK + bottomInset);
-      return Math.max(COUNTRY_ROW_HEIGHT * 3, available);
-    }
-    const available = layout.height - keyboardHeight - (topInset + SEARCH_BLOCK + bottomInset);
-    const preferred = keyboardHeight > 0 ? available : Math.min(available, layout.height * 0.34);
-    return Math.max(COUNTRY_ROW_HEIGHT * 2.5, Math.min(preferred, COUNTRY_ROW_HEIGHT * 8));
+    const chrome = docked
+      ? SIDEBAR_TOP_PAD + SEARCH_BLOCK + bottomInset
+      : topInset + GRABBER_BLOCK + SEARCH_BLOCK + bottomInset;
+    const available = layout.height - keyboardHeight - chrome;
+    if (docked) return Math.max(COUNTRY_ROW_HEIGHT * 3, available);
+    const preferred = Math.min(layout.height * 0.34, COUNTRY_ROW_HEIGHT * 8);
+    return Math.max(COUNTRY_ROW_HEIGHT * 2.5, Math.min(preferred, available));
   }, [layout.height, keyboardHeight, topInset, bottomInset, docked]);
 
-  const panelHeight = listHeight + SEARCH_BLOCK + bottomInset;
+  const panelHeight = GRABBER_BLOCK + listHeight + SEARCH_BLOCK + bottomInset;
 
   const stage = useMemo(() => {
     if (docked) {
@@ -103,14 +116,15 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
     return frameBoxes([requireCountry(iso).bbox], stage);
   }, [phase, iso, config.start, config.destination, stage]);
 
-  const isFirstFrame = useRef(true);
-  const duration = useMemo(() => {
-    if (isFirstFrame.current) {
-      isFirstFrame.current = false;
-      return 0;
-    }
-    return travelDuration;
-  }, [phase, iso, travelDuration]);
+  // Travelling to a new country earns the full camera move. Everything else
+  // that nudges the camera -- the keyboard opening, a rotation -- should just
+  // settle quickly, not replay a journey.
+  const lastView = useRef<string | null>(null);
+  const viewKey = `${phase}:${iso}`;
+  let duration = travelDuration;
+  if (lastView.current === null) duration = 0;
+  else if (lastView.current === viewKey) duration = reduceMotion ? 0 : timing.medium;
+  lastView.current = viewKey;
 
   useEffect(() => {
     const timer = setTimeout(() => setPhase('playing'), reduceMotion ? 250 : ESTABLISH_HOLD);
@@ -213,13 +227,20 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
         </View>
       </View>
 
-      <View style={[styles.toastSlot, { bottom: (docked ? 0 : panelHeight + keyboardHeight) + 16 }]} pointerEvents="none">
+      <View
+        style={[styles.toastSlot, { bottom: (docked ? 0 : panelHeight) + keyboardHeight + 16 }]}
+        pointerEvents="none"
+      >
         <Toast message={toast?.message ?? null} token={toast?.token ?? 0} />
       </View>
 
       <View
         style={[
-          docked ? [styles.sidebar, { width: layout.panelWidth }] : [styles.bottomPanel, { bottom: keyboardHeight }],
+          // Both layouts sit on top of the keyboard, so the search field at
+          // the foot of the panel lands flush against it.
+          docked
+            ? [styles.sidebar, { width: layout.panelWidth, bottom: keyboardHeight }]
+            : [styles.bottomPanel, { bottom: keyboardHeight }],
           showResult && styles.hidden,
         ]}
         pointerEvents={showResult ? 'none' : 'auto'}
@@ -258,6 +279,6 @@ const styles = StyleSheet.create({
   trail: { marginTop: 10, height: TRAIL_HEIGHT, justifyContent: 'center' },
   toastSlot: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   bottomPanel: { position: 'absolute', left: 0, right: 0 },
-  sidebar: { position: 'absolute', top: 0, right: 0, bottom: 0 },
+  sidebar: { position: 'absolute', top: 0, right: 0 },
   hidden: { opacity: 0 },
 });
