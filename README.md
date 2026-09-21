@@ -126,9 +126,14 @@ To reproduce the published root by hand:
 
 ```bash
 npm run build:web       # or EXPO_PUBLIC_BASE_URL=/border-hopper for a project site
-rm -rf _expo && cp -R dist/. . && rm -rf dist
+rm -rf _expo icons && cp -R dist/. . && rm -rf dist
 touch .nojekyll && cp index.html 404.html
 ```
+
+`npm run build:web` also runs `scripts/finish-web-build.mjs`, which adds the
+home-screen icons and a web manifest. Expo's export ships only a favicon, so
+without it iOS uses a screenshot of the page as the icon when someone adds the
+game to their home screen.
 
 ## The keyboard
 

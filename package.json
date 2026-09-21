@@ -36,7 +36,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build:data": "tsx scripts/build-country-data.ts",
-    "build:web": "expo export -p web",
+    "build:web": "expo export -p web && node scripts/finish-web-build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
