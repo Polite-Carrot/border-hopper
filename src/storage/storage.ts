@@ -6,6 +6,10 @@ import type { GameResult } from '../core/types';
  * Local persistence. Everything the game remembers lives on the device; there
  * is no account and no backend.
  */
+/**
+ * Storage keys keep the game's original name on purpose: renaming them would
+ * orphan the stats, settings and daily results already on players' devices.
+ */
 const KEYS = {
   stats: 'borderbound:stats:v1',
   dailyResults: 'borderbound:daily:v1',

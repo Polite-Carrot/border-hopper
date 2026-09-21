@@ -2,6 +2,11 @@ import { generateGame } from './generate';
 import { seededRandom, weightedPick } from './random';
 import type { Difficulty, GameConfig } from './types';
 
+/**
+ * The daily challenge is seeded from this string, so changing it would
+ * re-roll every date's start and destination -- including days people have
+ * already played. It keeps the game's original name deliberately.
+ */
 const SEED_NAMESPACE = 'borderbound-daily';
 
 /** Local calendar date as "YYYY-MM-DD". The daily challenge rolls over at local midnight. */

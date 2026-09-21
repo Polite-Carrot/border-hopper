@@ -8,7 +8,7 @@ import type { GameResult } from './types';
  * shared with its route since everyone plays the same one.
  */
 export function shareText(result: GameResult): string {
-  const header = result.dailyKey ? `🌍 BORDERBOUND — ${result.dailyKey}` : '🌍 BORDERBOUND';
+  const header = result.dailyKey ? `🌍 BORDER HOPPER — ${result.dailyKey}` : '🌍 BORDER HOPPER';
   const route = result.route.map(countryFlag).join(' → ');
   const lines = [
     header,

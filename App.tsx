@@ -1,5 +1,5 @@
-import { BorderboundApp } from './src/ui/BorderboundApp';
+import { BorderHopperApp } from './src/ui/BorderHopperApp';
 
 export default function App() {
-  return <BorderboundApp />;
+  return <BorderHopperApp />;
 }

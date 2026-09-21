@@ -107,7 +107,7 @@ describe('formatting and sharing', () => {
 
   it('builds a share card without naming the countries', () => {
     const text = shareText(result());
-    expect(text).toContain('BORDERBOUND');
+    expect(text).toContain('BORDER HOPPER');
     expect(text).toContain('🇫🇷 → 🇪🇸 → 🇵🇹');
     expect(text).toContain('2 moves');
     expect(text).toContain('00:42');

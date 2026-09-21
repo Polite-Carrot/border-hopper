@@ -1,4 +1,4 @@
-# Borderbound
+# Border Hopper
 
 A geography game about crossing the world one land border at a time.
 
@@ -43,7 +43,7 @@ npx expo prebuild --platform ios     # generate the native ios/ project
 npx expo run:ios --configuration Release
 ```
 
-For a release build, open `ios/Borderbound.xcworkspace` in Xcode after
+For a release build, open `ios/BorderHopper.xcworkspace` in Xcode after
 prebuilding, set your signing team, and archive. Or build in the cloud without
 a Mac:
 

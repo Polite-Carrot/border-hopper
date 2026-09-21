@@ -9,9 +9,9 @@ import type { ExpoConfig } from 'expo/config';
 const baseUrl = process.env.EXPO_PUBLIC_BASE_URL ?? '';
 
 const config: ExpoConfig = {
-  name: 'Borderbound',
-  slug: 'borderbound',
-  scheme: 'borderbound',
+  name: 'Border Hopper',
+  slug: 'border-hopper',
+  scheme: 'borderhopper',
   version: '1.0.0',
   orientation: 'default',
   icon: './assets/icon.png',
@@ -20,11 +20,11 @@ const config: ExpoConfig = {
   primaryColor: '#3DBDF8',
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.borderbound.game',
+    bundleIdentifier: 'com.borderhopper.game',
     userInterfaceStyle: 'dark',
   },
   android: {
-    package: 'com.borderbound.game',
+    package: 'com.borderhopper.game',
     userInterfaceStyle: 'dark',
     adaptiveIcon: {
       backgroundColor: '#050A12',

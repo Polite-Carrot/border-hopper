@@ -26,7 +26,7 @@ type Screen = 'menu' | 'game' | 'stats' | 'settings' | 'daily-done';
  * The whole app. Screens are a single piece of state rather than a navigation
  * library: there are five of them and none of them nest.
  */
-export function BorderboundApp() {
+export function BorderHopperApp() {
   const [screen, setScreen] = useState<Screen>('menu');
   const [config, setConfig] = useState<GameConfig | null>(null);
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);

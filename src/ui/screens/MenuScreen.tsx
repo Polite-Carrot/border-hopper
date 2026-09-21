@@ -63,7 +63,9 @@ export function MenuScreen({
         ]}
       >
         <View style={styles.brand}>
-          <Text style={styles.wordmark}>BORDERBOUND</Text>
+          {/* Broken deliberately, so the wordmark stacks the same way on a
+              phone and on a desktop browser rather than reflowing. */}
+          <Text style={styles.wordmark}>{'BORDER\nHOPPER'}</Text>
           <View style={styles.rule} />
           <Text style={styles.tagline}>Cross the world, one border at a time</Text>
         </View>
@@ -105,6 +107,7 @@ const styles = StyleSheet.create({
     fontSize: 38,
     fontWeight: '800',
     letterSpacing: 6.5,
+    lineHeight: 46,
     textAlign: 'center',
   },
   rule: {
