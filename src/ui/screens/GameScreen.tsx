@@ -18,16 +18,16 @@ import { RouteTrail } from '../components/RouteTrail';
 import { Toast } from '../components/Toast';
 import { COUNTRY_ROW_HEIGHT } from '../components/CountryRow';
 import { ResultOverlay } from './ResultOverlay';
-import { useKeyboardHeight } from '../hooks/useKeyboard';
+import { useKeyboardMetrics } from '../hooks/useKeyboard';
 import { useLayout } from '../hooks/useLayoutMode';
 import { haptic } from '../hooks/useHaptics';
 
 const HUD_HEIGHT = 46;
 const TRAIL_HEIGHT = 40;
-/** The search field plus the padding above it. Safe-area inset is separate. */
+/** The search field row plus the padding above it. */
 const SEARCH_BLOCK = 58;
-/** The drag handle strip at the top of the bottom panel. */
-const GRABBER_BLOCK = 12;
+/** The panel's top padding plus the drag handle and its margin. */
+const GRABBER_BLOCK = 20;
 /** Padding above the list when the panel is docked to the side. */
 const SIDEBAR_TOP_PAD = 16;
 /** How long the opening shot holds both start and destination in view. */
@@ -45,7 +45,8 @@ export interface GameScreenProps {
 export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete }: GameScreenProps) {
   const layout = useLayout();
   const insets = useSafeAreaInsets();
-  const keyboardHeight = useKeyboardHeight();
+  const keyboard = useKeyboardMetrics(layout.height, layout.width < layout.height ? 'portrait' : 'landscape');
+  const keyboardUp = keyboard.height > 0;
   const inputRef = useRef<TextInput>(null);
 
   const [state, setState] = useState<GameState>(() => createGame(config));
@@ -65,35 +66,37 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
   // ---- layout ------------------------------------------------------------
   const topInset = insets.top + HUD_HEIGHT + TRAIL_HEIGHT + 18;
   const safeBottom = docked ? insets.bottom : Math.max(insets.bottom, 10);
-  /**
-   * The keyboard already covers the home-indicator area, so the panel drops
-   * its safe-area padding while one is open. That is what puts the bottom edge
-   * of the search field exactly on the top edge of the keyboard.
-   */
-  const bottomInset = keyboardHeight > 0 ? 0 : safeBottom;
 
   /**
-   * The height the list is allowed to take.
-   *
-   * This deliberately asks for the same height whether or not the keyboard is
-   * open, and only gives ground when there genuinely is not room. The panel is
-   * anchored above the keyboard, so on most phones opening one slides the
-   * panel up without resizing anything inside it.
-   *
-   * The map is laid out against this rather than against the list's actual
-   * content, so narrowing the results while typing never moves the camera.
+   * Room set aside below the search field, sized to what the keyboard will
+   * cover. The country list lives there while the keyboard is closed and the
+   * keyboard takes it over when it opens, so the search field itself never
+   * moves. Capped so it cannot swallow the map on a short screen.
+   */
+  const reserved = Math.min(keyboard.reserved, layout.height - topInset - SEARCH_BLOCK - GRABBER_BLOCK);
+
+  /**
+   * Where the results go. Below the field normally; above it, and shorter,
+   * while the keyboard has the space below.
    */
   const listHeight = useMemo(() => {
-    const chrome = docked
-      ? SIDEBAR_TOP_PAD + SEARCH_BLOCK + bottomInset
-      : topInset + GRABBER_BLOCK + SEARCH_BLOCK + bottomInset;
-    const available = layout.height - keyboardHeight - chrome;
-    if (docked) return Math.max(COUNTRY_ROW_HEIGHT * 3, available);
-    const preferred = Math.min(layout.height * 0.34, COUNTRY_ROW_HEIGHT * 8);
-    return Math.max(COUNTRY_ROW_HEIGHT * 2.5, Math.min(preferred, available));
-  }, [layout.height, keyboardHeight, topInset, bottomInset, docked]);
+    if (docked) {
+      const available = layout.height - (SIDEBAR_TOP_PAD + SEARCH_BLOCK + safeBottom) - keyboard.height;
+      return Math.max(COUNTRY_ROW_HEIGHT * 3, available);
+    }
+    if (keyboardUp) {
+      const above = layout.height - keyboard.height - topInset - SEARCH_BLOCK - GRABBER_BLOCK;
+      return Math.max(COUNTRY_ROW_HEIGHT * 2, Math.min(above, COUNTRY_ROW_HEIGHT * 5));
+    }
+    return reserved;
+  }, [docked, keyboardUp, keyboard.height, layout.height, topInset, safeBottom, reserved]);
 
-  const panelHeight = GRABBER_BLOCK + listHeight + SEARCH_BLOCK + bottomInset;
+  /**
+   * How much of the screen the panel occupies with the keyboard closed. The
+   * map is laid out against this and nothing else, so neither the keyboard
+   * opening nor the results narrowing while the player types moves the camera.
+   */
+  const panelHeight = GRABBER_BLOCK + SEARCH_BLOCK + reserved;
 
   const stage = useMemo(() => {
     if (docked) {
@@ -108,9 +111,9 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
       x: 0,
       y: topInset,
       width: layout.width,
-      height: layout.height - topInset - panelHeight - keyboardHeight,
+      height: layout.height - topInset - panelHeight,
     });
-  }, [docked, layout.width, layout.height, layout.panelWidth, topInset, panelHeight, keyboardHeight, insets.bottom]);
+  }, [docked, layout.width, layout.height, layout.panelWidth, topInset, panelHeight, insets.bottom]);
 
   // ---- camera ------------------------------------------------------------
   const camera = useMemo(() => {
@@ -255,7 +258,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
       </View>
 
       <View
-        style={[styles.toastSlot, { bottom: (docked ? 0 : panelHeight) + keyboardHeight + 16 }]}
+        style={[styles.toastSlot, { bottom: (docked ? keyboard.height : panelHeight) + 16 }]}
         pointerEvents="none"
       >
         <Toast message={toast?.message ?? null} token={toast?.token ?? 0} />
@@ -265,9 +268,11 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
         style={[
           // Both layouts sit on top of the keyboard, so the search field at
           // the foot of the panel lands flush against it.
+          // The bottom panel stays put: the space below the search field is
+          // already the keyboard's size, so the keyboard covers it exactly.
           docked
-            ? [styles.sidebar, { width: layout.panelWidth, bottom: keyboardHeight }]
-            : [styles.bottomPanel, { bottom: keyboardHeight }],
+            ? [styles.sidebar, { width: layout.panelWidth, bottom: keyboard.height }]
+            : styles.bottomPanel,
           showResult && styles.hidden,
         ]}
         pointerEvents={showResult ? 'none' : 'auto'}
@@ -284,8 +289,10 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
           currentIso={iso}
           visited={visited}
           listHeight={renderedListHeight}
+          reservedHeight={reserved}
+          keyboardUp={keyboardUp}
           docked={docked}
-          bottomInset={bottomInset}
+          bottomInset={safeBottom}
         />
       </View>
 
@@ -305,7 +312,7 @@ const styles = StyleSheet.create({
   top: { position: 'absolute', top: 0, left: 0, right: 0 },
   trail: { marginTop: 10, height: TRAIL_HEIGHT, justifyContent: 'center' },
   toastSlot: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-  bottomPanel: { position: 'absolute', left: 0, right: 0 },
+  bottomPanel: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   sidebar: { position: 'absolute', top: 0, right: 0 },
   hidden: { opacity: 0 },
   recentre: {

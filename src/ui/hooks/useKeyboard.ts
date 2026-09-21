@@ -1,27 +1,63 @@
 import { useEffect, useState } from 'react';
 import { Keyboard, Platform } from 'react-native';
+import { loadKeyboardHeights, saveKeyboardHeights, type KeyboardHeights } from '../../storage/storage';
+
+export type Orientation = 'portrait' | 'landscape';
+
+export interface KeyboardMetrics {
+  /** What the keyboard is covering right now. 0 when it is closed. */
+  height: number;
+  /**
+   * What the keyboard is *expected* to cover. The panel reserves this much
+   * room for the country list, so the search field already sits on the
+   * keyboard's top edge before one opens and does not move when it does.
+   */
+  reserved: number;
+}
 
 /**
- * How much of the screen the on-screen keyboard is covering, or 0 when there
- * is no keyboard up.
- *
- * On iOS and Android this comes from the keyboard events. On the web there is
- * no such event, but mobile browsers shrink the *visual* viewport when the
- * keyboard opens while leaving the layout viewport alone, and the difference
- * between the two is the keyboard. Without this the browser is left to shove
- * the whole page around instead, which is what makes the layout lurch.
+ * Heights measured this session, so the very first keyboard of a session is
+ * the only one that can be off, and only until it has been seen once.
  */
-export function useKeyboardHeight(): number {
+const observed: KeyboardHeights = {};
+let restored = false;
+
+/** A reasonable guess until a real keyboard has been measured on this device. */
+function estimate(screenHeight: number, orientation: Orientation): number {
+  const fraction = orientation === 'portrait' ? 0.36 : 0.52;
+  const [min, max] = orientation === 'portrait' ? [240, 360] : [170, 260];
+  return Math.round(Math.min(max, Math.max(min, screenHeight * fraction)));
+}
+
+export function useKeyboardMetrics(screenHeight: number, orientation: Orientation): KeyboardMetrics {
   const [height, setHeight] = useState(0);
+  const [remembered, setRemembered] = useState<KeyboardHeights>(observed);
 
   useEffect(() => {
+    if (restored) return;
+    restored = true;
+    void loadKeyboardHeights().then((saved) => {
+      Object.assign(observed, saved, observed);
+      setRemembered({ ...observed });
+    });
+  }, []);
+
+  useEffect(() => {
+    const record = (next: number) => {
+      setHeight(next);
+      if (next <= 0 || observed[orientation] === next) return;
+      observed[orientation] = next;
+      setRemembered({ ...observed });
+      void saveKeyboardHeights({ ...observed });
+    };
+
     if (Platform.OS === 'web') {
       const viewport = globalThis.visualViewport;
       if (!viewport) return;
       const update = () => {
         const covered = globalThis.innerHeight - viewport.height - viewport.offsetTop;
-        // Ignore the couple of pixels browser chrome moves by on its own.
-        setHeight(covered > 80 ? Math.round(covered) : 0);
+        // Ignore the few pixels browser chrome moves by on its own.
+        record(covered > 80 ? Math.round(covered) : 0);
       };
       viewport.addEventListener('resize', update);
       viewport.addEventListener('scroll', update);
@@ -32,17 +68,19 @@ export function useKeyboardHeight(): number {
       };
     }
 
-    // `will` fires at the start of the iOS animation, so the panel travels
-    // with the keyboard rather than after it. Android only has `did`.
+    // `will` fires at the start of the iOS animation; Android only has `did`.
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const show = Keyboard.addListener(showEvent, (event) => setHeight(event.endCoordinates.height));
+    const show = Keyboard.addListener(showEvent, (event) => record(event.endCoordinates.height));
     const hide = Keyboard.addListener(hideEvent, () => setHeight(0));
     return () => {
       show.remove();
       hide.remove();
     };
-  }, []);
+  }, [orientation]);
 
-  return height;
+  return {
+    height,
+    reserved: remembered[orientation] ?? estimate(screenHeight, orientation),
+  };
 }

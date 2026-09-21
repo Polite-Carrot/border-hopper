@@ -11,6 +11,7 @@ const KEYS = {
   dailyResults: 'borderbound:daily:v1',
   settings: 'borderbound:settings:v1',
   onboarded: 'borderbound:onboarded:v1',
+  keyboard: 'borderbound:keyboard:v1',
 } as const;
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
@@ -71,6 +72,22 @@ export async function saveOnboarded(): Promise<void> {
     // Worst case the player sees the three-line intro twice.
   }
 }
+
+/**
+ * Remembered on-screen keyboard heights, keyed by orientation.
+ *
+ * The control panel reserves exactly this much room for the country list so
+ * the search field can sit on the keyboard's top edge without moving when one
+ * opens -- which means the layout has to know the height before the keyboard
+ * has ever appeared.
+ */
+export type KeyboardHeights = Partial<Record<'portrait' | 'landscape', number>>;
+
+export const loadKeyboardHeights = (): Promise<KeyboardHeights> =>
+  readJson<KeyboardHeights>(KEYS.keyboard, {});
+
+export const saveKeyboardHeights = (heights: KeyboardHeights): Promise<void> =>
+  writeJson(KEYS.keyboard, heights);
 
 export async function resetEverything(): Promise<void> {
   try {

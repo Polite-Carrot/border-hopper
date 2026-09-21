@@ -15,8 +15,21 @@ export interface ControlPanelProps {
   onSubmit: () => void;
   currentIso: string;
   visited: readonly string[];
-  /** Height available to the scrolling list, worked out by the screen. */
+  /** Height of the results list, wherever it currently sits. */
   listHeight: number;
+  /**
+   * The slot below the search field, sized to what the keyboard covers. It
+   * holds the country list while the keyboard is closed and is simply left
+   * empty -- and hidden behind the keyboard -- while it is open. Keeping it
+   * there either way is what stops the search field moving.
+   */
+  reservedHeight: number;
+  /**
+   * True while the keyboard is covering the space below the search field. The
+   * results move above the field, since the list's usual home is under the
+   * keyboard.
+   */
+  keyboardUp: boolean;
   /** Docks to the side instead of the bottom on wide screens. */
   docked: boolean;
   /**
@@ -28,13 +41,18 @@ export interface ControlPanelProps {
 }
 
 /**
- * The bottom (or side) control panel: a scrolling list of countries above a
- * search field.
+ * The bottom (or side) control panel: a search field over a scrolling list of
+ * countries.
  *
- * The search field is deliberately the last thing in the panel. The panel is
- * anchored to the top of the keyboard, so keeping the field at the bottom puts
- * it right against the keyboard when one opens, with the results directly
- * above it -- and nothing has to reorder or move relative to anything else.
+ * The panel is anchored to the bottom of the screen and the list below the
+ * search field is given exactly the height the keyboard will cover. So the
+ * search field already sits on the keyboard's top edge before one opens, and
+ * when it does the keyboard simply takes the list's place -- the field itself
+ * does not move at all.
+ *
+ * While the keyboard is up the results render *above* the field instead.
+ * Because the panel is anchored at its bottom, growing upward like that leaves
+ * the search field exactly where it was.
  *
  * The list always shows the current search results, and an empty query means
  * "every country", so tapping into the field never leaves a blank space where
@@ -43,49 +61,50 @@ export interface ControlPanelProps {
 export const ControlPanel = forwardRef<TextInput, ControlPanelProps>(function ControlPanel(
   {
     query, onQueryChange, results, onSelect, onFocus, onBlur, onSubmit,
-    currentIso, visited, listHeight, docked, bottomInset,
+    currentIso, visited, listHeight, reservedHeight, keyboardUp, docked, bottomInset,
   },
   inputRef
 ) {
   const visitedSet = new Set(visited);
 
+  const list =
+    results.length === 0 ? (
+      <View style={styles.empty}>
+        <Text style={styles.emptyText}>No country matches “{query.trim()}”</Text>
+      </View>
+    ) : (
+      <FlatList
+        data={results as Country[]}
+        keyExtractor={(item) => item.iso2}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={12}
+        windowSize={7}
+        removeClippedSubviews
+        getItemLayout={(_, index) => ({
+          length: COUNTRY_ROW_HEIGHT,
+          offset: COUNTRY_ROW_HEIGHT * index,
+          index,
+        })}
+        contentContainerStyle={[styles.listContent, { paddingBottom: bottomInset + spacing.xs }]}
+        renderItem={({ item }) => (
+          <CountryRow
+            country={item}
+            onPress={onSelect}
+            isCurrent={item.iso2 === currentIso}
+            isVisited={visitedSet.has(item.iso2)}
+          />
+        )}
+      />
+    );
+
   return (
     <View style={[styles.panel, docked ? styles.docked : styles.bottom]}>
       {!docked ? <View style={styles.grabber} /> : null}
 
-      <View style={{ height: listHeight }}>
-        {results.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>No country matches “{query.trim()}”</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={results as Country[]}
-            keyExtractor={(item) => item.iso2}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            initialNumToRender={12}
-            windowSize={7}
-            removeClippedSubviews
-            getItemLayout={(_, index) => ({
-              length: COUNTRY_ROW_HEIGHT,
-              offset: COUNTRY_ROW_HEIGHT * index,
-              index,
-            })}
-            contentContainerStyle={styles.listContent}
-            renderItem={({ item }) => (
-              <CountryRow
-                country={item}
-                onPress={onSelect}
-                isCurrent={item.iso2 === currentIso}
-                isVisited={visitedSet.has(item.iso2)}
-              />
-            )}
-          />
-        )}
-      </View>
+      {keyboardUp && !docked ? <View style={{ height: listHeight }}>{list}</View> : null}
 
-      <View style={[styles.searchWrap, { paddingBottom: bottomInset }]}>
+      <View style={styles.searchWrap}>
         <SearchField
           ref={inputRef}
           value={query}
@@ -94,6 +113,10 @@ export const ControlPanel = forwardRef<TextInput, ControlPanelProps>(function Co
           onBlur={onBlur}
           onSubmit={onSubmit}
         />
+      </View>
+
+      <View style={{ height: docked ? listHeight : reservedHeight }}>
+        {keyboardUp && !docked ? null : list}
       </View>
     </View>
   );
@@ -123,8 +146,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.hairlineStrong,
     marginBottom: spacing.sm,
   },
+  // No bottom padding: the field's lower edge is the keyboard's top edge.
   searchWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
-  listContent: { paddingVertical: spacing.xs },
+  listContent: { paddingTop: spacing.sm },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   emptyText: { color: colors.textMuted, fontFamily: fonts.body, fontSize: 14.5, textAlign: 'center' },
 });
