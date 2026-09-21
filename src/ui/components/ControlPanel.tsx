@@ -98,7 +98,9 @@ export function ControlPanel({
         {keyboardUp ? (
           <OnScreenKeyboard
             width={keyboardWidth}
-            suggestions={results.slice(0, 3)}
+            // Only real suggestions: with no query the results are just the
+            // whole alphabet, and the first three of those mean nothing.
+            suggestions={query.trim() ? results.slice(0, 3) : []}
             onKey={onKey}
             onBackspace={onBackspace}
             onSubmit={onSubmit}

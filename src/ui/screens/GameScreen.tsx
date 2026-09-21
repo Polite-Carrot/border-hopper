@@ -162,7 +162,10 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
       setArrivalToken((token) => token + 1);
       // The camera is about to re-frame, so let go of any manual zoom.
       gestures.reset();
-      setKeyboardUp(false);
+      // Travelling leaves the keyboard wherever the player put it, so a run of
+      // moves can be typed straight through. Arriving is the exception: the
+      // result screen is about to take over.
+      if (result.won) setKeyboardUp(false);
       haptic(result.won ? 'success' : 'light');
       play(result.won ? 'win' : 'move');
 
