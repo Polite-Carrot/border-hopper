@@ -87,26 +87,38 @@ npx serve dist           # serve it locally
    **GitHub Actions**.
 2. Push to `main`. The workflow typechecks, tests, builds and deploys.
 
-The site lands at `https://<owner>.github.io/<repo>/`.
+The site lands at the custom domain configured for the repository, or at
+`https://<owner>.github.io/<repo>/` if there isn't one.
 
 ### About the base path
 
-GitHub Pages serves project sites from a subpath, not the domain root, so the
-bundle needs every asset URL prefixed. The workflow sets
-`EXPO_PUBLIC_BASE_URL` to `/<repo>`, which `app.config.ts` feeds into Expo's
-`experiments.baseUrl`. Nothing is hard-coded to this repository's name, and
-builds without that variable are served from the root.
+Where the site lives decides how asset URLs have to be written, so the
+workflow works it out rather than hard-coding it:
 
-Two details the workflow handles that are easy to miss:
+- **Custom domain** (a `CNAME` file in the repo root) — the site is served
+  from the root of that domain, so the base path is empty. This repository
+  has one: `borderhopper.politecarrot.com`.
+- **No custom domain** — GitHub Pages serves a project site from
+  `https://<owner>.github.io/<repo>/`, so every asset URL needs that prefix.
+
+Either way the value goes into `EXPO_PUBLIC_BASE_URL`, which `app.config.ts`
+feeds to Expo's `experiments.baseUrl`. Nothing is hard-coded to this
+repository's name or domain; delete the `CNAME` and the next deploy switches
+back to the project-site path on its own.
+
+Three details the workflow handles that are easy to miss:
 
 - `.nojekyll`, without which GitHub Pages' Jekyll step silently drops the
   `_expo/` directory and the page loads blank.
 - `404.html`, a copy of `index.html`, so deep links fall back to the app.
+- `CNAME` copied into the published output, so the custom domain survives a
+  deploy.
 
-To build for Pages by hand:
+To reproduce either build by hand:
 
 ```bash
-EXPO_PUBLIC_BASE_URL=/border-hopper npm run build:web
+npm run build:web                                    # custom domain / root
+EXPO_PUBLIC_BASE_URL=/border-hopper npm run build:web  # project site
 touch dist/.nojekyll && cp dist/index.html dist/404.html
 ```
 

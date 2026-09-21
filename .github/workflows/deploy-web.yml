@@ -34,11 +34,23 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Work out the base path
+        id: base
+        run: |
+          # A custom domain (CNAME) serves the site from the root of that
+          # domain. Without one, GitHub Pages serves a project site from
+          # /<repo>/ and every asset URL needs that prefix.
+          if [ -f CNAME ]; then
+            echo "Custom domain: $(cat CNAME) -- building for the domain root"
+            echo "url=" >> "$GITHUB_OUTPUT"
+          else
+            echo "Project site -- building for /${{ github.event.repository.name }}"
+            echo "url=/${{ github.event.repository.name }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build web bundle
-        # GitHub Pages serves project sites from /<repo>/, so the bundle needs
-        # that prefix on every asset URL.
         env:
-          EXPO_PUBLIC_BASE_URL: /${{ github.event.repository.name }}
+          EXPO_PUBLIC_BASE_URL: ${{ steps.base.outputs.url }}
         run: npm run build:web
 
       - name: Prepare for Pages
@@ -47,6 +59,8 @@ jobs:
           touch dist/.nojekyll
           # Single-page app: unknown paths fall back to the entry point.
           cp dist/index.html dist/404.html
+          # Carry the custom domain into the published artifact.
+          [ -f CNAME ] && cp CNAME dist/ || true
 
       - uses: actions/upload-pages-artifact@v3
         with:
