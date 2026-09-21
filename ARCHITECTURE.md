@@ -16,7 +16,7 @@ straight onto GitHub Pages.
 
 The alternatives were worse fits. A native app per platform means writing the
 adjacency graph, pathfinding and daily challenge twice. A pure web app wrapped
-in a shell gives up the native keyboard and the platform's scroll and haptics.
+in a shell gives up the platform's scroll, haptics and native feel.
 
 ### The map is SVG, not a map SDK
 
@@ -30,6 +30,28 @@ Country geometry is **projected at build time** into SVG path strings, so the
 app ships no projection code and never re-projects at runtime. The projection
 is Natural Earth 1, which keeps continent shapes recognisable at world scale
 and stays sane when the camera closes in.
+
+### The game brings its own keyboard
+
+The game draws its own A-Z keyboard rather than using the platform's.
+
+This started as the opposite decision, and the reason for changing it is
+layout. The search field is meant to sit exactly on the keyboard's top edge,
+with the country list occupying the space the keyboard will take. That needs
+the keyboard's height *before* it is ever shown. A platform keyboard's height
+is unknowable in advance -- it varies by device, language and whether a
+predictive bar is showing -- and on mobile web the browser responds to it by
+moving the viewport out from under the layout. Owning the keyboard turns that
+guess into a constant.
+
+Nothing in the panel is a `TextInput`, because a focused one summons the
+platform keyboard. The query is rendered as text with a caret.
+
+What this costs: autocorrect, dictation, paste, and players' muscle memory.
+Accented characters are not a loss, because the search folds accents anyway --
+"turkiye" finds Türkiye and "cote divoire" finds Côte d'Ivoire -- so A-Z and a
+space cover every country name. Hardware keyboards still work on the web
+through a document key listener, so desktop players simply type.
 
 ### Camera
 

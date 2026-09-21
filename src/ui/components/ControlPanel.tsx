@@ -1,128 +1,117 @@
-import { forwardRef } from 'react';
-import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius, spacing } from '../../theme';
 import type { Country } from '../../core/types';
 import { COUNTRY_ROW_HEIGHT, CountryRow } from './CountryRow';
 import { SearchField } from './SearchField';
+import { OnScreenKeyboard } from './OnScreenKeyboard';
 
 export interface ControlPanelProps {
   query: string;
-  onQueryChange: (value: string) => void;
   results: readonly Country[];
   onSelect: (iso2: string) => void;
-  onFocus: () => void;
-  onBlur: () => void;
+  /** Opens the game's own keyboard. */
+  onFocusSearch: () => void;
+  onClearSearch: () => void;
+  onKey: (character: string) => void;
+  onBackspace: () => void;
   onSubmit: () => void;
+  onHideKeyboard: () => void;
   currentIso: string;
   visited: readonly string[];
-  /** Height of the results list, wherever it currently sits. */
+  /** Height of the results list while it is showing. */
   listHeight: number;
   /**
-   * The slot below the search field, sized to what the keyboard covers. It
-   * holds the country list while the keyboard is closed and is simply left
-   * empty -- and hidden behind the keyboard -- while it is open. Keeping it
-   * there either way is what stops the search field moving.
+   * The slot below the search field. It is exactly the keyboard's height and
+   * holds the country list until the keyboard takes its place.
    */
   reservedHeight: number;
-  /**
-   * True while the keyboard is covering the space below the search field. The
-   * country list is simply not drawn: the keyboard is standing in its place,
-   * and putting the results anywhere else would move the search field.
-   */
+  /** True while the game's keyboard is up. */
   keyboardUp: boolean;
-  /** Best match for the current query, for the inline go hint. */
-  hint?: { flag: string; name: string; onPress: () => void } | null;
+  /** Width the keyboard lays its keys out across. */
+  keyboardWidth: number;
   /** Docks to the side instead of the bottom on wide screens. */
   docked: boolean;
-  /**
-   * Padding below the search field. This is the safe-area inset normally, and
-   * zero while the keyboard is up -- the keyboard already covers that space,
-   * and dropping it is what lets the field sit flush against the keyboard.
-   */
   bottomInset: number;
 }
 
 /**
- * The bottom (or side) control panel: a search field over a scrolling list of
- * countries.
+ * The bottom (or side) control panel: a search field over the country list.
  *
- * The panel is anchored to the bottom of the screen and the list below the
- * search field is given exactly the height the keyboard will cover. So the
- * search field already sits on the keyboard's top edge before one opens, and
- * when it does the keyboard simply takes the list's place -- the field itself
- * does not move at all.
- *
- * While the keyboard is up the list is not drawn at all -- the keyboard is
- * standing exactly where it would be. Typing then narrows to a best match that
- * the keyboard's go key travels to, and dismissing the keyboard brings the
- * list back already filtered.
+ * The slot below the search field is exactly as tall as the game's keyboard,
+ * so the field already sits on the keyboard's top edge before it opens. When
+ * it does, the keyboard takes the list's place and nothing else moves by a
+ * single pixel -- which is only possible because the game owns the keyboard
+ * and therefore knows its height up front.
  *
  * The list always shows the current search results, and an empty query means
- * "every country", so tapping into the field never leaves a blank space where
- * the browsing list used to be -- it just narrows as the player types.
+ * "every country", so it simply narrows as the player types.
  */
-export const ControlPanel = forwardRef<TextInput, ControlPanelProps>(function ControlPanel(
-  {
-    query, onQueryChange, results, onSelect, onFocus, onBlur, onSubmit,
-    currentIso, visited, listHeight, reservedHeight, keyboardUp, hint, docked, bottomInset,
-  },
-  inputRef
-) {
+export function ControlPanel({
+  query, results, onSelect, onFocusSearch, onClearSearch, onKey, onBackspace, onSubmit,
+  onHideKeyboard, currentIso, visited, listHeight, reservedHeight, keyboardUp,
+  keyboardWidth, docked, bottomInset,
+}: ControlPanelProps) {
   const visitedSet = new Set(visited);
 
-  const list =
-    results.length === 0 ? (
-      <View style={styles.empty}>
-        <Text style={styles.emptyText}>No country matches “{query.trim()}”</Text>
-      </View>
-    ) : (
-      <FlatList
-        data={results as Country[]}
-        keyExtractor={(item) => item.iso2}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        initialNumToRender={12}
-        windowSize={7}
-        removeClippedSubviews
-        getItemLayout={(_, index) => ({
-          length: COUNTRY_ROW_HEIGHT,
-          offset: COUNTRY_ROW_HEIGHT * index,
-          index,
-        })}
-        contentContainerStyle={[styles.listContent, { paddingBottom: bottomInset + spacing.xs }]}
-        renderItem={({ item }) => (
-          <CountryRow
-            country={item}
-            onPress={onSelect}
-            isCurrent={item.iso2 === currentIso}
-            isVisited={visitedSet.has(item.iso2)}
-          />
-        )}
-      />
-    );
+  const list = (
+    <View style={{ height: listHeight }}>
+      {results.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>No country matches “{query.trim()}”</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={results as Country[]}
+          keyExtractor={(item) => item.iso2}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={12}
+          windowSize={7}
+          removeClippedSubviews
+          getItemLayout={(_, index) => ({
+            length: COUNTRY_ROW_HEIGHT,
+            offset: COUNTRY_ROW_HEIGHT * index,
+            index,
+          })}
+          contentContainerStyle={[styles.listContent, { paddingBottom: bottomInset + spacing.xs }]}
+          renderItem={({ item }) => (
+            <CountryRow
+              country={item}
+              onPress={onSelect}
+              isCurrent={item.iso2 === currentIso}
+              isVisited={visitedSet.has(item.iso2)}
+            />
+          )}
+        />
+      )}
+    </View>
+  );
 
   return (
     <View style={[styles.panel, docked ? styles.docked : styles.bottom]}>
       {!docked ? <View style={styles.grabber} /> : null}
 
       <View style={styles.searchWrap}>
-        <SearchField
-          ref={inputRef}
-          value={query}
-          onChangeText={onQueryChange}
-          onFocus={onFocus}
-          onBlur={onBlur}
-          onSubmit={onSubmit}
-          hint={keyboardUp ? hint : null}
-        />
+        <SearchField value={query} focused={keyboardUp} onPress={onFocusSearch} onClear={onClearSearch} />
       </View>
 
-      <View style={{ height: docked ? listHeight : reservedHeight }}>
-        {keyboardUp && !docked ? null : list}
+      <View style={{ height: reservedHeight }}>
+        {keyboardUp ? (
+          <OnScreenKeyboard
+            width={keyboardWidth}
+            suggestions={results.slice(0, 3)}
+            onKey={onKey}
+            onBackspace={onBackspace}
+            onSubmit={onSubmit}
+            onHide={onHideKeyboard}
+            onPickSuggestion={onSelect}
+          />
+        ) : (
+          list
+        )}
       </View>
     </View>
   );
-});
+}
 
 const styles = StyleSheet.create({
   panel: {

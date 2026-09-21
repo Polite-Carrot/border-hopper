@@ -130,6 +130,16 @@ rm -rf _expo && cp -R dist/. . && rm -rf dist
 touch .nojekyll && cp index.html 404.html
 ```
 
+## The keyboard
+
+The game draws its own keyboard instead of using the platform's, so that its
+height is known before it appears. The search field can then sit exactly on
+the keyboard's top edge, with the country list filling the space the keyboard
+will later occupy -- opening it swaps the list for the keys and moves nothing
+else. Typing offers the top three matches above the keys, and hardware
+keyboards work on the web for desktop players. See
+[ARCHITECTURE.md](ARCHITECTURE.md) for the trade-offs.
+
 ## Testing
 
 ```bash

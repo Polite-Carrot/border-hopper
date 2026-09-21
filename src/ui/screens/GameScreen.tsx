@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { applyMove, createGame, currentCountry, elapsedSeconds, moveCount, recordWrongGuess, toResult } from '../../core/game';
 import { bestMatch, searchCountries } from '../../core/search';
@@ -17,8 +17,9 @@ import { OffscreenTarget } from '../components/OffscreenTarget';
 import { RouteTrail } from '../components/RouteTrail';
 import { Toast } from '../components/Toast';
 import { COUNTRY_ROW_HEIGHT } from '../components/CountryRow';
+import { onScreenKeyboardHeight } from '../components/OnScreenKeyboard';
 import { ResultOverlay } from './ResultOverlay';
-import { useKeyboardMetrics } from '../hooks/useKeyboard';
+import { usePhysicalKeys } from '../hooks/usePhysicalKeys';
 import { useLayout } from '../hooks/useLayoutMode';
 import { haptic } from '../hooks/useHaptics';
 
@@ -45,9 +46,7 @@ export interface GameScreenProps {
 export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete }: GameScreenProps) {
   const layout = useLayout();
   const insets = useSafeAreaInsets();
-  const keyboard = useKeyboardMetrics(layout.height, layout.width < layout.height ? 'portrait' : 'landscape');
-  const keyboardUp = keyboard.height > 0;
-  const inputRef = useRef<TextInput>(null);
+  const [keyboardUp, setKeyboardUp] = useState(false);
 
   const [state, setState] = useState<GameState>(() => createGame(config));
   const [query, setQuery] = useState('');
@@ -66,35 +65,29 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
   // ---- layout ------------------------------------------------------------
   const topInset = insets.top + HUD_HEIGHT + TRAIL_HEIGHT + 18;
   const safeBottom = docked ? insets.bottom : Math.max(insets.bottom, 10);
+  const panelInnerWidth = docked ? layout.panelWidth : layout.width;
 
   /**
-   * Room set aside below the search field, sized to what the keyboard will
-   * cover. The country list lives there while the keyboard is closed and the
-   * keyboard takes it over when it opens, so the search field itself never
-   * moves. Capped so it cannot swallow the map on a short screen.
+   * Room set aside below the search field: exactly the height of the game's
+   * own keyboard. The country list lives there until the keyboard takes its
+   * place, so the search field never moves. Owning the keyboard is what makes
+   * this an exact number rather than a guess.
    */
-  const reserved = Math.min(keyboard.reserved, layout.height - topInset - SEARCH_BLOCK - GRABBER_BLOCK);
+  const reserved = Math.min(
+    onScreenKeyboardHeight(panelInnerWidth),
+    layout.height - topInset - SEARCH_BLOCK - GRABBER_BLOCK
+  );
 
-  /**
-   * Where the results go. Below the field normally; above it, and shorter,
-   * while the keyboard has the space below.
-   */
   const listHeight = useMemo(() => {
     if (docked) {
-      const available = layout.height - (SIDEBAR_TOP_PAD + SEARCH_BLOCK + safeBottom) - keyboard.height;
-      return Math.max(COUNTRY_ROW_HEIGHT * 3, available);
+      return Math.max(COUNTRY_ROW_HEIGHT * 3, layout.height - (SIDEBAR_TOP_PAD + SEARCH_BLOCK + safeBottom));
     }
-    // With the keyboard up the list is hidden behind it, so its height is
-    // whatever the keyboard actually covers -- which keeps the search field on
-    // the keyboard's edge exactly, not just approximately.
-    if (keyboardUp) return keyboard.height;
     return reserved;
-  }, [docked, keyboardUp, keyboard.height, layout.height, topInset, safeBottom, reserved]);
+  }, [docked, layout.height, safeBottom, reserved]);
 
   /**
-   * How much of the screen the panel occupies with the keyboard closed. The
-   * map is laid out against this and nothing else, so neither the keyboard
-   * opening nor the results narrowing while the player types moves the camera.
+   * How much of the screen the panel occupies. Identical whether the keyboard
+   * is up or not, so the map never resizes and the camera never moves.
    */
   const panelHeight = GRABBER_BLOCK + SEARCH_BLOCK + reserved;
 
@@ -169,7 +162,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
       setArrivalToken((token) => token + 1);
       // The camera is about to re-frame, so let go of any manual zoom.
       gestures.reset();
-      Keyboard.dismiss();
+      setKeyboardUp(false);
       haptic(result.won ? 'success' : 'light');
       play(result.won ? 'win' : 'move');
 
@@ -187,6 +180,17 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
     const match = bestMatch(query);
     if (match) handleSelect(match.iso2);
   }, [query, handleSelect]);
+
+  // Desktop players just type; there is no on-screen keyboard to open.
+  usePhysicalKeys(state.status === 'playing' && !showResult, {
+    onKey: (character) => setQuery((current) => current + character),
+    onBackspace: () => setQuery((current) => current.slice(0, -1)),
+    onSubmit: handleSubmit,
+    onEscape: () => {
+      setQuery('');
+      setKeyboardUp(false);
+    },
+  });
 
   const visited = state.route.slice(0, -1);
   const seconds = elapsedSeconds(state, now);
@@ -258,7 +262,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
       </View>
 
       <View
-        style={[styles.toastSlot, { bottom: (docked ? keyboard.height : panelHeight) + 16 }]}
+        style={[styles.toastSlot, { bottom: (docked ? 0 : panelHeight) + 16 }]}
         pointerEvents="none"
       >
         <Toast message={toast?.message ?? null} token={toast?.token ?? 0} />
@@ -270,32 +274,30 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
           // the foot of the panel lands flush against it.
           // The bottom panel stays put: the space below the search field is
           // already the keyboard's size, so the keyboard covers it exactly.
-          docked
-            ? [styles.sidebar, { width: layout.panelWidth, bottom: keyboard.height }]
-            : styles.bottomPanel,
+          docked ? [styles.sidebar, { width: layout.panelWidth }] : styles.bottomPanel,
           showResult && styles.hidden,
         ]}
         pointerEvents={showResult ? 'none' : 'auto'}
       >
         <ControlPanel
-          ref={inputRef}
           query={query}
-          onQueryChange={setQuery}
           results={results}
           onSelect={handleSelect}
-          onFocus={() => setToast(null)}
-          onBlur={() => undefined}
+          onFocusSearch={() => {
+            setToast(null);
+            setKeyboardUp(true);
+          }}
+          onClearSearch={() => setQuery('')}
+          onKey={(character) => setQuery((current) => current + character)}
+          onBackspace={() => setQuery((current) => current.slice(0, -1))}
           onSubmit={handleSubmit}
+          onHideKeyboard={() => setKeyboardUp(false)}
           currentIso={iso}
           visited={visited}
           listHeight={renderedListHeight}
           reservedHeight={reserved}
           keyboardUp={keyboardUp}
-          hint={
-            query.trim() && results[0]
-              ? { flag: results[0].flag, name: results[0].name, onPress: () => handleSelect(results[0].iso2) }
-              : null
-          }
+          keyboardWidth={panelInnerWidth}
           docked={docked}
           bottomInset={safeBottom}
         />
@@ -318,7 +320,7 @@ const styles = StyleSheet.create({
   trail: { marginTop: 10, height: TRAIL_HEIGHT, justifyContent: 'center' },
   toastSlot: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   bottomPanel: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  sidebar: { position: 'absolute', top: 0, right: 0 },
+  sidebar: { position: 'absolute', top: 0, right: 0, bottom: 0 },
   hidden: { opacity: 0 },
   recentre: {
     position: 'absolute',

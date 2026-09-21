@@ -1,81 +1,64 @@
-import { forwardRef } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius, spacing } from '../../theme';
 import { Icon } from './Icon';
 
 export interface SearchFieldProps {
   value: string;
-  onChangeText: (value: string) => void;
-  onFocus?: () => void;
-  onBlur?: () => void;
-  onSubmit?: () => void;
+  onPress: () => void;
+  onClear: () => void;
+  focused: boolean;
   placeholder?: string;
-  /**
-   * The country the go key would travel to, shown inside the field while the
-   * keyboard is hiding the list. Inline so the field keeps its height and
-   * nothing in the panel shifts.
-   */
-  hint?: { flag: string; name: string; onPress: () => void } | null;
 }
 
 /**
- * A plain TextInput, so the platform's own keyboard is the only keyboard.
- * `returnKeyType="go"` lets the player travel straight from the keyboard.
+ * The query display.
+ *
+ * Deliberately not a TextInput: a focused TextInput summons the platform
+ * keyboard, whose height the game cannot know in advance and which mobile
+ * browsers respond to by moving the viewport. The game brings its own
+ * keyboard, so this only has to render the text and a caret.
  */
-export const SearchField = forwardRef<TextInput, SearchFieldProps>(function SearchField(
-  { value, onChangeText, onFocus, onBlur, onSubmit, placeholder = 'Search country…', hint },
-  ref
-) {
+export function SearchField({ value, onPress, onClear, focused, placeholder = 'Search country…' }: SearchFieldProps) {
+  const caret = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!focused) return;
+    caret.setValue(1);
+    const blink = Animated.loop(
+      Animated.sequence([
+        Animated.timing(caret, { toValue: 0, duration: 450, delay: 350, easing: Easing.linear, useNativeDriver: true }),
+        Animated.timing(caret, { toValue: 1, duration: 450, delay: 100, easing: Easing.linear, useNativeDriver: true }),
+      ])
+    );
+    blink.start();
+    return () => blink.stop();
+  }, [focused, caret]);
+
   return (
-    <View style={styles.wrapper}>
-      <Icon name="search" size={18} color={colors.textMuted} />
-      <TextInput
-        ref={ref}
-        value={value}
-        onChangeText={onChangeText}
-        onFocus={onFocus}
-        onBlur={onBlur}
-        onSubmitEditing={onSubmit}
-        placeholder={placeholder}
-        placeholderTextColor={colors.textMuted}
-        style={styles.input}
-        autoCorrect={false}
-        autoCapitalize="none"
-        spellCheck={false}
-        returnKeyType="go"
-        blurOnSubmit={false}
-        accessibilityLabel="Search for a country"
-        selectionColor={colors.current}
-      />
-      {hint ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Travel to ${hint.name}`}
-          onPress={hint.onPress}
-          hitSlop={6}
-          style={({ pressed }) => [styles.hint, pressed && styles.hintPressed]}
-        >
-          <Text style={styles.hintFlag}>{hint.flag}</Text>
-          <Text style={styles.hintName} numberOfLines={1}>
-            {hint.name}
-          </Text>
-          <Text style={styles.hintKey}>↵</Text>
-        </Pressable>
-      ) : null}
+    <Pressable
+      accessibilityRole="search"
+      accessibilityLabel={value ? `Search: ${value}` : 'Search for a country'}
+      onPress={onPress}
+      style={[styles.wrapper, focused && styles.wrapperFocused]}
+    >
+      <Icon name="search" size={18} color={focused ? colors.current : colors.textMuted} />
+
+      <View style={styles.textRow}>
+        <Text style={[styles.text, !value && styles.placeholder]} numberOfLines={1}>
+          {value || placeholder}
+        </Text>
+        {focused ? <Animated.View style={[styles.caret, { opacity: caret }]} /> : null}
+      </View>
 
       {value.length > 0 ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Clear search"
-          onPress={() => onChangeText('')}
-          hitSlop={10}
-        >
+        <Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={onClear} hitSlop={10}>
           <Icon name="close" size={17} color={colors.textMuted} />
         </Pressable>
       ) : null}
-    </View>
+    </Pressable>
   );
-});
+}
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -89,28 +72,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.hairline,
   },
-  hint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    maxWidth: '52%',
-    paddingLeft: 9,
-    paddingRight: 8,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(61, 189, 248, 0.16)',
-  },
-  hintPressed: { opacity: 0.6 },
-  hintFlag: { fontSize: 13 },
-  hintName: { color: colors.current, fontFamily: fonts.body, fontSize: 13.5, fontWeight: '600', flexShrink: 1 },
-  hintKey: { color: colors.current, fontSize: 12, opacity: 0.7 },
-  input: {
-    flex: 1,
-    color: colors.text,
-    fontFamily: fonts.body,
-    fontSize: 16.5,
-    padding: 0,
-    // Removes the focus ring react-native-web adds to inputs.
-    outlineStyle: 'none',
-  } as never,
+  wrapperFocused: { borderColor: 'rgba(61, 189, 248, 0.5)' },
+  textRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  text: { color: colors.text, fontFamily: fonts.body, fontSize: 16.5, flexShrink: 1 },
+  placeholder: { color: colors.textMuted },
+  caret: { width: 2, height: 21, marginLeft: 2, borderRadius: 1, backgroundColor: colors.current },
 });
