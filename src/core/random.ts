@@ -24,7 +24,7 @@ export function seededRandom(seed: string): () => number {
 }
 
 /** Picks one item, with `weights[i]` proportional to the chance of item i. */
-export function weightedPick<T>(items: T[], weights: number[], rand: () => number): T {
+export function weightedPick<T>(items: readonly T[], weights: readonly number[], rand: () => number): T {
   let total = 0;
   for (const w of weights) total += w;
   let r = rand() * total;

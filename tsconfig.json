@@ -3,6 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
     "noUncheckedIndexedAccess": false,
     "jsx": "react-jsx"
   },

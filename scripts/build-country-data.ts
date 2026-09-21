@@ -45,6 +45,11 @@ const SIMPLIFY_WEIGHT = 0.004;
  * Every country always keeps its largest polygon, so nothing disappears.
  */
 const MIN_POLYGON_SHARE = 0.002;
+/**
+ * Share of a country's largest polygon that a second polygon must reach to
+ * count as part of its main landmass for camera framing.
+ */
+const MAIN_LANDMASS_SHARE = 0.25;
 /** Natural Earth 1 puts Antarctica in a distorted band; the game never uses it. */
 const EXCLUDED_NAMES = new Set(['Antarctica', 'Fr. S. Antarctic Lands', 'Heard I. and McDonald Is.']);
 
@@ -215,7 +220,9 @@ interface OutCountry {
   flag: string;
   aliases: string[];
   neighbours: string[];
+  /** Centre of the main landmass, in projected map units. */
   centroid: [number, number];
+  /** Bounding box of the main landmass: [minX, minY, maxX, maxY]. */
   bbox: [number, number, number, number];
   area: number;
 }
@@ -237,9 +244,22 @@ for (const owner of [...owners.values()].sort((a, b) => a.name.localeCompare(b.n
 
   if (!owner.playable || !owner.iso2) continue;
   const iso2 = owner.iso2;
-  const [x0, y0, x1, y1] = [...pathGen.bounds(shape)[0], ...pathGen.bounds(shape)[1]];
-  const geoCentre = geoCentroid(shape);
-  const projected = projection(geoCentre);
+  // Frame the country by its main landmass. France's polygons reach from
+  // Guadeloupe to Réunion, and framing all of them would show half the planet
+  // every time the player lands there.
+  const polys = shape.geometry.coordinates;
+  const polyAreas = polys.map((rings) => geoArea({ type: 'Polygon', coordinates: rings }));
+  const largestArea = Math.max(...polyAreas);
+  const mainland: Feature<MultiPolygon> = {
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'MultiPolygon',
+      coordinates: polys.filter((_, i) => polyAreas[i] >= largestArea * MAIN_LANDMASS_SHARE),
+    },
+  };
+  const [[x0, y0], [x1, y1]] = pathGen.bounds(mainland);
+  const projected = projection(geoCentroid(mainland));
   const aliasSet = new Set<string>(ALIASES[iso2] ?? []);
   const iso3 = countries.alpha2ToAlpha3(iso2) ?? iso2;
   aliasSet.add(iso3.toLowerCase());
