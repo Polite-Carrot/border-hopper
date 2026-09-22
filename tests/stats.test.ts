@@ -1,8 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   EMPTY_STATS, deriveStats, recordGameAbandoned, recordGameCompleted, recordGameStarted,
 } from '../src/core/stats';
-import { shareText } from '../src/core/share';
+import { GAME_URL, shareText } from '../src/core/share';
 import { formatDuration } from '../src/core/format';
 import type { GameResult } from '../src/core/types';
 import type { Stats as StatsType } from '../src/core/stats';
@@ -123,5 +124,32 @@ describe('formatting and sharing', () => {
     const text = shareText(result({ optimal: false, moves: 4 }));
     expect(text).toContain('Best possible: 2 moves');
     expect(text).not.toContain('Perfect route');
+  });
+
+  it('ends with somewhere to play, on its own line', () => {
+    for (const r of [
+      result(),
+      result({ mode: 'daily', dailyKey: '2026-09-21' }),
+      result({ mode: 'campaign', level: 7 }),
+      result({ optimal: false, moves: 4, wrongGuesses: 3 }),
+    ]) {
+      const lines = shareText(r).split('\n');
+      expect(lines[lines.length - 1]).toBe(GAME_URL);
+      expect(lines[lines.length - 2]).toBe('');
+    }
+  });
+
+  it('points at a link that will actually open', () => {
+    // A bare domain does not linkify everywhere, and a share nobody can click
+    // is the whole feature wasted.
+    expect(GAME_URL).toMatch(/^https:\/\//);
+    expect(GAME_URL).not.toMatch(/\/$/);
+  });
+
+  it('points at the domain the game is actually served from', () => {
+    // CNAME is what GitHub Pages publishes to. If someone changes the domain,
+    // every shared result would quietly point at the old one.
+    const cname = readFileSync(new URL('../CNAME', import.meta.url), 'utf8').trim();
+    expect(GAME_URL).toBe(`https://${cname}`);
   });
 });
