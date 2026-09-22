@@ -71,8 +71,13 @@ function score(entry: Indexed, query: string): number {
 /**
  * Case-insensitive, accent-insensitive, partial and alias-aware country search.
  * An empty query returns every country in alphabetical order.
+ *
+ * Nothing is dropped by default. There are under 200 countries and the list is
+ * windowed, so capping it buys nothing and costs the player the second half of
+ * the alphabet: a default of 60 used to end the browsable list at Gabon.
+ * `limit` remains for callers that genuinely want one, such as `bestMatch`.
  */
-export function searchCountries(rawQuery: string, limit = 60): Country[] {
+export function searchCountries(rawQuery: string, limit = COUNTRIES.length): Country[] {
   const query = normalise(rawQuery);
   if (!query) return COUNTRIES.slice(0, limit);
   const hits: { entry: Indexed; score: number }[] = [];

@@ -15,6 +15,13 @@ describe('country search', () => {
   it('returns every country for an empty query', () => {
     expect(searchCountries('', 500)).toHaveLength(COUNTRIES.length);
     expect(searchCountries('   ', 500)).toHaveLength(COUNTRIES.length);
+    // No argument means no argument. A default cap of 60 once ended the
+    // browsable list at Gabon, with two thirds of the alphabet unreachable.
+    expect(searchCountries('')).toHaveLength(COUNTRIES.length);
+    expect(searchCountries('').at(-1)?.name).toBe(COUNTRIES[COUNTRIES.length - 1].name);
+    for (const name of ['Gabon', 'Japan', 'Nigeria', 'Türkiye', 'Zimbabwe']) {
+      expect(searchCountries('').some((c) => c.name === name), name).toBe(true);
+    }
   });
 
   it('matches a partial prefix', () => {
