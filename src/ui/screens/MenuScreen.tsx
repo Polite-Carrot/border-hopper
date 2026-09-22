@@ -83,10 +83,8 @@ export function MenuScreen({
             icon="play"
             onPress={onCampaign}
           />
-          <View style={styles.row}>
-            <Button label="Random" icon="again" onPress={onRandom} style={styles.half} />
-            <Button label="Flight" icon="plane" onPress={onFlight} style={styles.half} />
-          </View>
+          <Button label="Flight mode" icon="plane" onPress={onFlight} />
+          <Button label="Random" icon="again" onPress={onRandom} />
           <Button
             label={dailyDone ? 'Daily challenge · done' : 'Daily challenge'}
             icon="calendar"

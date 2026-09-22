@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, radius, spacing } from '../../theme';
 import type { Settings } from '../../storage/storage';
 import { Button } from '../components/Button';
+import { DIFFICULTY_OPTIONS } from '../components/difficulty';
 import { ScreenHeader } from '../components/ScreenHeader';
 
 export interface SettingsScreenProps {
@@ -12,13 +13,6 @@ export interface SettingsScreenProps {
   onReset: () => void;
   onBack: () => void;
 }
-
-const DIFFICULTIES: { value: Settings['difficulty']; label: string; hint: string }[] = [
-  { value: 'mixed', label: 'Mixed', hint: 'A bit of everything' },
-  { value: 'easy', label: 'Easy', hint: '2 moves' },
-  { value: 'medium', label: 'Medium', hint: '3–4 moves' },
-  { value: 'hard', label: 'Hard', hint: '5–7 moves' },
-];
 
 export function SettingsScreen({ settings, onChange, onReset, onBack }: SettingsScreenProps) {
   const insets = useSafeAreaInsets();
@@ -36,11 +30,14 @@ export function SettingsScreen({ settings, onChange, onReset, onBack }: Settings
 
         <Text style={styles.section}>DIFFICULTY</Text>
         <View style={styles.card}>
-          {DIFFICULTIES.map((option) => (
+          {DIFFICULTY_OPTIONS.map((option) => (
             <Pressable
               key={option.value}
               accessibilityRole="radio"
-              accessibilityState={{ selected: settings.difficulty === option.value }}
+              // See DifficultyPicker: web needs `aria-checked`, native needs
+              // `accessibilityState`, so both are set.
+              accessibilityState={{ checked: settings.difficulty === option.value }}
+              aria-checked={settings.difficulty === option.value}
               onPress={() => onChange({ ...settings, difficulty: option.value })}
               style={({ pressed }) => [styles.option, pressed && styles.pressed]}
             >
