@@ -122,7 +122,12 @@ export function useMapGestures(
         translateY.setValue(0);
         return;
       }
-      const config = { duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true };
+      // JS driver, not native. These values drive an SVG group's props rather
+      // than a View's style, and the native driver cannot animate those: on
+      // web it warns and falls back, but on a device it throws. They are also
+      // written every frame by `apply` during a gesture, which the native
+      // driver forbids on a value it has taken ownership of.
+      const config = { duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: false };
       Animated.parallel([
         Animated.timing(scale, { ...config, toValue: 1 }),
         Animated.timing(translateX, { ...config, toValue: 0 }),
