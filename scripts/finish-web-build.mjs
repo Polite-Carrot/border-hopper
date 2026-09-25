@@ -43,9 +43,17 @@ const manifest = {
 writeFileSync(join(out, 'manifest.webmanifest'), `${JSON.stringify(manifest, null, 2)}\n`);
 
 const head = [
+  // Painted before a single line of JavaScript runs. Without it the browser
+  // shows its default white page until React mounts, which on a slow phone is
+  // a white flash directly in front of a black startup screen -- exactly the
+  // thing the startup screen exists to prevent. Black rather than the app's
+  // own background, so the first paint already matches the splash.
+  `<style>html,body,#root{background-color:#000;}</style>`,
   `<link rel="apple-touch-icon" href="${base}/icons/apple-touch-icon.png"/>`,
   `<link rel="manifest" href="${base}/manifest.webmanifest"/>`,
-  `<meta name="theme-color" content="#050A12"/>`,
+  // The browser's own chrome while the app loads, so it matches the splash
+  // rather than the menu that comes after it.
+  `<meta name="theme-color" content="#000000"/>`,
   `<meta name="apple-mobile-web-app-title" content="Border Hopper"/>`,
 ].join('\n    ');
 

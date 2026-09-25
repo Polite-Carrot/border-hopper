@@ -24,6 +24,7 @@ import { OnboardingOverlay } from './screens/OnboardingOverlay';
 import { DailyDoneScreen } from './screens/DailyDoneScreen';
 import { CampaignScreen } from './screens/CampaignScreen';
 import { RandomGamePicker, type RandomMode } from './screens/RandomGamePicker';
+import { BootScreen } from './screens/BootScreen';
 
 type Screen = 'menu' | 'game' | 'campaign' | 'stats' | 'settings' | 'daily-done';
 
@@ -42,6 +43,7 @@ export function BorderHopperApp() {
   /** Which mode the new-game sheet is open on, or null when it is closed. */
   const [picking, setPicking] = useState<RandomMode | null>(null);
   const [ready, setReady] = useState(false);
+  const [booting, setBooting] = useState(true);
 
   useEffect(() => {
     void (async () => {
@@ -61,6 +63,8 @@ export function BorderHopperApp() {
     setHapticsEnabled(settings.haptics);
     setSoundEnabled(settings.sound);
   }, [settings.haptics, settings.sound]);
+
+  const finishBoot = useCallback(() => setBooting(false), []);
 
   const persistStats = useCallback((next: Stats) => {
     setStats(next);
@@ -231,9 +235,9 @@ export function BorderHopperApp() {
           />
         )}
 
-        {ready && needsOnboarding ? <OnboardingOverlay onStart={finishOnboarding} /> : null}
+        {ready && !booting && needsOnboarding ? <OnboardingOverlay onStart={finishOnboarding} /> : null}
 
-        {ready && !needsOnboarding && picking && screen === 'menu' ? (
+        {ready && !booting && !needsOnboarding && picking && screen === 'menu' ? (
           <RandomGamePicker
             mode={picking}
             difficulty={settings.difficulty}
@@ -241,6 +245,8 @@ export function BorderHopperApp() {
             onCancel={() => setPicking(null)}
           />
         ) : null}
+
+        {booting ? <BootScreen onDone={finishBoot} reduceMotion={settings.reduceMotion} /> : null}
       </View>
     </SafeAreaProvider>
   );

@@ -44,7 +44,10 @@ const config: ExpoConfig = {
       {
         image: './assets/splash-icon.png',
         resizeMode: 'contain',
-        backgroundColor: '#050A12',
+        // Black, to match the startup screen that follows it rather than the
+        // menu that follows that. Otherwise launching the app on a phone
+        // changes background colour twice before anything is playable.
+        backgroundColor: '#000000',
         imageWidth: 220,
       },
     ],
