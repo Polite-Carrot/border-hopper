@@ -50,6 +50,16 @@ export interface Settings {
   sound: boolean;
   haptics: boolean;
   reduceMotion: boolean;
+  /**
+   * Consent, both off until the player turns them on, and both the only
+   * authority on the matter: anything that ever reports usage or asks for a
+   * personalised ad has to read these first.
+   *
+   * Nothing in this build does either yet. They are stored now so the answer
+   * is already recorded, and already "no", on the day something does.
+   */
+  analytics: boolean;
+  personalisedAds: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -57,6 +67,10 @@ export const DEFAULT_SETTINGS: Settings = {
   sound: false,
   haptics: true,
   reduceMotion: false,
+  // Off is the only safe default for consent, and the only honest one: a
+  // player who has never been asked has not agreed.
+  analytics: false,
+  personalisedAds: false,
 };
 
 export const loadSettings = (): Promise<Settings> => readJson<Settings>(KEYS.settings, DEFAULT_SETTINGS);

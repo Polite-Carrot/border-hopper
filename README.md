@@ -257,6 +257,23 @@ though it does in reality. And simplifying polygons for performance means very
 short borders can be approximate — but every border in the graph was derived
 before simplification, so what is drawn and what is playable always agree.
 
+## Privacy
+
+Two switches in Settings, **Send usage data** and **Personalised ads**, both
+off until a player turns them on. Nothing in this build reports usage or shows
+an ad, so today they record an answer rather than change behaviour — but they
+are the only authority on the question, and anything added later has to read
+them first.
+
+Off is the default because a player who has never been asked has not agreed,
+and because a player upgrading from a build without these switches has not
+been asked either. Loading settings merges the defaults under whatever is
+stored, so a missing answer reads as no rather than undefined; there is a test
+for exactly that.
+
+Everything else — statistics, settings, campaign progress, daily results — is
+stored on the device. There is no account and no backend.
+
 ## Game modes
 
 **Campaign** — 250 fixed levels that everyone climbs in the same order,

@@ -14,14 +14,9 @@
 import { writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import countries from 'i18n-iso-countries';
-import enLocale from 'i18n-iso-countries/langs/en.json' with { type: 'json' };
-import populations from 'country-json/src/country-by-population.json' with { type: 'json' };
 import { COUNTRIES, getCountry } from '../src/core/world.ts';
 import { distancesFrom, shortestMoveCount } from '../src/core/graph.ts';
 import { seededRandom, weightedPick } from '../src/core/random.ts';
-
-countries.registerLocale(enLocale as never);
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(HERE, '../src/data/campaign.generated.json');
@@ -32,57 +27,18 @@ const FIRST_LEVEL = { start: 'CA', destination: 'MX' };
 /** How many countries the very first levels may draw on. */
 const OPENING_POOL = 28;
 
-// ---------------------------------------------------------------------------
-// Population, joined on to ISO codes by name.
-// ---------------------------------------------------------------------------
-// The dataset spells countries its own way ("Fiji Islands", "Holy See
-// (Vatican City State)"), so this resolves against the game's own names and
-// the aliases the search already knows, rather than hoping the spellings line
-// up. `the` is dropped so "The Democratic Republic of Congo" resolves too.
-// The runtime search folds accents from a lookup table, for engines without
-// String.normalize. This runs in Node, so it can just use it.
-const strip = (value: string) =>
-  value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-    .replace(/^the /, '');
-
-const byExactName = new Map<string, string>();
-for (const country of COUNTRIES) {
-  byExactName.set(strip(country.name), country.iso2);
-  for (const alias of country.aliases) byExactName.set(strip(alias), country.iso2);
-}
-
-function resolveIso(rawName: string): string | null {
-  const query = strip(rawName);
-  const exact = byExactName.get(query);
-  if (exact) return exact;
-  // "Fiji Islands" -> "fiji", "Micronesia, Federated States of" -> "micronesia"
-  for (const [known, iso2] of byExactName) {
-    if (known.length >= 4 && query.startsWith(`${known} `)) return iso2;
-  }
-  return null;
-}
-
-const populationByIso = new Map<string, number>();
-for (const row of populations as { country: string; population: number | null }[]) {
-  if (!row.population) continue;
-  const iso2 = resolveIso(row.country);
-  if (iso2 && !populationByIso.has(iso2)) populationByIso.set(iso2, row.population);
-}
-
-const missing = COUNTRIES.filter((c) => !populationByIso.has(c.iso2));
+// Population comes from the country data, which joins it once at build time
+// (see `scripts/build-country-data.ts`). This script used to repeat that join
+// against the same source, which is one more place for it to break quietly.
+const missing = COUNTRIES.filter((c) => !c.population);
 if (missing.length > 0) {
   console.warn(`no population for ${missing.length}: ${missing.map((c) => `${c.iso2} ${c.name}`).join(', ')}`);
 }
-// Population is most of what makes a country recognisable here. If the join
-// breaks, the ladder quietly becomes "sorted by land area" instead -- so fail
+// Population is most of what makes a country recognisable here. If it is
+// absent the ladder quietly becomes "sorted by land area" instead -- so fail
 // rather than ship that.
 if (missing.length > 3) {
-  throw new Error(`population joined for only ${COUNTRIES.length - missing.length}/${COUNTRIES.length} countries`);
+  throw new Error(`population present for only ${COUNTRIES.length - missing.length}/${COUNTRIES.length} countries`);
 }
 
 // ---------------------------------------------------------------------------
@@ -90,7 +46,7 @@ if (missing.length > 3) {
 // ---------------------------------------------------------------------------
 const normalise = (value: number, min: number, max: number) => (max === min ? 0.5 : (value - min) / (max - min));
 
-const logPopulations = COUNTRIES.map((c) => Math.log10(Math.max(1e4, populationByIso.get(c.iso2) ?? 1e5)));
+const logPopulations = COUNTRIES.map((c) => Math.log10(Math.max(1e4, c.population || 1e5)));
 const logAreas = COUNTRIES.map((c) => Math.log10(Math.max(0.01, c.area)));
 const degrees = COUNTRIES.map((c) => c.neighbours.length);
 

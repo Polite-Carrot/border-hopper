@@ -74,7 +74,27 @@ export function SettingsScreen({ settings, onChange, onReset, onBack }: Settings
           />
         </View>
 
-        <Text style={styles.section}>DATA</Text>
+        <Text style={styles.section}>PRIVACY &amp; DATA</Text>
+        <View style={styles.card}>
+          <Row
+            label="Send usage data"
+            hint="Which countries people get stuck on, so we can fix the levels that are too hard."
+            value={settings.analytics}
+            onChange={(analytics) => onChange({ ...settings, analytics })}
+          />
+          <Row
+            label="Personalised ads"
+            hint="Ads matched to your interests. Left off, ads still appear but are generic."
+            value={settings.personalisedAds}
+            onChange={(personalisedAds) => onChange({ ...settings, personalisedAds })}
+          />
+        </View>
+        <Text style={styles.note}>
+          This build has no ads and sends nothing anywhere. Both switches are here so your
+          answer is already recorded, and already no, if that ever changes.
+        </Text>
+
+        <Text style={styles.section}>RESET</Text>
         <Button
           label={confirmingReset ? 'Tap again to erase everything' : 'Reset statistics'}
           onPress={() => {
@@ -87,7 +107,8 @@ export function SettingsScreen({ settings, onChange, onReset, onBack }: Settings
           }}
         />
         <Text style={styles.note}>
-          Everything is stored on this device. There is no account and nothing is uploaded.
+          Your statistics, settings and campaign progress are stored on this device. There is
+          no account.
         </Text>
       </ScrollView>
     </View>
