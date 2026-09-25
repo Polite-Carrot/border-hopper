@@ -23,7 +23,7 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { OnboardingOverlay } from './screens/OnboardingOverlay';
 import { DailyDoneScreen } from './screens/DailyDoneScreen';
 import { CampaignScreen } from './screens/CampaignScreen';
-import { DifficultyPicker } from './screens/DifficultyPicker';
+import { RandomGamePicker, type RandomMode } from './screens/RandomGamePicker';
 
 type Screen = 'menu' | 'game' | 'campaign' | 'stats' | 'settings' | 'daily-done';
 
@@ -39,7 +39,8 @@ export function BorderHopperApp() {
   const [dailyResults, setDailyResults] = useState<DailyResults>({});
   const [campaign, setCampaign] = useState<CampaignProgress>({});
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
-  const [pickingDifficulty, setPickingDifficulty] = useState(false);
+  /** Which mode the new-game sheet is open on, or null when it is closed. */
+  const [picking, setPicking] = useState<RandomMode | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -81,15 +82,15 @@ export function BorderHopperApp() {
   );
 
   /**
-   * Starts a random game at an explicitly chosen difficulty, and remembers the
-   * choice. The picker and the Settings screen are the same setting seen from
-   * two places, rather than two that can disagree.
+   * Starts a one-off game in an explicitly chosen mode and difficulty, and
+   * remembers the difficulty. The sheet and the Settings screen are the same
+   * setting seen from two places, rather than two that can disagree.
    */
   const startRandom = useCallback(
-    (choice: Settings['difficulty']) => {
+    (mode: RandomMode, choice: Settings['difficulty']) => {
       if (choice !== settings.difficulty) updateSettings({ ...settings, difficulty: choice });
-      setPickingDifficulty(false);
-      setConfig(generateGame({ difficulty: choice === 'mixed' ? undefined : choice }));
+      setPicking(null);
+      setConfig(generateGame({ mode, difficulty: choice === 'mixed' ? undefined : choice }));
       setScreen('game');
       persistStats(recordGameStarted(stats));
     },
@@ -97,20 +98,18 @@ export function BorderHopperApp() {
   );
 
   /**
-   * A random game at whatever difficulty is already saved -- what "New game"
-   * after a random one means, since the player has just chosen. Deliberately
-   * takes no arguments so it is safe to hand straight to a press handler.
+   * Another game on the same terms as the one just finished -- what "New game"
+   * means, since the player chose those terms on the way in and should not
+   * have to choose again. Both take no arguments, so they are safe to hand
+   * straight to a press handler.
    */
   const startClassic = useCallback(() => {
-    startRandom(settings.difficulty);
+    startRandom('classic', settings.difficulty);
   }, [startRandom, settings.difficulty]);
 
   const startFlight = useCallback(() => {
-    const difficulty = settings.difficulty === 'mixed' ? undefined : settings.difficulty;
-    setConfig(generateGame({ mode: 'flight', difficulty }));
-    setScreen('game');
-    persistStats(recordGameStarted(stats));
-  }, [settings.difficulty, stats, persistStats]);
+    startRandom('flight', settings.difficulty);
+  }, [startRandom, settings.difficulty]);
 
   const startDaily = useCallback(() => {
     const key = dateKey();
@@ -219,8 +218,8 @@ export function BorderHopperApp() {
         ) : (
           <MenuScreen
             onCampaign={() => setScreen('campaign')}
-            onRandom={() => setPickingDifficulty(true)}
-            onFlight={startFlight}
+            onRandom={() => setPicking('classic')}
+            onFlight={() => setPicking('flight')}
             onDaily={startDaily}
             onStats={() => setScreen('stats')}
             onSettings={() => setScreen('settings')}
@@ -234,11 +233,12 @@ export function BorderHopperApp() {
 
         {ready && needsOnboarding ? <OnboardingOverlay onStart={finishOnboarding} /> : null}
 
-        {ready && !needsOnboarding && pickingDifficulty && screen === 'menu' ? (
-          <DifficultyPicker
-            current={settings.difficulty}
-            onPick={startRandom}
-            onCancel={() => setPickingDifficulty(false)}
+        {ready && !needsOnboarding && picking && screen === 'menu' ? (
+          <RandomGamePicker
+            mode={picking}
+            difficulty={settings.difficulty}
+            onStart={startRandom}
+            onCancel={() => setPicking(null)}
           />
         ) : null}
       </View>

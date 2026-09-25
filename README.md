@@ -273,10 +273,21 @@ ranking and the pool widens as the ladder climbs. The ladder is built at build
 time by `npm run build:campaign` into `src/data/campaign.generated.json`, so it
 never shifts under a player mid-climb.
 
-**Random** — a one-off game at the difficulty set in Settings.
+**Random** and **Flight mode** — both open the same sheet, differing only in
+which mode it starts on: they are the same game with a different rule, and two
+sheets that drifted apart would be worse than one. Pick how you travel, pick
+how far, and go. The difficulty bands shown change with the mode, because they
+genuinely differ — a hard walk is 5–7 moves and a hard flight is 4–5.
 
-**Flight** — the same game with a flight network on top of the land borders,
-which opens up every island the land rules shut out. The network is in two
+The choice is remembered as the saved difficulty, so the sheet and the
+Settings screen are one setting seen from two places. "New game" after a
+finished game keeps the same mode and difficulty rather than asking again.
+
+**How flight mode works** — a flight network on top of the land borders, which
+opens up every island the land rules shut out. The rule is not guessable, so
+the sheet explains it before you start: every country has a departures board
+showing exactly where you can fly, and it is neither "anywhere" nor "only the
+nearest place". The network is in two
 parts, because either one alone is wrong.
 
 *Sea crossings* are measured between real coastlines, not invented: the United
