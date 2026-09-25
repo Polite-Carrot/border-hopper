@@ -259,8 +259,15 @@ before simplification, so what is drawn and what is playable always agree.
 
 ## Privacy
 
-Two switches in Settings, **Send usage data** and **Personalised ads**, both
-off until a player turns them on. Nothing in this build reports usage or shows
+**Privacy & data** is a screen of its own, reached from a button in Settings
+rather than sat among the game toggles: consent is the one thing in there
+somebody might come looking for deliberately, months later and in a hurry, so
+it gets its own door. Settings shows a one-line summary underneath the button
+— "Nothing is being shared" or "Some sharing is switched on" — so the state is
+readable without opening it.
+
+It holds two switches, **Send usage data** and **Personalised ads**, both off
+until a player turns them on. Nothing in this build reports usage or shows
 an ad, so today they record an answer rather than change behaviour — but they
 are the only authority on the question, and anything added later has to read
 them first.

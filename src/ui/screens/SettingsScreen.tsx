@@ -1,20 +1,23 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, radius, spacing } from '../../theme';
 import type { Settings } from '../../storage/storage';
 import { Button } from '../components/Button';
 import { DIFFICULTY_OPTIONS } from '../components/difficulty';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { SettingRow } from '../components/SettingRow';
 
 export interface SettingsScreenProps {
   settings: Settings;
   onChange: (settings: Settings) => void;
   onReset: () => void;
   onBack: () => void;
+  /** Opens Privacy & data, which is a screen of its own. */
+  onPrivacy: () => void;
 }
 
-export function SettingsScreen({ settings, onChange, onReset, onBack }: SettingsScreenProps) {
+export function SettingsScreen({ settings, onChange, onReset, onBack, onPrivacy }: SettingsScreenProps) {
   const insets = useSafeAreaInsets();
   const [confirmingReset, setConfirmingReset] = useState(false);
 
@@ -54,19 +57,19 @@ export function SettingsScreen({ settings, onChange, onReset, onBack }: Settings
 
         <Text style={styles.section}>GAME</Text>
         <View style={styles.card}>
-          <Row
+          <SettingRow
             label="Haptics"
             hint="Vibrate on moves and mistakes"
             value={settings.haptics}
             onChange={(haptics) => onChange({ ...settings, haptics })}
           />
-          <Row
+          <SettingRow
             label="Sound"
             hint="No sounds ship with this build yet"
             value={settings.sound}
             onChange={(sound) => onChange({ ...settings, sound })}
           />
-          <Row
+          <SettingRow
             label="Reduce motion"
             hint="Skip the camera travel animation"
             value={settings.reduceMotion}
@@ -75,23 +78,11 @@ export function SettingsScreen({ settings, onChange, onReset, onBack }: Settings
         </View>
 
         <Text style={styles.section}>PRIVACY &amp; DATA</Text>
-        <View style={styles.card}>
-          <Row
-            label="Send usage data"
-            hint="Which countries people get stuck on, so we can fix the levels that are too hard."
-            value={settings.analytics}
-            onChange={(analytics) => onChange({ ...settings, analytics })}
-          />
-          <Row
-            label="Personalised ads"
-            hint="Ads matched to your interests. Left off, ads still appear but are generic."
-            value={settings.personalisedAds}
-            onChange={(personalisedAds) => onChange({ ...settings, personalisedAds })}
-          />
-        </View>
+        <Button label="Usage data and ads" icon="settings" onPress={onPrivacy} />
         <Text style={styles.note}>
-          This build has no ads and sends nothing anywhere. Both switches are here so your
-          answer is already recorded, and already no, if that ever changes.
+          {settings.analytics || settings.personalisedAds
+            ? 'Some sharing is switched on.'
+            : 'Nothing is being shared.'}
         </Text>
 
         <Text style={styles.section}>RESET</Text>
@@ -111,31 +102,6 @@ export function SettingsScreen({ settings, onChange, onReset, onBack }: Settings
           no account.
         </Text>
       </ScrollView>
-    </View>
-  );
-}
-
-interface RowProps {
-  label: string;
-  hint: string;
-  value: boolean;
-  onChange: (value: boolean) => void;
-}
-
-function Row({ label, hint, value, onChange }: RowProps) {
-  return (
-    <View style={styles.option}>
-      <View style={styles.optionText}>
-        <Text style={styles.optionLabel}>{label}</Text>
-        <Text style={styles.optionHint}>{hint}</Text>
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        accessibilityLabel={label}
-        trackColor={{ false: 'rgba(120,160,205,0.2)', true: 'rgba(61,189,248,0.5)' }}
-        thumbColor={value ? colors.current : '#8098B4'}
-      />
     </View>
   );
 }

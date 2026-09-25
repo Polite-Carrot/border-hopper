@@ -24,13 +24,14 @@ import { OnboardingOverlay } from './screens/OnboardingOverlay';
 import { DailyDoneScreen } from './screens/DailyDoneScreen';
 import { CampaignScreen } from './screens/CampaignScreen';
 import { RandomGamePicker, type RandomMode } from './screens/RandomGamePicker';
+import { PrivacyScreen } from './screens/PrivacyScreen';
 import { BootScreen } from './screens/BootScreen';
 
-type Screen = 'menu' | 'game' | 'campaign' | 'stats' | 'settings' | 'daily-done';
+type Screen = 'menu' | 'game' | 'campaign' | 'stats' | 'settings' | 'privacy' | 'daily-done';
 
 /**
  * The whole app. Screens are a single piece of state rather than a navigation
- * library: there are five of them and none of them nest.
+ * library: there are seven of them and none of them nest.
  */
 export function BorderHopperApp() {
   const [screen, setScreen] = useState<Screen>('menu');
@@ -211,6 +212,14 @@ export function BorderHopperApp() {
               setCampaign({});
             }}
             onBack={() => setScreen('menu')}
+            onPrivacy={() => setScreen('privacy')}
+          />
+        ) : screen === 'privacy' ? (
+          <PrivacyScreen
+            settings={settings}
+            onChange={updateSettings}
+            // Back to Settings, which is where it was opened from.
+            onBack={() => setScreen('settings')}
           />
         ) : screen === 'daily-done' ? (
           <DailyDoneScreen
