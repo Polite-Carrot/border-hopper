@@ -20,7 +20,8 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
   },
 }));
 
-const { DEFAULT_SETTINGS, loadSettings, saveSettings } = await import('../src/storage/storage');
+const { DEFAULT_SETTINGS, loadConsentAsked, loadSettings, saveConsentAsked, saveSettings } =
+  await import('../src/storage/storage');
 
 const SETTINGS_KEY = 'borderbound:settings:v1';
 
@@ -63,6 +64,16 @@ describe('privacy settings', () => {
     const after = await loadSettings();
     expect(after.analytics).toBe(false);
     expect(after.personalisedAds).toBe(true);
+  });
+
+  it('remembers that the question has been asked, separately from the intro', async () => {
+    expect(await loadConsentAsked()).toBe(false);
+    await saveConsentAsked();
+    expect(await loadConsentAsked()).toBe(true);
+    // The intro flag is a different question and must not answer this one.
+    store.set('borderbound:onboarded:v1', '1');
+    store.delete('borderbound:consent-asked:v1');
+    expect(await loadConsentAsked()).toBe(false);
   });
 
   it('falls back to no consent when the stored settings are corrupt', async () => {

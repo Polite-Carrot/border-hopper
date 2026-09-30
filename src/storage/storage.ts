@@ -16,6 +16,7 @@ const KEYS = {
   dailyResults: 'borderbound:daily:v1',
   settings: 'borderbound:settings:v1',
   onboarded: 'borderbound:onboarded:v1',
+  consentAsked: 'borderbound:consent-asked:v1',
   campaign: 'borderbound:campaign:v1',
 } as const;
 
@@ -75,6 +76,29 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export const loadSettings = (): Promise<Settings> => readJson<Settings>(KEYS.settings, DEFAULT_SETTINGS);
 export const saveSettings = (settings: Settings): Promise<void> => writeJson(KEYS.settings, settings);
+
+/**
+ * Whether the player has been shown the consent card. Separate from
+ * `onboarded` because they answer different questions: one is "have they been
+ * taught the game", the other is "have they been asked". Sharing a key would
+ * mean a later change to the intro silently re-asked for consent, or worse,
+ * that adding the card left existing players never asked at all.
+ */
+export async function loadConsentAsked(): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(KEYS.consentAsked)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export async function saveConsentAsked(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(KEYS.consentAsked, '1');
+  } catch {
+    // Worst case the card comes back next launch, with the answer unchanged.
+  }
+}
 
 export async function loadOnboarded(): Promise<boolean> {
   try {

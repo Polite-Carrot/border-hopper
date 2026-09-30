@@ -10,7 +10,8 @@ import { EMPTY_STATS, recordGameAbandoned, recordGameCompleted, recordGameStarte
 import type { GameConfig, GameResult } from '../core/types';
 import {
   DEFAULT_SETTINGS, loadCampaign, loadDailyResults, loadOnboarded, loadSettings, loadStats,
-  resetEverything, saveCampaign, saveDailyResults, saveOnboarded, saveSettings, saveStats,
+  loadConsentAsked, resetEverything, saveCampaign, saveConsentAsked, saveDailyResults,
+  saveOnboarded, saveSettings, saveStats,
   type DailyResults, type Settings,
 } from '../storage/storage';
 import { setSoundEnabled } from '../audio/sounds';
@@ -26,6 +27,7 @@ import { DailyDoneScreen } from './screens/DailyDoneScreen';
 import { CampaignScreen } from './screens/CampaignScreen';
 import { RandomGamePicker, type RandomMode } from './screens/RandomGamePicker';
 import { PrivacyScreen } from './screens/PrivacyScreen';
+import { ConsentPrompt } from './screens/ConsentPrompt';
 import { BootScreen } from './screens/BootScreen';
 
 type Screen = 'menu' | 'game' | 'campaign' | 'stats' | 'settings' | 'privacy' | 'daily-done';
@@ -42,6 +44,7 @@ export function BorderHopperApp() {
   const [dailyResults, setDailyResults] = useState<DailyResults>({});
   const [campaign, setCampaign] = useState<CampaignProgress>({});
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [needsConsent, setNeedsConsent] = useState(false);
   /** Which mode the new-game sheet is open on, or null when it is closed. */
   const [picking, setPicking] = useState<RandomMode | null>(null);
   const [ready, setReady] = useState(false);
@@ -49,14 +52,17 @@ export function BorderHopperApp() {
 
   useEffect(() => {
     void (async () => {
-      const [savedStats, savedSettings, savedDaily, savedCampaign, onboarded] = await Promise.all([
-        loadStats(), loadSettings(), loadDailyResults(), loadCampaign(), loadOnboarded(),
-      ]);
+      const [savedStats, savedSettings, savedDaily, savedCampaign, onboarded, consentAsked] =
+        await Promise.all([
+          loadStats(), loadSettings(), loadDailyResults(), loadCampaign(), loadOnboarded(),
+          loadConsentAsked(),
+        ]);
       setStats(savedStats);
       setSettings(savedSettings);
       setDailyResults(savedDaily);
       setCampaign(savedCampaign);
       setNeedsOnboarding(!onboarded);
+      setNeedsConsent(!consentAsked);
       setReady(true);
     })();
   }, []);
@@ -200,6 +206,11 @@ export function BorderHopperApp() {
     void saveOnboarded();
   }, []);
 
+  const finishConsent = useCallback(() => {
+    setNeedsConsent(false);
+    void saveConsentAsked();
+  }, []);
+
   /**
    * Settings changes, but only the two that are consent. Recording which
    * switches people turn back off is the only honest measure of whether the
@@ -272,6 +283,9 @@ export function BorderHopperApp() {
               setSettings(DEFAULT_SETTINGS);
               setDailyResults({});
               setCampaign({});
+              // Erasing everything includes the answer: the card comes back
+              // rather than a stale yes surviving a reset.
+              setNeedsConsent(true);
             }}
             onBack={() => setScreen('menu')}
             onPrivacy={() => setScreen('privacy')}
@@ -308,7 +322,16 @@ export function BorderHopperApp() {
 
         {ready && !booting && needsOnboarding ? <OnboardingOverlay onStart={finishOnboarding} /> : null}
 
-        {ready && !booting && !needsOnboarding && picking && screen === 'menu' ? (
+        {/*
+          After the intro, not before it: the first thing a stranger sees
+          should be what the game is, not a question about data. Both still
+          come before any game starts, which is what consent requires.
+        */}
+        {ready && !booting && !needsOnboarding && needsConsent ? (
+          <ConsentPrompt settings={settings} onChange={changeSettings} onContinue={finishConsent} />
+        ) : null}
+
+        {ready && !booting && !needsOnboarding && !needsConsent && picking && screen === 'menu' ? (
           <RandomGamePicker
             mode={picking}
             difficulty={settings.difficulty}

@@ -269,6 +269,14 @@ readable without opening it.
 It holds two switches, **Send usage data** and **Personalised ads**, both off
 until a player turns them on.
 
+A first run asks once, on a card after the how-it-works intro: usage data
+only, off, with Continue leaving it off. Personalised ads are not asked there
+— there are no ads to encounter yet, and one question is the most a first run
+can carry before consent becomes a form people tap through, which is not
+consent. Whether the question has been asked is stored separately from whether
+the intro has been seen, so changing one never silently re-asks or skips the
+other.
+
 ### What "send usage data" actually sends
 
 Nine events, defined in `src/core/analytics.ts`, none of which leave unless
