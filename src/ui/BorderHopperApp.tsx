@@ -14,6 +14,7 @@ import {
   type DailyResults, type Settings,
 } from '../storage/storage';
 import { setSoundEnabled } from '../audio/sounds';
+import { setAnalyticsEnabled, track } from '../core/analytics';
 import { colors } from '../theme';
 import { setHapticsEnabled } from './hooks/useHaptics';
 import { GameScreen } from './screens/GameScreen';
@@ -63,7 +64,26 @@ export function BorderHopperApp() {
   useEffect(() => {
     setHapticsEnabled(settings.haptics);
     setSoundEnabled(settings.sound);
-  }, [settings.haptics, settings.sound]);
+    // The player's own switch is the only thing that turns collection on.
+    setAnalyticsEnabled(settings.analytics);
+  }, [settings.haptics, settings.sound, settings.analytics]);
+
+  /**
+   * One game_start per game, keyed on the config itself. Every way into a game
+   * -- campaign, daily, either sheet mode, "new game" -- ends with a fresh
+   * config object, so this is the one place that catches all of them.
+   */
+  useEffect(() => {
+    if (!config) return;
+    track('game_start', {
+      mode: config.mode,
+      difficulty: config.difficulty,
+      optimal_moves: config.optimalMoves,
+      level: config.level,
+      start: config.start,
+      destination: config.destination,
+    });
+  }, [config]);
 
   const finishBoot = useCallback(() => setBooting(false), []);
 
@@ -130,10 +150,30 @@ export function BorderHopperApp() {
   const handleComplete = useCallback(
     (result: GameResult) => {
       persistStats(recordGameCompleted(stats, result));
+      track('game_complete', {
+        mode: result.mode,
+        difficulty: result.difficulty,
+        level: result.level,
+        moves: result.moves,
+        optimal_moves: result.optimalMoves,
+        // Never negative: the optimal route is the floor.
+        over_par: Math.max(0, result.moves - result.optimalMoves),
+        seconds: result.seconds,
+        wrong_guesses: result.wrongGuesses,
+        optimal: result.optimal,
+      });
       if (result.mode === 'campaign') {
         const next = recordLevel(campaign, result);
         setCampaign(next);
         void saveCampaign(next);
+        // The 250th level, fired once, the moment the last gap closes.
+        if (nextLevel(campaign) !== null && nextLevel(next) === null) {
+          const levels = Object.values(next);
+          track('campaign_complete', {
+            seconds_total: levels.reduce((total, level) => total + level.seconds, 0),
+            perfect_levels: levels.filter((level) => level.optimal).length,
+          });
+        }
       }
       if (result.mode === 'daily' && result.dailyKey) {
         const next = { ...dailyResults, [result.dailyKey]: result };
@@ -156,8 +196,28 @@ export function BorderHopperApp() {
 
   const finishOnboarding = useCallback(() => {
     setNeedsOnboarding(false);
+    track('onboarding_complete', {});
     void saveOnboarded();
   }, []);
+
+  /**
+   * Settings changes, but only the two that are consent. Recording which
+   * switches people turn back off is the only honest measure of whether the
+   * asking is reasonable -- and it is itself consented, so a player who has
+   * said no is not reported as having said no.
+   */
+  const changeSettings = useCallback(
+    (next: Settings) => {
+      if (next.analytics !== settings.analytics) {
+        track('consent_changed', { setting: 'analytics', enabled: next.analytics });
+      }
+      if (next.personalisedAds !== settings.personalisedAds) {
+        track('consent_changed', { setting: 'personalised_ads', enabled: next.personalisedAds });
+      }
+      updateSettings(next);
+    },
+    [settings, updateSettings]
+  );
 
   const todayKey = dateKey();
   const campaignNext = nextLevel(campaign);
@@ -180,7 +240,9 @@ export function BorderHopperApp() {
             key={`${config.mode}:${config.start}:${config.destination}:${config.dailyKey ?? ''}`}
             config={config}
             reduceMotion={settings.reduceMotion}
-            onExit={() => leaveGame(true)}
+            // The screen knows whether the game was finished; it is the only
+            // thing that does.
+            onExit={leaveGame}
             onNewGame={
               config.mode === 'campaign'
                 ? advanceCampaign
@@ -203,7 +265,7 @@ export function BorderHopperApp() {
         ) : screen === 'settings' ? (
           <SettingsScreen
             settings={settings}
-            onChange={updateSettings}
+            onChange={changeSettings}
             onReset={() => {
               void resetEverything();
               setStats(EMPTY_STATS);
@@ -217,7 +279,7 @@ export function BorderHopperApp() {
         ) : screen === 'privacy' ? (
           <PrivacyScreen
             settings={settings}
-            onChange={updateSettings}
+            onChange={changeSettings}
             // Back to Settings, which is where it was opened from.
             onBack={() => setScreen('settings')}
           />

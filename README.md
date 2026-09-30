@@ -267,7 +267,35 @@ it gets its own door. Settings shows a one-line summary underneath the button
 readable without opening it.
 
 It holds two switches, **Send usage data** and **Personalised ads**, both off
-until a player turns them on. Nothing in this build reports usage or shows
+until a player turns them on.
+
+### What "send usage data" actually sends
+
+Nine events, defined in `src/core/analytics.ts`, none of which leave unless
+the switch is on:
+
+| Event | When | Why it earns its place |
+| --- | --- | --- |
+| `game_start` | a game begins | the denominator for everything else |
+| `game_complete` | a game is won | par, time, wrong turns |
+| `game_abandoned` | a game is left unfinished | where people give up, and in which country |
+| `wrong_guess` | a guess the rules refused | which borders people believe in that do not exist |
+| `flight_taken` | a flight rather than a border | whether flight mode's mechanic gets used |
+| `campaign_complete` | the 250th level | how many finish at all |
+| `result_shared` | a result is shared | which modes people show off |
+| `onboarding_complete` | the how-it-works card is dismissed | how many never start |
+| `consent_changed` | a privacy switch moves | whether the asking is reasonable |
+
+`wrong_guess` is the one the privacy screen promises by name: enough of them
+together say which countries people get stuck on.
+
+Events raised while consent is off are **dropped, not buffered** — holding
+them back for a later yes would be collecting first and asking afterwards.
+`track` also swallows everything a backend can throw: an analytics failure
+must never cost somebody their game.
+
+There is no backend yet. `setAnalyticsSink` takes one when there is, and no
+call site changes. Nothing in this build reports usage or shows
 an ad, so today they record an answer rather than change behaviour — but they
 are the only authority on the question, and anything added later has to read
 them first.

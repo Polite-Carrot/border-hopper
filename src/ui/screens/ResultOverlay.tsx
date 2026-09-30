@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { countryFlag, countryName } from '../../core/world';
 import { formatDuration, pluralise } from '../../core/format';
 import { shareText } from '../../core/share';
+import { track } from '../../core/analytics';
 import { CAMPAIGN_LENGTH } from '../../core/campaign';
 import type { GameResult } from '../../core/types';
 import { colors, fonts, radius, spacing } from '../../theme';
@@ -36,6 +37,7 @@ export function ResultOverlay({ result, onNewGame, onExit }: ResultOverlayProps)
 
   const onShare = async () => {
     const message = shareText(result);
+    track('result_shared', { mode: result.mode, level: result.level, optimal: result.optimal });
     try {
       if (Platform.OS === 'web') {
         const navigatorWithShare = globalThis.navigator as Navigator & { share?: (d: ShareData) => Promise<void> };

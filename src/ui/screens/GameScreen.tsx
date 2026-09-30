@@ -3,10 +3,11 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   allowsFlights, applyMove, createGame, currentCountry, elapsedSeconds, moveCount,
-  recordWrongGuess, toResult,
+  recordWrongGuess, toResult, wasFlown,
 } from '../../core/game';
 import { flightsOf } from '../../core/graph';
 import { bestMatch, searchCountries } from '../../core/search';
+import { track } from '../../core/analytics';
 import { MAP_HEIGHT, MAP_WIDTH, requireCountry } from '../../core/world';
 import type { GameConfig, GameResult, GameState } from '../../core/types';
 import { colors, radius, timing } from '../../theme';
@@ -43,7 +44,8 @@ const ESTABLISH_HOLD = 1300;
 export interface GameScreenProps {
   config: GameConfig;
   reduceMotion: boolean;
-  onExit: () => void;
+  /** `unfinished` is false when the player is leaving a game they have won. */
+  onExit: (unfinished: boolean) => void;
   onNewGame: () => void;
   /** Called once, when the destination is reached. */
   onComplete: (result: GameResult) => void;
@@ -166,6 +168,16 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
           setInvalidIso(target);
           setTimeout(() => setInvalidIso((value) => (value === target ? null : value)), 750);
         }
+        // Where people believe in a border that is not there. Enough of these
+        // is the answer to "which countries do players get stuck on".
+        track('wrong_guess', {
+          mode: config.mode,
+          level: config.level,
+          from: iso,
+          guess: target,
+          reason: result.reason,
+          moves_in: state.route.length - 1,
+        });
         setToast({ message: result.message, token: Date.now() });
         haptic('error');
         play('invalid');
@@ -185,6 +197,16 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
       haptic(result.won ? 'success' : 'light');
       play(result.won ? 'win' : 'move');
 
+      if (wasFlown(config, iso, target)) {
+        const leg = flightsOf(iso).find((flight) => flight.iso2 === target);
+        track('flight_taken', {
+          from: iso,
+          to: target,
+          km: leg?.km ?? 0,
+          moves_in: state.route.length - 1,
+        });
+      }
+
       if (result.won) {
         const summary = toResult(result.state);
         onComplete(summary);
@@ -192,8 +214,34 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
         setTimeout(() => setShowResult(true), travelDuration + 250);
       }
     },
-    [state, onComplete, travelDuration, gestures]
+    [state, onComplete, travelDuration, gestures, config, iso]
   );
+
+  /**
+   * Leaving, by whichever door.
+   *
+   * Whether the game was abandoned is read off its own status rather than from
+   * which button was pressed: the same handler serves the HUD's back arrow and
+   * the result screen's Menu, and for the second of those the game is already
+   * won. Reporting that as abandoned reset the win streak the win had just
+   * incremented, so a streak could never reach two.
+   */
+  const handleExit = useCallback(() => {
+    const unfinished = state.status === 'playing';
+    if (unfinished) {
+      track('game_abandoned', {
+        mode: config.mode,
+        difficulty: config.difficulty,
+        level: config.level,
+        moves_made: moveCount(state),
+        optimal_moves: config.optimalMoves,
+        seconds: elapsedSeconds(state, Date.now()),
+        wrong_guesses: state.wrongGuesses.length,
+        stuck_at: currentCountry(state),
+      });
+    }
+    onExit(unfinished);
+  }, [state, config, onExit]);
 
   const handleSubmit = useCallback(() => {
     const match = bestMatch(query);
@@ -281,7 +329,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
                   ? 'FLIGHT · TRAVEL TO'
                   : 'TRAVEL TO'
           }
-          onExit={onExit}
+          onExit={handleExit}
         />
         <View style={styles.trail}>
           <RouteTrail route={state.route} destination={config.destination} flights={allowsFlights(config)} />
@@ -335,7 +383,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
         <ResultOverlay
           result={toResult(state)}
           onNewGame={onNewGame}
-          onExit={onExit}
+          onExit={handleExit}
         />
       ) : null}
     </View>
