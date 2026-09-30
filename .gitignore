@@ -36,9 +36,37 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# generated native folders
-/ios
-/android
+# Capacitor / iOS -- the project itself IS committed, because Info.plist and
+# the consent flags in it are hand-edited. Only build output is ignored.
+ios/App/Pods/
+ios/App/build/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
+ios/DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad
+Podfile.lock
+
+# Capacitor / Android -- same: AndroidManifest.xml is hand-edited.
+android/.gradle/
+android/.idea/
+android/build/
+android/app/build/
+android/app/release/
+android/captures/
+android/local.properties
+android/*.iml
+android/app/*.iml
+.gradle/
+
+# The web build, copied in by `cap sync`. Regenerated, never edited.
+android/app/src/main/assets/public/
+ios/App/App/public/
+
+# Signing
+*.keystore
 
 # scratch
 *.tmp.ts

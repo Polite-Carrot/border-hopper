@@ -78,6 +78,39 @@ npm run build:web        # static export into dist/
 npx serve dist           # serve it locally
 ```
 
+## The iOS and Android apps
+
+Capacitor, matching the studio's other games. `ios/` and `android/` are real
+projects and are **committed**, because the files that carry consent are
+hand-edited and belong in version control:
+
+| | iOS | Android |
+| --- | --- | --- |
+| Project | `ios/App/` (Xcode) | `android/` (Gradle) |
+| Identity | `com.politecarrot.borderhopper` | `com.politecarrot.borderhopper` |
+| Consent config | `App/Info.plist` | `app/src/main/AndroidManifest.xml` |
+
+Both declare analytics collection **off at build time**, so nothing can leave
+before the player has answered the consent card; the analytics sink turns it on
+after they say yes. Neither uses the `..._DEACTIVATED` form of that flag, which
+is permanent and makes runtime `setEnabled` calls silently do nothing. iOS also
+carries the `NSUserTrackingUsageDescription` string for Apple's tracking
+prompt.
+
+```bash
+npm run sync:native     # rebuild the web export, then copy it into both apps
+npm run open:ios        # Xcode
+npm run open:android    # Android Studio
+```
+
+`cap sync` copies whatever is in `dist/` without checking how old it is, which
+is why `sync:native` rebuilds first. The copied assets
+(`ios/App/App/public/`, `android/app/src/main/assets/public/`) are generated
+and ignored.
+
+The apps run the same web export the site does, so what ships on a phone is the
+build the browser tests cover.
+
 ## Deploying to GitHub Pages
 
 Already set up, and it needs nothing configured in the repository settings.

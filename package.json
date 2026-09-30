@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
     "@expo/metro-runtime": "~57.0.16",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "expo": "~57.0.24",
@@ -41,7 +45,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:campaign": "tsx scripts/build-campaign.ts"
+    "build:campaign": "tsx scripts/build-campaign.ts",
+    "sync:native": "npm run build:web && npx cap sync",
+    "open:ios": "npx cap open ios",
+    "open:android": "npx cap open android"
   },
   "private": true,
   "description": "A geography game about crossing the world one land border at a time"
