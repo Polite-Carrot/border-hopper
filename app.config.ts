@@ -20,11 +20,16 @@ const config: ExpoConfig = {
   primaryColor: '#3DBDF8',
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.borderhopper.game',
+    // Reverse-DNS on politecarrot.com, matching the studio's other games
+    // (com.politecarrot.colorjars, com.politecarrot.tiderunner). The same id
+    // on both platforms, which is what Unity, Firebase and the two stores key
+    // their entries off -- and what cannot be changed once the app is
+    // published, which is why it is worth being the boring consistent one.
+    bundleIdentifier: 'com.politecarrot.borderhopper',
     userInterfaceStyle: 'dark',
   },
   android: {
-    package: 'com.borderhopper.game',
+    package: 'com.politecarrot.borderhopper',
     userInterfaceStyle: 'dark',
     adaptiveIcon: {
       backgroundColor: '#050A12',
