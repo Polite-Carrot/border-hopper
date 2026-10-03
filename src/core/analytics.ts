@@ -105,6 +105,13 @@ export interface AnalyticsEvents {
    * measure of whether the asking is reasonable.
    */
   consent_changed: { setting: string; enabled: boolean };
+
+  /**
+   * A flag put on the explorer, or "default" for his own jumper. Which flags
+   * people actually wear says which countries they are proud of, and how many
+   * stamps they had says how far into the passport that choice comes.
+   */
+  skin_changed: { skin: string; stamps: number };
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvents;

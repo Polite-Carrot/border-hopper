@@ -132,9 +132,27 @@ pre-projected SVG paths. Simplification runs on the topology rather than on
 individual polygons, so a border simplifies identically for both countries
 that share it and no gaps open up.
 
+### The passport and skins
+
+The passport is a map of ISO code to the date of first stamp, plus the worn
+skin, saved under its own key. Stamping happens the moment the explorer
+stands in a country (`onStamp` from `GameScreen`), not at the end of a game, so
+abandoning a game keeps what was crossed. The app holds the latest passport in
+a ref as well as state: two moves can land before a re-render, and stamping
+from the stale copy would lose the first.
+
+A skin is a flag drawn into the jumper with an SVG `<Image>` from a data URL,
+clipped to the jumper's outline and re-outlined on top, with the explorer's
+red jumper underneath in case an image ever fails. The flag sits in its own
+group that counter-mirrors the explorer's `scaleX`, so turning west flips him
+but never the flag. The flags are bundled JSON rather than files: there is no
+asset path to get wrong between the site, the apps and native React Native,
+and a newly chosen skin never has to wait on a load.
+
 ### No backend
 
-Statistics, settings and daily results live in `AsyncStorage`. The daily
+Statistics, settings, daily results, campaign progress and the passport live
+in `AsyncStorage`. The daily
 challenge is a pure function of the calendar date, so every player gets the
 same challenge with nothing to host.
 

@@ -30,6 +30,8 @@ export interface TravellerProps {
   };
   /** Which wrapped copy of the world this traveller stands on: -1, 0 or 1. */
   copy: number;
+  /** The flag on the explorer's jumper, if he is wearing one. */
+  skin: string | null;
 }
 
 /**
@@ -43,7 +45,7 @@ export interface TravellerProps {
  * Everything runs off one clock in milliseconds, so the arc, the shadow and
  * the squash on landing can never drift apart.
  */
-export function Traveller({ trip, clock, progress, camera, copy }: TravellerProps) {
+export function Traveller({ trip, clock, progress, camera, copy, skin }: TravellerProps) {
   const motion = useMemo(() => {
     const air = trip.air;
     const height = trip.flown ? ARC_HEIGHT.flight : ARC_HEIGHT.hop;
@@ -97,7 +99,7 @@ export function Traveller({ trip, clock, progress, camera, copy }: TravellerProp
       <AnimatedG translateY={motion.lift as unknown as number}>
         <AnimatedG scaleX={motion.scaleX as unknown as number} scaleY={motion.scaleY as unknown as number}>
           <G scaleX={trip.facing}>
-            <Explorer />
+            <Explorer skin={skin} facing={trip.facing} />
           </G>
         </AnimatedG>
       </AnimatedG>

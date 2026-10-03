@@ -27,7 +27,7 @@ export function nearestCopy(x: number, near: number): number {
  * Plans a move from one anchor to the next, in step with the camera.
  *
  * The explorer takes off from the copy of the old country the camera is leaving
- * and lands on the copy of the new one the camera is heading for, so it always
+ * and lands on the copy of the new one the camera is heading for, so he always
  * travels the way the world is sliding. Choosing "the short way" between the
  * two anchors instead looks right for France to Germany but not for the USA to
  * Russia: Russia's anchor is west of the Urals, so he would set off

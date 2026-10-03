@@ -62,7 +62,7 @@ export function SettingsScreen({ settings, onChange, onReset, onBack, onPrivacy 
 
         <Text style={styles.section}>RESET</Text>
         <Button
-          label={confirmingReset ? 'Tap again to erase everything' : 'Reset statistics'}
+          label={confirmingReset ? 'Tap again to erase everything' : 'Reset all progress'}
           onPress={() => {
             if (confirmingReset) {
               onReset();
@@ -73,8 +73,8 @@ export function SettingsScreen({ settings, onChange, onReset, onBack, onPrivacy 
           }}
         />
         <Text style={styles.note}>
-          Your statistics, settings and campaign progress are stored on this device. There is
-          no account.
+          Your statistics, settings, campaign progress and passport are stored on this device.
+          There is no account, so a reset cannot be undone.
         </Text>
       </ScrollView>
     </View>

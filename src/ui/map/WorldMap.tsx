@@ -43,6 +43,10 @@ export interface WorldMapProps {
   invalidIso?: string | null;
   /** Whether the move into `currentIso` was a flight rather than a border hop. */
   flown?: boolean;
+  /** The flag the explorer is wearing, from the passport. */
+  skin?: string | null;
+  /** Off for the menu's drifting backdrop, which is scenery, not a journey. */
+  showTraveller?: boolean;
   /** Bumped to replay the arrival ping. */
   arrivalToken?: number;
   /** Pinch/drag transform layered on top of the camera, if the map is interactive. */
@@ -72,6 +76,8 @@ export function WorldMap({
   visited,
   invalidIso,
   flown = false,
+  skin = null,
+  showTraveller = true,
   arrivalToken = 0,
   userTransform,
   panHandlers,
@@ -309,7 +315,7 @@ export function WorldMap({
             />
           ))}
 
-          {currentTrip
+          {currentTrip && showTraveller
             ? COPIES.map((copy) => (
                 <Traveller
                   key={`traveller-${copy}`}
@@ -318,6 +324,7 @@ export function WorldMap({
                   progress={progress}
                   camera={transform}
                   copy={copy}
+                  skin={skin}
                 />
               ))
             : null}

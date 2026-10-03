@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { EMPTY_STATS, type Stats } from '../core/stats';
 import type { GameResult } from '../core/types';
 import type { CampaignProgress } from '../core/campaign';
+import { backfillPassport, type Passport } from '../core/passport';
 
 /**
  * Local persistence. Everything the game remembers lives on the device; there
@@ -18,6 +19,7 @@ const KEYS = {
   onboarded: 'borderbound:onboarded:v1',
   consentAsked: 'borderbound:consent-asked:v1',
   campaign: 'borderbound:campaign:v1',
+  passport: 'borderbound:passport:v1',
 } as const;
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
@@ -121,6 +123,27 @@ export async function saveOnboarded(): Promise<void> {
 /** Campaign progress: the best result for each level the player has finished. */
 export const loadCampaign = (): Promise<CampaignProgress> => readJson<CampaignProgress>(KEYS.campaign, {});
 export const saveCampaign = (progress: CampaignProgress): Promise<void> => writeJson(KEYS.campaign, progress);
+
+/**
+ * The passport. The first time it is loaded on a device that has been playing
+ * since before passports existed, it is filled in from the daily results and
+ * campaign progress already saved, so nobody opens it to find it empty.
+ */
+export async function loadPassport(today: string): Promise<Passport> {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.passport);
+    if (raw) {
+      const saved = JSON.parse(raw) as Partial<Passport>;
+      return { stamps: saved.stamps ?? {}, skin: saved.skin ?? null };
+    }
+  } catch {
+    // Unreadable: rebuild it from history below, which is better than empty.
+  }
+  const passport = backfillPassport(await loadDailyResults(), await loadCampaign(), today);
+  await savePassport(passport);
+  return passport;
+}
+export const savePassport = (passport: Passport): Promise<void> => writeJson(KEYS.passport, passport);
 
 export async function resetEverything(): Promise<void> {
   try {

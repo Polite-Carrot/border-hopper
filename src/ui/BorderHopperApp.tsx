@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { dailyGame, dateKey } from '../core/daily';
@@ -8,10 +8,11 @@ import {
 import { generateGame } from '../core/generate';
 import { EMPTY_STATS, recordGameAbandoned, recordGameCompleted, recordGameStarted, type Stats } from '../core/stats';
 import type { GameConfig, GameResult } from '../core/types';
+import { EMPTY_PASSPORT, chooseSkin, stamp, stampCount, type Passport } from '../core/passport';
 import {
-  DEFAULT_SETTINGS, loadCampaign, loadDailyResults, loadOnboarded, loadSettings, loadStats,
+  DEFAULT_SETTINGS, loadCampaign, loadDailyResults, loadOnboarded, loadPassport, loadSettings, loadStats,
   loadConsentAsked, resetEverything, saveCampaign, saveConsentAsked, saveDailyResults,
-  saveOnboarded, saveSettings, saveStats,
+  saveOnboarded, savePassport, saveSettings, saveStats,
   type DailyResults, type Settings,
 } from '../storage/storage';
 import { setSoundEnabled } from '../audio/sounds';
@@ -27,14 +28,15 @@ import { DailyDoneScreen } from './screens/DailyDoneScreen';
 import { CampaignScreen } from './screens/CampaignScreen';
 import { RandomGamePicker, type RandomMode } from './screens/RandomGamePicker';
 import { PrivacyScreen } from './screens/PrivacyScreen';
+import { PassportScreen } from './screens/PassportScreen';
 import { ConsentPrompt } from './screens/ConsentPrompt';
 import { BootScreen } from './screens/BootScreen';
 
-type Screen = 'menu' | 'game' | 'campaign' | 'stats' | 'settings' | 'privacy' | 'daily-done';
+type Screen = 'menu' | 'game' | 'campaign' | 'stats' | 'settings' | 'privacy' | 'passport' | 'daily-done';
 
 /**
  * The whole app. Screens are a single piece of state rather than a navigation
- * library: there are seven of them and none of them nest.
+ * library: there are eight of them and none of them nest.
  */
 export function BorderHopperApp() {
   const [screen, setScreen] = useState<Screen>('menu');
@@ -43,6 +45,10 @@ export function BorderHopperApp() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [dailyResults, setDailyResults] = useState<DailyResults>({});
   const [campaign, setCampaign] = useState<CampaignProgress>({});
+  const [passport, setPassport] = useState<Passport>(EMPTY_PASSPORT);
+  // The latest passport, for stamping. Two moves can land before React
+  // re-renders, and stamping from a stale copy would drop the first.
+  const passportRef = useRef<Passport>(EMPTY_PASSPORT);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [needsConsent, setNeedsConsent] = useState(false);
   /** Which mode the new-game sheet is open on, or null when it is closed. */
@@ -52,11 +58,13 @@ export function BorderHopperApp() {
 
   useEffect(() => {
     void (async () => {
-      const [savedStats, savedSettings, savedDaily, savedCampaign, onboarded, consentAsked] =
+      const [savedStats, savedSettings, savedDaily, savedCampaign, onboarded, consentAsked, savedPassport] =
         await Promise.all([
           loadStats(), loadSettings(), loadDailyResults(), loadCampaign(), loadOnboarded(),
-          loadConsentAsked(),
+          loadConsentAsked(), loadPassport(dateKey()),
         ]);
+      passportRef.current = savedPassport;
+      setPassport(savedPassport);
       setStats(savedStats);
       setSettings(savedSettings);
       setDailyResults(savedDaily);
@@ -97,6 +105,30 @@ export function BorderHopperApp() {
     setStats(next);
     void saveStats(next);
   }, []);
+
+  const updatePassport = useCallback((next: Passport) => {
+    passportRef.current = next;
+    setPassport(next);
+    void savePassport(next);
+  }, []);
+
+  const stampCountries = useCallback(
+    (isos: string[]) => {
+      const next = stamp(passportRef.current, isos, dateKey());
+      if (next !== passportRef.current) updatePassport(next);
+    },
+    [updatePassport]
+  );
+
+  const wearSkin = useCallback(
+    (skin: string | null) => {
+      const next = chooseSkin(passportRef.current, skin);
+      if (next === passportRef.current) return;
+      updatePassport(next);
+      track('skin_changed', { skin: skin ?? 'default', stamps: stampCount(next) });
+    },
+    [updatePassport]
+  );
 
   const updateSettings = useCallback((next: Settings) => {
     setSettings(next);
@@ -264,6 +296,8 @@ export function BorderHopperApp() {
                     : startClassic
             }
             onComplete={handleComplete}
+            passport={passport}
+            onStamp={stampCountries}
           />
         ) : screen === 'campaign' ? (
           <CampaignScreen
@@ -283,6 +317,8 @@ export function BorderHopperApp() {
               setSettings(DEFAULT_SETTINGS);
               setDailyResults({});
               setCampaign({});
+              passportRef.current = EMPTY_PASSPORT;
+              setPassport(EMPTY_PASSPORT);
               // Erasing everything includes the answer: the card comes back
               // rather than a stale yes surviving a reset.
               setNeedsConsent(true);
@@ -296,6 +332,13 @@ export function BorderHopperApp() {
             onChange={changeSettings}
             // Back to Settings, which is where it was opened from.
             onBack={() => setScreen('settings')}
+          />
+        ) : screen === 'passport' ? (
+          <PassportScreen
+            passport={passport}
+            onWear={wearSkin}
+            onBack={() => setScreen('menu')}
+            reduceMotion={settings.reduceMotion}
           />
         ) : screen === 'daily-done' ? (
           <DailyDoneScreen
@@ -312,6 +355,8 @@ export function BorderHopperApp() {
             onDaily={startDaily}
             onStats={() => setScreen('stats')}
             onSettings={() => setScreen('settings')}
+            onPassport={() => setScreen('passport')}
+            stamps={stampCount(passport)}
             dailyDone={Boolean(dailyResults[todayKey])}
             dailyStreak={stats.dailyStreak}
             campaignLevel={campaignNext}

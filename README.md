@@ -111,6 +111,11 @@ and ignored.
 The apps run the same web export the site does, so what ships on a phone is the
 build the browser tests cover.
 
+**Haptics** go through Capacitor's own haptics plugin. Inside the apps React
+Native believes it is running in a browser, where Expo's haptics do nothing,
+so `useHaptics` asks Capacitor first: on a phone that is the Taptic Engine or
+the vibrator; in a plain browser there is none.
+
 ## Deploying to GitHub Pages
 
 Already set up, and it needs nothing configured in the repository settings.
@@ -198,6 +203,26 @@ stands on dry land in every country, including the ones whose middle is sea,
 like Japan and Indonesia. With reduce motion on, he simply appears in the next
 country.
 
+### The passport
+
+Every country the explorer stands in earns a **stamp**: the start, every
+country passed through and the destination, in every mode, finished or not.
+The passport (from the menu) shows them page by continent, and tapping a
+stamp puts that country's **flag on his jumper**. The result card shows the
+stamps a game added.
+
+- Stamps are earned by playing and only by playing; there is nothing to buy.
+- Players from before the passport existed are not handed an empty one: on
+  first load it is filled in from the daily results and campaign levels the
+  game already kept.
+- The flags are the [`country-flag-icons`](https://www.npmjs.com/package/country-flag-icons)
+  set, bundled (about 110KB for all 195) so a skin is there instantly and
+  offline. Regenerate with `npm run build:flags`.
+- When he faces west the explorer is mirrored, but his flag is not: it is never
+  back to front.
+- "Reset all progress" in Settings clears the passport along with everything
+  else.
+
 ## Sound
 
 Two sounds, both synthesised with Web Audio rather than shipped as files, the
@@ -245,7 +270,11 @@ Everything geographic is generated:
 
 ```bash
 npm run build:data       # regenerates src/data/world.generated.json
+npm run build:flags      # regenerates src/data/flags.generated.json from it
 ```
+
+Each country also carries its **continent**, from `country-json`, for the
+passport's pages.
 
 Source: **Natural Earth 1:50m** country polygons via the
 [`world-atlas`](https://github.com/topojson/world-atlas) package. Nothing is
@@ -355,6 +384,7 @@ the switch is on:
 | `result_shared` | a result is shared | which modes people show off |
 | `onboarding_complete` | the how-it-works card is dismissed | how many never start |
 | `consent_changed` | a privacy switch moves | whether the asking is reasonable |
+| `skin_changed` | a flag is put on the explorer (or taken off) | which countries people are proud of |
 
 `wrong_guess` is the one the privacy screen promises by name: enough of them
 together say which countries people get stuck on.
@@ -503,4 +533,6 @@ tests/        Vitest suites against src/core
 
 Code is MIT (see [LICENSE](LICENSE)). Country geometry comes from
 [Natural Earth](https://www.naturalearthdata.com/), which is in the public
-domain.
+domain. Flag artwork is from
+[`country-flag-icons`](https://github.com/catamphetamine/country-flag-icons)
+(MIT, copyright @catamphetamine), credited in `src/data/flags.generated.json`.

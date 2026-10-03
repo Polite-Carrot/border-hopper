@@ -8,6 +8,7 @@ import {
 import { flightsOf } from '../../core/graph';
 import { bestMatch, searchCountries } from '../../core/search';
 import { track } from '../../core/analytics';
+import { newStamps, type Passport } from '../../core/passport';
 import { MAP_HEIGHT, MAP_WIDTH, requireCountry } from '../../core/world';
 import type { GameConfig, GameResult, GameState } from '../../core/types';
 import { colors, radius, timing } from '../../theme';
@@ -49,9 +50,15 @@ export interface GameScreenProps {
   onNewGame: () => void;
   /** Called once, when the destination is reached. */
   onComplete: (result: GameResult) => void;
+  /** The passport as it stood when this game began, to tell which stamps are new. */
+  passport: Passport;
+  /** Stamps countries into the passport the moment the explorer stands in them. */
+  onStamp: (isos: string[]) => void;
 }
 
-export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete }: GameScreenProps) {
+export function GameScreen({
+  config, reduceMotion, onExit, onNewGame, onComplete, passport, onStamp,
+}: GameScreenProps) {
   const layout = useLayout();
   const insets = useSafeAreaInsets();
   const [keyboardUp, setKeyboardUp] = useState(false);
@@ -64,6 +71,16 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
   const [phase, setPhase] = useState<'establishing' | 'playing'>('establishing');
   const [showResult, setShowResult] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  // Kept from the moment the game began: the passport prop updates with every
+  // stamp, and against that nothing would ever look new.
+  const [passportAtStart] = useState(passport);
+
+  // Standing in the start country counts. Stamped on arrival rather than at the
+  // end, so walking out half way keeps everything already crossed.
+  useEffect(() => {
+    onStamp([config.start]);
+    // Once per game: the screen is remounted for every new one.
+  }, []);
 
   const iso = currentCountry(state);
   const docked = layout.mode === 'sidebar';
@@ -185,6 +202,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
       }
 
       setState(result.state);
+      onStamp([target]);
       setQuery('');
       setToast(null);
       setArrivalToken((token) => token + 1);
@@ -214,7 +232,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
         setTimeout(() => setShowResult(true), travelDuration + 250);
       }
     },
-    [state, onComplete, travelDuration, gestures, config, iso]
+    [state, onComplete, onStamp, travelDuration, gestures, config, iso]
   );
 
   /**
@@ -283,6 +301,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
         visited={visited}
         invalidIso={invalidIso}
         flown={lastMoveFlown}
+        skin={passport.skin}
         arrivalToken={arrivalToken}
         userTransform={gestures.transform}
         panHandlers={gestures.panHandlers}
@@ -385,6 +404,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
       {showResult ? (
         <ResultOverlay
           result={toResult(state)}
+          newStamps={newStamps(passportAtStart, state.route)}
           onNewGame={onNewGame}
           onExit={handleExit}
         />

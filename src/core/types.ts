@@ -1,4 +1,6 @@
 /** A playable sovereign country. */
+export type Continent = 'Africa' | 'Asia' | 'Europe' | 'North America' | 'South America' | 'Oceania';
+
 export interface Country {
   /** ISO 3166-1 alpha-2, the identifier used everywhere in the game. */
   iso2: string;
@@ -20,6 +22,8 @@ export interface Country {
    */
   flights: { iso2: string; km: number }[];
   population: number;
+  /** Which page of the passport the country's stamp goes on. */
+  continent: Continent;
   /** Projected map coordinates of the country's centre. */
   centroid: [number, number];
   /**

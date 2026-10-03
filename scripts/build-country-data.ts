@@ -20,6 +20,7 @@ import { presimplify, simplify } from 'topojson-simplify';
 import { geoEquirectangular, geoPath, geoArea, geoCentroid, geoContains } from 'd3-geo';
 import countries from 'i18n-iso-countries';
 import populationRows from 'country-json/src/country-by-population.json' with { type: 'json' };
+import continentRows from 'country-json/src/country-by-continent.json' with { type: 'json' };
 import enLocale from 'i18n-iso-countries/langs/en.json' with { type: 'json' };
 import topology from 'world-atlas/countries-50m.json' with { type: 'json' };
 import { NON_SOVEREIGN_ISO2, MERGE_INTO, DISPLAY_NAME, ALIASES, EXCLUDED_BORDERS } from './sovereign.ts';
@@ -448,22 +449,42 @@ for (const owner of playableOwners) {
   for (const alias of ALIASES[owner.iso2!] ?? []) nameToIso.set(fold(alias), owner.iso2!);
 }
 
+/** Matches a country-json row's name to one of the playable countries. */
+function isoForName(name: string): string | undefined {
+  const folded = fold(name);
+  const exact = nameToIso.get(folded);
+  if (exact) return exact;
+  // "Fiji Islands" -> "fiji", "Micronesia, Federated States of" -> "micronesia"
+  for (const [known, code] of nameToIso) {
+    if (known.length >= 4 && folded.startsWith(`${known} `)) return code;
+  }
+  return undefined;
+}
+
 const populationByIso = new Map<string, number>();
 for (const row of populationRows as { country: string; population: number | null }[]) {
   if (!row.population) continue;
-  const folded = fold(row.country);
-  let iso2 = nameToIso.get(folded);
-  if (!iso2) {
-    // "Fiji Islands" -> "fiji", "Micronesia, Federated States of" -> "micronesia"
-    for (const [known, code] of nameToIso) {
-      if (known.length >= 4 && folded.startsWith(`${known} `)) {
-        iso2 = code;
-        break;
-      }
-    }
-  }
+  const iso2 = isoForName(row.country);
   if (iso2 && !populationByIso.has(iso2)) populationByIso.set(iso2, row.population);
 }
+/**
+ * Continents, for grouping the passport. Six of them: the game has no
+ * Antarctica to visit.
+ */
+type Continent = 'Africa' | 'Asia' | 'Europe' | 'North America' | 'South America' | 'Oceania';
+/** Countries country-json leaves out or that it names too differently to match. */
+const CONTINENT_OVERRIDES: Record<string, Continent> = { TW: 'Asia' };
+const continentByIso = new Map<string, Continent>();
+for (const row of continentRows as { country: string; continent: string }[]) {
+  const iso2 = isoForName(row.country);
+  if (iso2 && !continentByIso.has(iso2) && row.continent !== 'Antarctica') {
+    continentByIso.set(iso2, row.continent as Continent);
+  }
+}
+for (const [iso2, continent] of Object.entries(CONTINENT_OVERRIDES)) continentByIso.set(iso2, continent);
+const withoutContinent = playableOwners.filter((o) => !continentByIso.has(o.iso2!)).map((o) => `${o.iso2} ${o.name}`);
+if (withoutContinent.length) throw new Error(`no continent for: ${withoutContinent.join(', ')}`);
+
 const withoutPopulation = playableOwners.filter((o) => !populationByIso.has(o.iso2!));
 if (withoutPopulation.length > 3) {
   throw new Error(`population joined for only ${playableOwners.length - withoutPopulation.length} countries`);
@@ -574,6 +595,7 @@ interface OutCountry {
   /** Everywhere flight mode can reach from here: the short hop plus long haul. */
   flights: { iso2: string; km: number }[];
   population: number;
+  continent: Continent;
   /** Centre of the main landmass, in projected map units. */
   centroid: [number, number];
   /** A point guaranteed to be on the country's own land; see below. */
@@ -647,6 +669,7 @@ for (const owner of [...owners.values()].sort((a, b) => a.name.localeCompare(b.n
       .map(([to, km]) => ({ iso2: to, km }))
       .sort((a, b) => a.km - b.km),
     population: populationByIso.get(iso2) ?? 0,
+    continent: continentByIso.get(iso2)!,
     centroid: projected
       ? [Number(projected[0].toFixed(1)), Number(projected[1].toFixed(1))]
       : [Number(((x0 + x1) / 2).toFixed(1)), Number(((y0 + y1) / 2).toFixed(1))],

@@ -11,9 +11,12 @@ import { colors, fonts, radius, spacing } from '../../theme';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { StatTile } from '../components/StatTile';
+import { Flag } from '../components/Flag';
 
 export interface ResultOverlayProps {
   result: GameResult;
+  /** Countries this game stamped into the passport for the first time. */
+  newStamps?: readonly string[];
   onNewGame: () => void;
   onExit: () => void;
 }
@@ -22,7 +25,7 @@ export interface ResultOverlayProps {
  * The finish. It rises over the map rather than replacing it, so the last
  * country the player reached is still visible behind the numbers.
  */
-export function ResultOverlay({ result, onNewGame, onExit }: ResultOverlayProps) {
+export function ResultOverlay({ result, newStamps = [], onNewGame, onExit }: ResultOverlayProps) {
   const insets = useSafeAreaInsets();
   const entry = useRef(new Animated.Value(0)).current;
 
@@ -108,6 +111,25 @@ export function ResultOverlay({ result, onNewGame, onExit }: ResultOverlayProps)
           {pluralise(result.optimalMoves, 'move')}
         </Text>
 
+        {newStamps.length > 0 ? (
+          <View style={styles.stamps} accessibilityLabel={`New passport stamps: ${newStamps.map(countryName).join(', ')}`}>
+            <Text style={styles.stampsTitle}>
+              {newStamps.length === 1 ? 'NEW PASSPORT STAMP' : `${newStamps.length} NEW PASSPORT STAMPS`}
+            </Text>
+            <View style={styles.stampRow}>
+              {newStamps.map((iso) => (
+                <View key={iso} style={styles.stamp}>
+                  <Flag iso={iso} width={34} />
+                  <Text style={styles.stampName} numberOfLines={1}>
+                    {countryName(iso)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.stampsHint}>Your explorer can wear these flags. Find them in your passport.</Text>
+          </View>
+        ) : null}
+
         <View style={styles.actions}>
           <Button
             label={
@@ -184,6 +206,24 @@ const styles = StyleSheet.create({
   tiles: { flexDirection: 'row', gap: spacing.sm, alignSelf: 'stretch', marginTop: spacing.xs },
   footnote: { color: colors.textMuted, fontSize: 12.5, marginTop: spacing.xs, textAlign: 'center' },
   actions: { alignSelf: 'stretch', gap: spacing.sm, marginTop: spacing.lg },
+  stamps: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255, 206, 106, 0.45)',
+    backgroundColor: 'rgba(255, 206, 106, 0.06)',
+  },
+  stampsTitle: { color: colors.gold, fontSize: 11, letterSpacing: 1.6, fontWeight: '700' },
+  stampRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.md },
+  stamp: { alignItems: 'center', gap: 4, maxWidth: 76 },
+  stampName: { color: colors.text, fontSize: 11, fontWeight: '600' },
+  stampsHint: { color: colors.textMuted, fontSize: 12, textAlign: 'center' },
   secondaryRow: { flexDirection: 'row', gap: spacing.sm },
   half: { flex: 1 },
 });

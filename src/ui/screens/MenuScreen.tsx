@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { requireCountry } from '../../core/world';
+import { COUNTRIES, requireCountry } from '../../core/world';
 import { dateKey } from '../../core/daily';
 import { colors, fonts, radius, spacing } from '../../theme';
 import { WorldMap } from '../map/WorldMap';
@@ -15,6 +15,9 @@ export interface MenuScreenProps {
   onDaily: () => void;
   onStats: () => void;
   onSettings: () => void;
+  onPassport: () => void;
+  /** Stamps collected, for the passport button. */
+  stamps: number;
   /** True once today's daily challenge has been finished. */
   dailyDone: boolean;
   /** Level the player is up to, or null once the campaign is finished. */
@@ -28,7 +31,7 @@ export interface MenuScreenProps {
 const BACKDROP_TOUR = ['IT', 'ID', 'BR', 'KE', 'JP', 'NO'];
 
 export function MenuScreen({
-  onCampaign, onRandom, onFlight, onDaily, onStats, onSettings, dailyDone, dailyStreak,
+  onCampaign, onRandom, onFlight, onDaily, onStats, onSettings, onPassport, stamps, dailyDone, dailyStreak,
   campaignLevel, campaignDone, reduceMotion,
 }: MenuScreenProps) {
   const { width, height } = useWindowDimensions();
@@ -59,6 +62,7 @@ export function MenuScreen({
         currentIso={iso}
         destinationIso=""
         visited={[]}
+        showTraveller={false}
       />
       <View style={styles.scrim} pointerEvents="none" />
 
@@ -89,6 +93,11 @@ export function MenuScreen({
             label={dailyDone ? 'Daily challenge · done' : 'Daily challenge'}
             icon="calendar"
             onPress={onDaily}
+          />
+          <Button
+            label={stamps > 0 ? `Passport · ${stamps} of ${COUNTRIES.length}` : 'Passport'}
+            icon="passport"
+            onPress={onPassport}
           />
           <View style={styles.row}>
             <Button label="Statistics" icon="stats" onPress={onStats} style={styles.half} />
