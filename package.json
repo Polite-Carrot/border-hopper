@@ -21,6 +21,7 @@
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@types/d3-geo": "^3.1.1",
     "@types/react": "~19.2.2",
     "@types/topojson-client": "^3.1.5",
@@ -48,7 +49,8 @@
     "build:campaign": "tsx scripts/build-campaign.ts",
     "sync:native": "npm run build:web && npx cap sync",
     "open:ios": "npx cap open ios",
-    "open:android": "npx cap open android"
+    "open:android": "npx cap open android",
+    "assets:native": "capacitor-assets generate --ios --android --assetPath resources"
   },
   "private": true,
   "description": "A geography game about crossing the world one land border at a time"

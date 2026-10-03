@@ -65,8 +65,17 @@ for (const page of ['index.html', '404.html']) {
   } catch {
     continue;
   }
-  if (html.includes('rel="manifest"')) continue;
-  writeFileSync(path, html.replace('</head>', `  ${head}\n  </head>`));
+  // viewport-fit=cover lets the page reach the screen edges on a notched
+  // iPhone *and* makes env(safe-area-inset-*) report the real insets. The app
+  // positions its HUD from those insets, so without this the iOS app -- whose
+  // WebView draws behind the status bar -- would be told the insets are zero
+  // and put the back button underneath the Dynamic Island.
+  html = html.replace(
+    /<meta name="viewport" content="([^"]*)"/,
+    (tag, content) => (content.includes('viewport-fit') ? tag : `<meta name="viewport" content="${content}, viewport-fit=cover"`)
+  );
+  if (!html.includes('rel="manifest"')) html = html.replace('</head>', `  ${head}\n  </head>`);
+  writeFileSync(path, html);
 }
 
 console.log(`Added ${ICONS.length} icons, a manifest and their links to ${out}`);
