@@ -152,7 +152,9 @@ and a newly chosen skin never has to wait on a load.
 ### No backend
 
 Statistics, settings, daily results, campaign progress and the passport live
-in `AsyncStorage`. The daily
+on the device: Capacitor Preferences in the iOS and Android apps (see
+`src/storage/backend.ts`), `AsyncStorage` -- which is localStorage -- on the
+website. The daily
 challenge is a pure function of the calendar date, so every player gets the
 same challenge with nothing to host.
 

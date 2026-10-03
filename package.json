@@ -8,6 +8,7 @@
     "@capacitor/core": "^8.5.2",
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.5.2",
+    "@capacitor/preferences": "^8.0.1",
     "@expo/metro-runtime": "~57.0.16",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "expo": "~57.0.24",

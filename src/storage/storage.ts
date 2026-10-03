@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { store } from './backend';
 import { EMPTY_STATS, type Stats } from '../core/stats';
 import type { GameResult } from '../core/types';
 import type { CampaignProgress } from '../core/campaign';
@@ -6,7 +6,8 @@ import { backfillPassport, type Passport } from '../core/passport';
 
 /**
  * Local persistence. Everything the game remembers lives on the device; there
- * is no account and no backend.
+ * is no account and no backend. In the iOS and Android apps that means the
+ * phone's own storage, not the web view's (see `backend.ts`).
  */
 /**
  * Storage keys keep the game's original name on purpose: renaming them would
@@ -24,7 +25,7 @@ const KEYS = {
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
   try {
-    const raw = await AsyncStorage.getItem(key);
+    const raw = await store().getItem(key);
     return raw ? ({ ...fallback, ...JSON.parse(raw) } as T) : fallback;
   } catch {
     return fallback;
@@ -33,7 +34,7 @@ async function readJson<T>(key: string, fallback: T): Promise<T> {
 
 async function writeJson(key: string, value: unknown): Promise<void> {
   try {
-    await AsyncStorage.setItem(key, JSON.stringify(value));
+    await store().setItem(key, JSON.stringify(value));
   } catch {
     // A failed write only costs history, never the game in progress.
   }
@@ -90,7 +91,7 @@ export const saveSettings = (settings: Settings): Promise<void> => writeJson(KEY
  */
 export async function loadConsentAsked(): Promise<boolean> {
   try {
-    return (await AsyncStorage.getItem(KEYS.consentAsked)) === '1';
+    return (await store().getItem(KEYS.consentAsked)) === '1';
   } catch {
     return false;
   }
@@ -98,7 +99,7 @@ export async function loadConsentAsked(): Promise<boolean> {
 
 export async function saveConsentAsked(): Promise<void> {
   try {
-    await AsyncStorage.setItem(KEYS.consentAsked, '1');
+    await store().setItem(KEYS.consentAsked, '1');
   } catch {
     // Worst case the card comes back next launch, with the answer unchanged.
   }
@@ -106,7 +107,7 @@ export async function saveConsentAsked(): Promise<void> {
 
 export async function loadOnboarded(): Promise<boolean> {
   try {
-    return (await AsyncStorage.getItem(KEYS.onboarded)) === '1';
+    return (await store().getItem(KEYS.onboarded)) === '1';
   } catch {
     return false;
   }
@@ -114,7 +115,7 @@ export async function loadOnboarded(): Promise<boolean> {
 
 export async function saveOnboarded(): Promise<void> {
   try {
-    await AsyncStorage.setItem(KEYS.onboarded, '1');
+    await store().setItem(KEYS.onboarded, '1');
   } catch {
     // Worst case the player sees the three-line intro twice.
   }
@@ -131,7 +132,7 @@ export const saveCampaign = (progress: CampaignProgress): Promise<void> => write
  */
 export async function loadPassport(today: string): Promise<Passport> {
   try {
-    const raw = await AsyncStorage.getItem(KEYS.passport);
+    const raw = await store().getItem(KEYS.passport);
     if (raw) {
       const saved = JSON.parse(raw) as Partial<Passport>;
       return { stamps: saved.stamps ?? {}, skin: saved.skin ?? null };
@@ -147,7 +148,7 @@ export const savePassport = (passport: Passport): Promise<void> => writeJson(KEY
 
 export async function resetEverything(): Promise<void> {
   try {
-    await AsyncStorage.multiRemove(Object.values(KEYS));
+    await store().multiRemove(Object.values(KEYS));
   } catch {
     // Nothing to do; the UI reloads from whatever survived.
   }

@@ -111,6 +111,14 @@ and ignored.
 The apps run the same web export the site does, so what ships on a phone is the
 build the browser tests cover.
 
+**Saves live on the phone**, not in the web view. Stats, settings, campaign
+progress and the passport go through Capacitor's Preferences plugin --
+UserDefaults on iOS, SharedPreferences on Android -- because a web view's
+localStorage is not the device's storage: iOS may clear it when space runs
+low. Anything an earlier build saved in the web view is moved across the first
+time it is read, then removed there. They survive app updates, and go when
+the app is deleted. The website keeps using the browser's storage.
+
 **Haptics** go through Capacitor's own haptics plugin. Inside the apps React
 Native believes it is running in a browser, where Expo's haptics do nothing,
 so `useHaptics` asks Capacitor first: on a phone that is the Taptic Engine or
