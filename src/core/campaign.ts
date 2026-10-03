@@ -13,7 +13,7 @@ export interface CampaignLevel {
 /**
  * The campaign ladder, fixed at build time by `scripts/build-campaign.ts` so
  * every player climbs the same levels in the same order. It gets harder two
- * ways at once: routes grow from two moves to eight, and the countries used
+ * ways at once: routes grow from two moves to twelve, and the countries used
  * as start and destination get steadily less familiar.
  */
 export const CAMPAIGN_LEVELS: readonly CampaignLevel[] = (levelData as { levels: CampaignLevel[] }).levels;

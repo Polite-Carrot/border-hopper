@@ -342,7 +342,7 @@ the switch is on:
 | `game_abandoned` | a game is left unfinished | where people give up, and in which country |
 | `wrong_guess` | a guess the rules refused | which borders people believe in that do not exist |
 | `flight_taken` | a flight rather than a border | whether flight mode's mechanic gets used |
-| `campaign_complete` | the 250th level | how many finish at all |
+| `campaign_complete` | the 1000th level | how many finish at all |
 | `result_shared` | a result is shared | which modes people show off |
 | `onboarding_complete` | the how-it-works card is dismissed | how many never start |
 | `consent_changed` | a privacy switch moves | whether the asking is reasonable |
@@ -372,13 +372,31 @@ stored on the device. There is no account and no backend.
 
 ## Game modes
 
-**Campaign** — 250 fixed levels that everyone climbs in the same order,
-getting harder two ways at once. Routes grow from two moves to eight — three
-warm-up levels, three-move routes from level 4, four from level 23 — and the
-countries used as start and destination get steadily less familiar: level 1 is
-Canada to Mexico, level 250 is a trek between places most people could not
-place on a map. A level opens when the one before it is finished, and
-replaying can only improve a score.
+**Campaign** — 1000 fixed levels that everyone climbs in the same order,
+getting harder two ways at once. Routes grow from two moves to twelve — three
+warm-up levels, three-move routes from level 4, then one move longer every 60
+to 150 levels to the end — and the countries used as start and destination get
+steadily less familiar: level 1 is Canada to Mexico, level 1000 is a
+twelve-country trek across Africa and Eurasia. A level opens when the one
+before it is finished, and replaying can only improve a score.
+
+Over a ladder this long, two things needed managing on purpose. *Variety*: a
+country used in the last five levels sits out, and repeat use is discounted,
+so the best-connected countries don't come round every few levels (a third of
+levels reused one before this rule; 8% do now, where the curve left no
+alternative). *Geography*: the Americas get their share of every level whose
+route length they can support. They can't support many — 196 routes in all,
+none longer than 10 moves — so they come out at 6% of levels against 15% of
+countries, up from 2.8% left to chance. Wherever a fair map and a smooth
+difficulty curve conflict, the curve wins: a 2-move level dropped into a run of
+4-move ones reads as a mistake.
+
+A handful of countries never appear, for structural reasons rather than
+oversight. The UK, Ireland, Haiti and the Dominican Republic share their
+islands with only one other country, so no route of two or more moves exists.
+Small, central countries — much of Central America and the Gulf — are obscure
+enough that the curve only admits them late, by which point routes are too long
+to start or end there.
 
 Recognisability is scored from population (60%), land area (25%) and number of
 land neighbours (15%) — a big country with many borders gets met often even

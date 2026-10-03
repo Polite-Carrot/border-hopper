@@ -21,7 +21,15 @@ import { seededRandom, weightedPick } from '../src/core/random.ts';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(HERE, '../src/data/campaign.generated.json');
 
-const LEVELS = 250;
+const LEVELS = 1000;
+/**
+ * The longest route the ladder asks for. Eight was enough for 250 levels, but
+ * over 1000 it left the last 292 all the same length -- and by then the
+ * obscurity pool has run out too, so that whole stretch would have played
+ * alike. Land routes between eligible countries run to 18 moves; there are 342
+ * distinct 12-move pairs, comfortably more than the 159 levels that use them.
+ */
+const LONGEST_ROUTE = 12;
 /** The opening level, so the ladder starts somewhere everyone knows. */
 const FIRST_LEVEL = { start: 'CA', destination: 'MX' };
 /** How many countries the very first levels may draw on. */
@@ -78,19 +86,24 @@ const eligible = COUNTRIES.filter((c) => c.neighbours.length > 0 && c.area >= 0.
 // The curves.
 // ---------------------------------------------------------------------------
 /**
- * Route length for a level: 2 moves at the start, 8 by the end. Rounded
- * rather than floored so the longest routes get a proper band of levels
- * instead of only the very last one.
+ * Route length for a level: 2 moves at the start, LONGEST_ROUTE by the end.
+ * Rounded rather than floored so the longest routes get a proper band of
+ * levels instead of only the very last one.
  *
- * The exponent sets how front-loaded the climb is. It was 0.85, which kept the
- * first twelve levels at two moves -- long enough for the opening to feel
- * samey rather than gentle. At 0.6 there are three easy levels, three-move
- * routes from level 4 and four-move routes from level 23, while the eight-move
- * ceiling only arrives a little earlier, at 195 rather than 210.
+ * The exponent sets how front-loaded the climb is, and it is tuned so the
+ * opening stays the same whatever the ladder's length: three warm-up levels at
+ * two moves, then three-move routes from level 4. Scaling the old curve to
+ * 1000 levels would have stretched the warm-up fourfold, back to the flat start
+ * that was just removed. From there a route grows by one move every 60 to 150
+ * levels, all the way to the end.
  */
-const DISTANCE_CURVE = 0.6;
+const DISTANCE_CURVE = 0.53;
 const movesForLevel = (level: number) =>
-  2 + Math.min(6, Math.round((level / LEVELS) ** DISTANCE_CURVE * 6.4));
+  2 +
+  Math.min(
+    LONGEST_ROUTE - 2,
+    Math.round((level / LEVELS) ** DISTANCE_CURVE * (LONGEST_ROUTE - 2 + 0.4))
+  );
 
 /** How far down the recognisability ranking a level is allowed to reach. */
 const poolForLevel = (level: number) =>
@@ -108,13 +121,52 @@ interface Level {
 
 const levels: Level[] = [];
 const usedPairs = new Set<string>();
-const startCount = new Map<string, number>();
+/** How often each country has appeared so far, as either end of a level. */
+const useCount = new Map<string, number>();
+
+/**
+ * How many levels back a country stays out of play. Over a 1000-level ladder
+ * the same handful of well-connected countries otherwise come round again and
+ * again -- a third of levels reused a country from the five before, and South
+ * Africa alone appeared 44 times.
+ */
+const RECENT_LEVELS = 5;
 
 function record(level: Level) {
   levels.push(level);
+  if (americas.has(level.start)) americasLevels++;
   usedPairs.add([level.start, level.destination].sort().join('-'));
-  startCount.set(level.start, (startCount.get(level.start) ?? 0) + 1);
+  for (const iso of [level.start, level.destination]) useCount.set(iso, (useCount.get(iso) ?? 0) + 1);
 }
+
+/** Countries used in the last few levels. */
+const recentCountries = () =>
+  new Set(levels.slice(-RECENT_LEVELS).flatMap((level) => [level.start, level.destination]));
+
+/**
+ * The Americas, and their fair share of the ladder.
+ *
+ * The land graph is two great land masses, and left to fame and route length
+ * the bigger one wins nearly everything: the 1000-level ladder put 2.8% of its
+ * levels in the Americas against their 15% of playable countries, and Belize,
+ * Costa Rica, El Salvador, Honduras, Nicaragua and Panama never appeared at
+ * all. Part of that is geography that cannot be helped -- the longest land
+ * route inside the Americas is 10 moves, so 11- and 12-move levels have to be
+ * set elsewhere. The rest is fixed by giving the Americas their share of every
+ * level whose route length they can actually support.
+ */
+const americas = new Set(distancesFrom('US').keys());
+const AMERICAS_SHARE = eligible.filter((c) => americas.has(c.iso2)).length / eligible.length;
+const AMERICAS_LONGEST = Math.max(
+  ...eligible
+    .filter((c) => americas.has(c.iso2))
+    .flatMap((c) => [...distancesFrom(c.iso2)].filter(([iso]) => americas.has(iso)).map(([, d]) => d))
+);
+let americasLevels = 0;
+let americasPossible = 0;
+
+/** Fame, discounted the more a country has already been used. */
+const weight = (iso: string) => (fame.get(iso)! + 0.15) / (1 + (useCount.get(iso) ?? 0) * 0.6);
 
 record({
   level: 1,
@@ -127,35 +179,53 @@ for (let level = 2; level <= LEVELS; level++) {
   const targetMoves = movesForLevel(level);
   let placed = false;
 
-  // Widen the pool and then loosen the move target only if a level cannot be
-  // built, so the curve holds wherever it can.
-  for (let relax = 0; relax <= 3 && !placed; relax++) {
-    const pool = eligible.slice(0, Math.min(eligible.length, poolForLevel(level) + relax * 20));
+  // Loosen the rules one at a time, only when a level cannot be built: variety
+  // first, then the pool's reach, and the move target last, so the difficulty
+  // curve holds wherever it possibly can.
+  const recent = recentCountries();
+  if (targetMoves <= AMERICAS_LONGEST) americasPossible++;
+  const owed = targetMoves <= AMERICAS_LONGEST && americasLevels < AMERICAS_SHARE * americasPossible;
+  // When the Americas are owed a level, try there first; if no level of the
+  // right length can be built there, fall back to anywhere. The Americas only
+  // get the gentle relaxations -- never a shorter or longer route -- because
+  // the difficulty curve outranks regional balance: a 2-move level dropped into
+  // a run of 3-move ones to keep the map fair is the worse of the two faults.
+  for (const region of owed ? (['americas', 'anywhere'] as const) : (['anywhere'] as const)) {
+  const lastRelax = region === 'americas' ? 2 : 4;
+  for (let relax = 0; relax <= lastRelax && !placed; relax++) {
+    const fresh = relax === 0;
+    // The Americas reach further down the fame ranking than the rest of the
+    // world, because they have so few routes to choose from: 196 in all,
+    // against several thousand elsewhere. Held to the same reach, their lesser
+    // known countries never qualified in time and the region got 3% of levels.
+    const widen = Math.max(0, relax - 1) * (region === 'americas' ? 3 : 1);
+    const pool = eligible.slice(0, Math.min(eligible.length, poolForLevel(level) + widen * 20));
     const poolCodes = new Set(pool.map((c) => c.iso2));
-    const allowedMoves = relax < 2 ? [targetMoves] : [targetMoves, targetMoves + 1, targetMoves - 1];
+    const allowedMoves = relax < 3 ? [targetMoves] : [targetMoves, targetMoves + 1, targetMoves - 1];
+    const inRegion = region === 'americas' ? pool.filter((c) => americas.has(c.iso2)) : pool;
+    const starts = fresh ? inRegion.filter((c) => !recent.has(c.iso2)) : inRegion;
+    if (starts.length === 0) continue;
 
     for (let attempt = 0; attempt < 400 && !placed; attempt++) {
-      // Prefer countries the player is likelier to know, and spread the
-      // starts around rather than opening from the same place repeatedly.
-      const start = weightedPick(
-        pool,
-        pool.map((c) => (fame.get(c.iso2)! + 0.15) / (1 + (startCount.get(c.iso2) ?? 0) * 2)),
-        rand
-      );
+      // Prefer countries the player is likelier to know, discounted by how
+      // often each has already come up at either end of a level.
+      const start = weightedPick(starts, starts.map((c) => weight(c.iso2)), rand);
       const distances = distancesFrom(start.iso2);
       const options = [...distances]
         .filter(([iso, d]) => allowedMoves.includes(d) && poolCodes.has(iso) && iso !== start.iso2)
+        .filter(([iso]) => !fresh || !recent.has(iso))
         .filter(([iso]) => !usedPairs.has([start.iso2, iso].sort().join('-')));
       if (options.length === 0) continue;
 
       const destination = weightedPick(
         options.map(([iso]) => iso),
-        options.map(([iso]) => fame.get(iso)! + 0.15),
+        options.map(([iso]) => weight(iso)),
         rand
       );
       record({ level, start: start.iso2, destination, moves: distances.get(destination)! });
       placed = true;
     }
+  }
   }
 
   if (!placed) throw new Error(`could not build campaign level ${level}`);
@@ -175,12 +245,30 @@ writeFileSync(
 const name = (iso: string) => getCountry(iso)!.name;
 console.log(`levels: ${levels.length}`);
 console.log(`unique pairs: ${usedPairs.size}`);
-for (const l of [1, 2, 3, 10, 25, 50, 100, 150, 200, 240, 250]) {
+for (const l of [1, 2, 3, 10, 25, 50, 100, 250, 500, 750, 900, LEVELS]) {
   const entry = levels[l - 1];
   console.log(
-    `  ${String(l).padStart(3)}  ${entry.moves} moves  ${name(entry.start)} -> ${name(entry.destination)}`
+    `  ${String(l).padStart(4)}  ${String(entry.moves).padStart(2)} moves  ${name(entry.start)} -> ${name(entry.destination)}`
   );
 }
+// Variety: a long ladder that keeps visiting the same few countries reads as
+// a short one on repeat.
+const uses = new Map<string, number>();
+let reusedRecently = 0;
+levels.forEach((entry, i) => {
+  const recent = new Set(levels.slice(Math.max(0, i - RECENT_LEVELS), i).flatMap((l) => [l.start, l.destination]));
+  if (recent.has(entry.start) || recent.has(entry.destination)) reusedRecently++;
+  for (const iso of [entry.start, entry.destination]) uses.set(iso, (uses.get(iso) ?? 0) + 1);
+});
+const mostUsed = [...uses].sort((a, b) => b[1] - a[1]).slice(0, 3);
+console.log(
+  `variety: ${uses.size} countries; ${reusedRecently} levels reuse one from the last ${RECENT_LEVELS}; ` +
+    `most used ${mostUsed.map(([iso, n]) => `${iso} x${n}`).join(', ')}`
+);
+console.log(
+  `americas: ${americasLevels} levels (${((100 * americasLevels) / levels.length).toFixed(1)}%), ` +
+    `fair share ${(100 * AMERICAS_SHARE).toFixed(0)}% of the ${americasPossible} levels they can support`
+);
 const byMoves = new Map<number, number>();
 for (const l of levels) byMoves.set(l.moves, (byMoves.get(l.moves) ?? 0) + 1);
 console.log('moves spread:', [...byMoves].sort((a, b) => a[0] - b[0]).map(([m, n]) => `${m}:${n}`).join('  '));

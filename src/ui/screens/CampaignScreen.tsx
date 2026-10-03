@@ -60,12 +60,17 @@ export function CampaignScreen({ progress, onPlayLevel, onBack }: CampaignScreen
         data={levels}
         keyExtractor={(level) => String(level)}
         numColumns={COLUMNS}
-        initialScrollIndex={initialRow * COLUMNS}
-        getItemLayout={(_, index) => ({
-          length: rowHeight,
-          offset: rowHeight * Math.floor(index / COLUMNS),
-          index,
-        })}
+        // With numColumns the list virtualises *rows*, so both of these take a
+        // row index, not a tile index. Treating them as tiles made every row
+        // look a fifth of its height, and the list rendered 800 of the 1000
+        // tiles to fill one screen -- harmless at 250 levels, heavy in a
+        // phone's WebView at 1000.
+        initialScrollIndex={initialRow}
+        getItemLayout={(_, row) => ({ length: rowHeight, offset: rowHeight * row, index: row })}
+        // Rows again: about two screens' worth to start, then a window of five
+        // screens as the player scrolls.
+        initialNumToRender={20}
+        windowSize={5}
         columnWrapperStyle={styles.row}
         contentContainerStyle={[styles.grid, { paddingBottom: insets.bottom + spacing.xl }]}
         renderItem={({ item: level }) => (

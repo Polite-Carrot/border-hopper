@@ -172,7 +172,7 @@ export function BorderHopperApp() {
         const next = recordLevel(campaign, result);
         setCampaign(next);
         void saveCampaign(next);
-        // The 250th level, fired once, the moment the last gap closes.
+        // The last level, fired once, the moment the last gap closes.
         if (nextLevel(campaign) !== null && nextLevel(next) === null) {
           const levels = Object.values(next);
           track('campaign_complete', {
