@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, radius, spacing } from '../../theme';
 import type { Settings } from '../../storage/storage';
 import { Button } from '../components/Button';
-import { DIFFICULTY_OPTIONS } from '../components/difficulty';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { SettingRow } from '../components/SettingRow';
 
@@ -30,30 +29,6 @@ export function SettingsScreen({ settings, onChange, onReset, onBack, onPrivacy 
         ]}
       >
         <ScreenHeader title="Settings" onBack={onBack} />
-
-        <Text style={styles.section}>DIFFICULTY</Text>
-        <View style={styles.card}>
-          {DIFFICULTY_OPTIONS.map((option) => (
-            <Pressable
-              key={option.value}
-              accessibilityRole="radio"
-              // See DifficultyPicker: web needs `aria-checked`, native needs
-              // `accessibilityState`, so both are set.
-              accessibilityState={{ checked: settings.difficulty === option.value }}
-              aria-checked={settings.difficulty === option.value}
-              onPress={() => onChange({ ...settings, difficulty: option.value })}
-              style={({ pressed }) => [styles.option, pressed && styles.pressed]}
-            >
-              <View style={styles.optionText}>
-                <Text style={styles.optionLabel}>{option.label}</Text>
-                <Text style={styles.optionHint}>{option.hint}</Text>
-              </View>
-              <View style={[styles.radio, settings.difficulty === option.value && styles.radioOn]}>
-                {settings.difficulty === option.value ? <View style={styles.radioDot} /> : null}
-              </View>
-            </Pressable>
-          ))}
-        </View>
 
         <Text style={styles.section}>GAME</Text>
         <View style={styles.card}>
@@ -126,28 +101,5 @@ const styles = StyleSheet.create({
     borderColor: colors.hairline,
     overflow: 'hidden',
   },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 13,
-    gap: spacing.md,
-  },
-  pressed: { backgroundColor: 'rgba(61, 189, 248, 0.1)' },
-  optionText: { flex: 1 },
-  optionLabel: { color: colors.text, fontFamily: fonts.body, fontSize: 15.5, fontWeight: '600' },
-  optionHint: { color: colors.textMuted, fontSize: 12.5, marginTop: 2 },
-  radio: {
-    width: 22,
-    height: 22,
-    borderRadius: radius.pill,
-    borderWidth: 1.5,
-    borderColor: colors.hairlineStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioOn: { borderColor: colors.current },
-  radioDot: { width: 10, height: 10, borderRadius: radius.pill, backgroundColor: colors.current },
   note: { color: colors.textMuted, fontSize: 12.5, marginTop: spacing.md, textAlign: 'center', lineHeight: 18 },
 });

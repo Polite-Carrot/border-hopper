@@ -191,11 +191,12 @@ the camera back in charge.
 
 ### The traveller
 
-The studio's carrot stands on the country you are in and **hops** to each new
-one -- a quick jump over a border, a long high arc for a flight -- squashing as
-it lands, with its shadow left on the ground below. It stands on dry land in
-every country, including the ones whose middle is sea, like Japan and
-Indonesia. With reduce motion on, it simply appears in the next country.
+A little explorer in a safari hat stands on the country you are in and
+**hops** to each new one -- a quick jump over a border, a long high arc for a
+flight -- squashing as he lands, with his shadow left on the ground below. He
+stands on dry land in every country, including the ones whose middle is sea,
+like Japan and Indonesia. With reduce motion on, he simply appears in the next
+country.
 
 ## Sound
 
@@ -419,9 +420,9 @@ sheets that drifted apart would be worse than one. Pick how you travel, pick
 how far, and go. The difficulty bands shown change with the mode, because they
 genuinely differ — a hard walk is 5–7 moves and a hard flight is 4–5.
 
-The choice is remembered as the saved difficulty, so the sheet and the
-Settings screen are one setting seen from two places. "New game" after a
-finished game keeps the same mode and difficulty rather than asking again.
+The sheet is the only place difficulty is chosen -- Settings does not have
+it -- and it opens on whatever you picked last. "New game" after a finished
+game keeps the same mode and difficulty rather than asking again.
 
 **How flight mode works** — a flight network on top of the land borders, which
 opens up every island the land rules shut out. The rule is not guessable, so

@@ -125,7 +125,7 @@ export function WorldMap({
 
   // Hop whenever there is somewhere new to hop to. The camera's duration is 0
   // for the opening frame and whenever reduce motion is on, and then the
-  // carrot simply appears on the new country instead of jumping.
+  // explorer simply appears on the new country instead of jumping.
   const animateTrip = duration > 0;
   useEffect(() => {
     if (!currentTrip || currentTrip.from === currentTrip.to || !animateTrip) {

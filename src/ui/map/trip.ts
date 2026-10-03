@@ -11,7 +11,7 @@ export interface Trip {
   flown: boolean;
   /** Milliseconds in the air. */
   air: number;
-  /** 1 to face east, -1 to face west: the carrot looks where it is going. */
+  /** 1 to face east, -1 to face west: he looks where he is going. */
   facing: 1 | -1;
 }
 
@@ -26,11 +26,11 @@ export function nearestCopy(x: number, near: number): number {
 /**
  * Plans a move from one anchor to the next, in step with the camera.
  *
- * The carrot takes off from the copy of the old country the camera is leaving
+ * The explorer takes off from the copy of the old country the camera is leaving
  * and lands on the copy of the new one the camera is heading for, so it always
  * travels the way the world is sliding. Choosing "the short way" between the
  * two anchors instead looks right for France to Germany but not for the USA to
- * Russia: Russia's anchor is west of the Urals, so the carrot would set off
+ * Russia: Russia's anchor is west of the Urals, so he would set off
  * over the Atlantic while the camera swung west over the Pacific.
  */
 export function planTrip(
@@ -52,7 +52,7 @@ export function planTrip(
 
 /**
  * Milliseconds in the air for a hop over a border. A flight takes exactly as
- * long as the camera's journey instead, so the carrot touches down as the
+ * long as the camera's journey instead, so he touches down as the
  * camera settles.
  */
 export const HOP_TIME = 440;

@@ -40,8 +40,8 @@ describe('traveller trips', () => {
     for (const [a, b] of [['US', 'RU'], ['RU', 'US'], ['JP', 'US'], ['US', 'JP'], ['FJ', 'AU'], ['NZ', 'CL'], ['FR', 'DE']]) {
       const { move, trip } = tripBetween(a, b, true);
       const cameraWay = Math.sign(move.to.x - move.from.x);
-      const carrotWay = Math.sign(trip.to[0] - trip.from[0]);
-      if (cameraWay !== 0 && carrotWay !== 0) expect(carrotWay, `${a}-${b}`).toBe(cameraWay);
+      const explorerWay = Math.sign(trip.to[0] - trip.from[0]);
+      if (cameraWay !== 0 && explorerWay !== 0) expect(explorerWay, `${a}-${b}`).toBe(cameraWay);
       // And it ends up standing where the camera is looking.
       expect(Math.abs(trip.to[0] - move.to.x), `${a}-${b}`).toBeLessThan(MAP_WIDTH / 2);
     }

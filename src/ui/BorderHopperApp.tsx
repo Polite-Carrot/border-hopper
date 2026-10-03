@@ -114,8 +114,8 @@ export function BorderHopperApp() {
 
   /**
    * Starts a one-off game in an explicitly chosen mode and difficulty, and
-   * remembers the difficulty. The sheet and the Settings screen are the same
-   * setting seen from two places, rather than two that can disagree.
+   * remembers the difficulty so the sheet opens on it next time. The sheet is
+   * the only place difficulty is chosen.
    */
   const startRandom = useCallback(
     (mode: RandomMode, choice: Settings['difficulty']) => {

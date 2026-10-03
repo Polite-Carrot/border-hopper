@@ -89,12 +89,13 @@ country in clear space instead of behind the country list.
 
 ### The traveller
 
-The Polite Carrot stands on the current country and hops to the next. It is
-drawn outside the camera group, so it is the same size at every zoom, but
-positioned *through* the camera's animated transform, so it stays glued to the
-ground while the world slides underneath it.
+A little explorer -- safari hat, backpack, boots -- stands on the current
+country and hops to the next. He is drawn outside the camera group, so he is
+the same size at every zoom, but positioned *through* the camera's animated
+transform, so he stays glued to the ground while the world slides underneath
+him.
 
-It stands on each country's `anchor`, not its centroid. A centroid is the
+He stands on each country's `anchor`, not its centroid. A centroid is the
 middle of the shape, which for Japan, Indonesia or the Philippines is sea and
 for Vatican City is Rome; the anchor is the point of the largest landmass
 furthest from its coast ([polylabel](https://github.com/mapbox/polylabel)),
@@ -102,10 +103,10 @@ worked out once by the data build, and a test checks every one is on the
 outline the map actually draws.
 
 A trip is planned in `trip.ts` the moment the player enters a new country, from
-the camera's two ends rather than the two anchors, so the carrot always moves
+the camera's two ends rather than the two anchors, so the explorer always moves
 the way the world is moving. Planning it from the anchors looks right for
 France to Germany and wrong for the USA to Russia, whose anchor is west of the
-Urals: the carrot would set off over the Atlantic as the camera swung west over
+Urals: he would set off over the Atlantic as the camera swung west over
 the Pacific. A border hop is a fixed 440ms parabola; a flight lasts exactly as
 long as the camera's journey and follows its eased progress, because across
 half the world anything at a steady pace races off the screen and back. One

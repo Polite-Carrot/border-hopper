@@ -28,6 +28,3 @@ export function difficultyOptions(flights = false): DifficultyOption[] {
     { value: 'hard', label: 'Hard', hint: band(moves.hard) },
   ];
 }
-
-/** The land bands, for places that are not choosing a mode. */
-export const DIFFICULTY_OPTIONS = difficultyOptions(false);

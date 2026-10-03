@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Animated } from 'react-native';
 import { Ellipse, G } from 'react-native-svg';
 import { MAP_WIDTH } from '../../core/world';
-import { CarrotTraveller } from './CarrotTraveller';
+import { Explorer } from './Explorer';
 import { ARC_HEIGHT, SETTLE_TIME, type Trip } from './trip';
 
 const AnimatedG = Animated.createAnimatedComponent(G);
@@ -33,7 +33,7 @@ export interface TravellerProps {
 }
 
 /**
- * The carrot, standing on the current country and hopping to the next.
+ * The explorer, standing on the current country and hopping to the next.
  *
  * It lives outside the camera group so it stays the same size at every zoom,
  * but it is placed through the camera's transform, so it stays glued to the
@@ -53,7 +53,7 @@ export function Traveller({ trip, clock, progress, camera, copy }: TravellerProp
     // A hop goes straight across at a steady pace under a parabola: the path
     // of anything thrown, which is why it reads as a jump. A flight instead
     // keeps pace with the camera, which eases in and out over half the world;
-    // at a steady pace the carrot would race off the screen on take-off and
+    // at a steady pace he would race off the screen on take-off and
     // fall back into it at the end.
     const along = trip.flown ? progress : clock;
     const span = trip.flown ? 1 : air;
@@ -63,7 +63,7 @@ export function Traveller({ trip, clock, progress, camera, copy }: TravellerProp
     const rise = ARC_SAMPLES.map((u) => 4 * u * (1 - u));
     const lift = clock.interpolate({ inputRange: times, outputRange: rise.map((r) => -height * r), ...clamp });
 
-    // The shadow stays on the ground and shrinks as the carrot rises.
+    // The shadow stays on the ground and shrinks as he rises.
     const shadowScale = clock.interpolate({ inputRange: times, outputRange: rise.map((r) => 1 - 0.5 * r), ...clamp });
     const shadowOpacity = clock.interpolate({ inputRange: times, outputRange: rise.map((r) => 0.4 - 0.25 * r), ...clamp });
 
@@ -97,7 +97,7 @@ export function Traveller({ trip, clock, progress, camera, copy }: TravellerProp
       <AnimatedG translateY={motion.lift as unknown as number}>
         <AnimatedG scaleX={motion.scaleX as unknown as number} scaleY={motion.scaleY as unknown as number}>
           <G scaleX={trip.facing}>
-            <CarrotTraveller />
+            <Explorer />
           </G>
         </AnimatedG>
       </AnimatedG>
