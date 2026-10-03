@@ -65,7 +65,7 @@ export function SettingsScreen({ settings, onChange, onReset, onBack, onPrivacy 
           />
           <SettingRow
             label="Sound"
-            hint="No sounds ship with this build yet"
+            hint="A hop at each border, a jingle when you arrive"
             value={settings.sound}
             onChange={(sound) => onChange({ ...settings, sound })}
           />

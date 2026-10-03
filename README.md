@@ -189,6 +189,26 @@ below for what that costs.
 The recentre button appears as soon as you move the map, and travelling puts
 the camera back in charge.
 
+## Sound
+
+Two sounds, both synthesised with Web Audio rather than shipped as files, the
+way the studio's other games do it: a soft upward **hop** at every border
+crossed, and a two-second **jingle** on arrival — four notes hopping up a C
+major arpeggio, a lift through F and A, a landing on high C over a I–IV–V–I
+bass. The hop bends up the same fourth the jingle opens with, so the two sound
+like one game. Everything is written down in `src/audio/synth.ts`.
+
+It's quiet by design: measured by rendering the real synth offline, the jingle
+peaks at -12.8 dBFS and the hop at -14.1, against the near-0 most game audio
+is mastered to. One constant, `VOLUME` in `src/audio/sounds.ts`, if that's
+wrong. The audio session is set to "ambient", so it mixes with whatever is
+already playing — a podcast keeps going — and follows the iPhone's silent
+switch.
+
+Buttons and wrong guesses stay silent on purpose: a click on every tap and a
+buzz on every mistake is the fastest way to get sound switched off, and
+haptics already cover mistakes.
+
 ## The keyboard
 
 The game draws its own keyboard instead of using the platform's, so that its

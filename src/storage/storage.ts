@@ -65,7 +65,9 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   difficulty: 'mixed',
-  sound: false,
+  // On now that there is something to hear. Quiet, and only ever a hop and
+  // a jingle, so a new player meets it rather than having to find it.
+  sound: true,
   haptics: true,
   reduceMotion: false,
   // Off is the only safe default for consent, and the only honest one: a
