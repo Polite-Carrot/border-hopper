@@ -260,6 +260,8 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
   });
 
   const visited = state.route.slice(0, -1);
+  const previous = state.route[state.route.length - 2];
+  const lastMoveFlown = previous !== undefined && wasFlown(config, previous, iso);
   const seconds = elapsedSeconds(state, now);
   // A short result list shrinks the panel instead of leaving dead space below it.
   const renderedListHeight = docked
@@ -280,6 +282,7 @@ export function GameScreen({ config, reduceMotion, onExit, onNewGame, onComplete
         destinationIso={config.destination}
         visited={visited}
         invalidIso={invalidIso}
+        flown={lastMoveFlown}
         arrivalToken={arrivalToken}
         userTransform={gestures.transform}
         panHandlers={gestures.panHandlers}

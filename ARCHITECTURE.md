@@ -39,11 +39,14 @@ the continents keep their shape instead of smearing towards the top -- but it
 is pseudocylindrical: its width varies with latitude, so its copies would meet
 in a ragged wedge rather than a seam. Wrapping was worth the trade.
 
-Two things follow from the wrap. The camera re-aims at whichever copy of the
+Three things follow from the wrap. The camera re-aims at whichever copy of the
 target is nearest (`nearestTurn`), so flying the Bering Strait pans 113km
-rather than most of the canvas. And anything drawn at a fixed map position --
-the destination reticle, the off-screen pointer -- has to exist three times
-over, or pick the nearest copy.
+rather than most of the canvas. Because that lets the camera step off the
+canvas, every move is then shifted back by whole worlds onto the middle copy
+(`recentre`); without it, flying west across the Pacific again and again walks
+the camera past the last copy and into empty ocean. And anything drawn at a
+fixed map position -- the destination reticle, the off-screen pointer, the
+traveller -- has to exist three times over, or pick the nearest copy.
 
 ### The game brings its own keyboard
 
@@ -83,6 +86,31 @@ The camera frames into a *visible rectangle* rather than the whole screen. The
 HUD sits over the top of the map and the control panel over the bottom, so the
 visible rectangle is what is left between them; that is what keeps the current
 country in clear space instead of behind the country list.
+
+### The traveller
+
+The Polite Carrot stands on the current country and hops to the next. It is
+drawn outside the camera group, so it is the same size at every zoom, but
+positioned *through* the camera's animated transform, so it stays glued to the
+ground while the world slides underneath it.
+
+It stands on each country's `anchor`, not its centroid. A centroid is the
+middle of the shape, which for Japan, Indonesia or the Philippines is sea and
+for Vatican City is Rome; the anchor is the point of the largest landmass
+furthest from its coast ([polylabel](https://github.com/mapbox/polylabel)),
+worked out once by the data build, and a test checks every one is on the
+outline the map actually draws.
+
+A trip is planned in `trip.ts` the moment the player enters a new country, from
+the camera's two ends rather than the two anchors, so the carrot always moves
+the way the world is moving. Planning it from the anchors looks right for
+France to Germany and wrong for the USA to Russia, whose anchor is west of the
+Urals: the carrot would set off over the Atlantic as the camera swung west over
+the Pacific. A border hop is a fixed 440ms parabola; a flight lasts exactly as
+long as the camera's journey and follows its eased progress, because across
+half the world anything at a steady pace races off the screen and back. One
+clock drives the arc, the shadow and the squash on landing, so they can never
+drift apart.
 
 ### Data
 

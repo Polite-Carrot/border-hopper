@@ -55,4 +55,45 @@ describe('country data', () => {
     expect(SHAPES.length).toBeGreaterThan(COUNTRIES.length);
     for (const shape of SHAPES) expect(shape.d.startsWith('M')).toBe(true);
   });
+
+  it('stands the traveller on dry land in every country', () => {
+    // The anchor is where the carrot stands. A centroid can fall in the sea
+    // (Japan, Indonesia) or in a neighbour (Vatican City's lands in Rome), so
+    // this checks the anchor against the outline that is actually drawn.
+    // Monaco, Nauru and a few more are drawn smaller than one map unit, which
+    // rounds their outline down to a dot; for those, on the dot is on land.
+    for (const country of COUNTRIES) {
+      const rings = SHAPES.filter((shape) => shape.key === country.iso2).flatMap((shape) => ringsOf(shape.d));
+      const onLand =
+        insideAny(country.anchor, rings) ||
+        rings.some((ring) => ring.some(([x, y]) => Math.hypot(x - country.anchor[0], y - country.anchor[1]) <= 1));
+      expect(onLand, country.name).toBe(true);
+    }
+  });
 });
+
+/** Splits an absolute M/L/Z path, which is all the generator emits, into rings. */
+function ringsOf(d: string): [number, number][][] {
+  return d
+    .split('M')
+    .filter(Boolean)
+    .map((ring) =>
+      ring
+        .replace(/Z/g, '')
+        .split('L')
+        .map((pair) => pair.split(',').map(Number) as [number, number])
+    );
+}
+
+/** Even-odd point in polygon across every ring, so holes count as outside. */
+function insideAny([x, y]: readonly [number, number], rings: [number, number][][]): boolean {
+  let inside = false;
+  for (const ring of rings) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i];
+      const [xj, yj] = ring[j];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+  }
+  return inside;
+}

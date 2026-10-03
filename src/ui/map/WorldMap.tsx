@@ -3,9 +3,11 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop, Use } from 'react-native-svg';
 import { MAP_HEIGHT, MAP_WIDTH, getCountry } from '../../core/world';
 import { mapColors } from '../../theme';
-import { cameraOffset, nearestTurn, type Camera, type Stage } from './camera';
+import { cameraOffset, nearestTurn, recentre, type Camera, type Stage } from './camera';
 import { BaseLayer } from './BaseLayer';
 import { PATH_BY_KEY } from './shapes';
+import { Traveller, tripLength } from './Traveller';
+import { planTrip, type Trip } from './trip';
 
 const AnimatedG = Animated.createAnimatedComponent(G);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -22,6 +24,9 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const WORLD_ID = 'bh-world';
 const COPIES = [-1, 0, 1] as const;
 
+/** Clock reading for a traveller standing still: past the end of any trip. */
+const AT_REST = 1e6;
+
 /** Sample points used to interpolate scale geometrically rather than linearly. */
 const CURVE = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
 
@@ -36,6 +41,8 @@ export interface WorldMapProps {
   visited: readonly string[];
   /** Briefly flashed in red after a rejected guess. */
   invalidIso?: string | null;
+  /** Whether the move into `currentIso` was a flight rather than a border hop. */
+  flown?: boolean;
   /** Bumped to replay the arrival ping. */
   arrivalToken?: number;
   /** Pinch/drag transform layered on top of the camera, if the map is interactive. */
@@ -64,6 +71,7 @@ export function WorldMap({
   destinationIso,
   visited,
   invalidIso,
+  flown = false,
   arrivalToken = 0,
   userTransform,
   panHandlers,
@@ -80,9 +88,23 @@ export function WorldMap({
   const seen = useRef<Camera>(camera);
   if (seen.current !== camera) {
     seen.current = camera;
-    from.current = to.current;
-    to.current = nearestTurn(camera, from.current);
+    const turn = recentre(to.current, nearestTurn(camera, to.current));
+    from.current = turn.from;
+    to.current = turn.to;
   }
+
+  // The traveller's next move, planned when the player enters a new country,
+  // after the camera has been re-aimed, so it can travel in step with it.
+  const clock = useRef(new Animated.Value(AT_REST)).current;
+  const trip = useRef<Trip | null>(null);
+  const tripIso = useRef<string | null>(null);
+  if (tripIso.current !== currentIso) {
+    const before = tripIso.current ? getCountry(tripIso.current)?.anchor : undefined;
+    const after = getCountry(currentIso)?.anchor;
+    tripIso.current = currentIso;
+    trip.current = after ? planTrip(before, after, { from: from.current.x, to: to.current.x, duration }, flown) : null;
+  }
+  const currentTrip = trip.current;
 
   useEffect(() => {
     progress.setValue(0);
@@ -100,6 +122,30 @@ export function WorldMap({
     animation.start();
     return () => animation.stop();
   }, [camera, duration, progress]);
+
+  // Hop whenever there is somewhere new to hop to. The camera's duration is 0
+  // for the opening frame and whenever reduce motion is on, and then the
+  // carrot simply appears on the new country instead of jumping.
+  const animateTrip = duration > 0;
+  useEffect(() => {
+    if (!currentTrip || currentTrip.from === currentTrip.to || !animateTrip) {
+      clock.setValue(AT_REST);
+      return;
+    }
+    clock.setValue(0);
+    const length = tripLength(currentTrip);
+    const animation = Animated.timing(clock, {
+      toValue: length,
+      duration: length,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    });
+    animation.start(({ finished }) => {
+      if (finished) clock.setValue(AT_REST);
+    });
+    return () => animation.stop();
+    // Keyed on the trip alone: a camera nudge mid-hop must not restart it.
+  }, [currentTrip, clock]);
 
   useEffect(() => {
     if (!arrivalToken) return;
@@ -262,6 +308,19 @@ export function WorldMap({
               progress={progress}
             />
           ))}
+
+          {currentTrip
+            ? COPIES.map((copy) => (
+                <Traveller
+                  key={`traveller-${copy}`}
+                  trip={currentTrip}
+                  clock={clock}
+                  progress={progress}
+                  camera={transform}
+                  copy={copy}
+                />
+              ))
+            : null}
 
           {current ? (
             <AnimatedCircle

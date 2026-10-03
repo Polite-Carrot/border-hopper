@@ -26,6 +26,7 @@ import { NON_SOVEREIGN_ISO2, MERGE_INTO, DISPLAY_NAME, ALIASES, EXCLUDED_BORDERS
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson';
 import { seededRandom, weightedPick } from '../src/core/random.ts';
+import polylabel from 'polylabel';
 
 countries.registerLocale(enLocale as never);
 
@@ -575,6 +576,8 @@ interface OutCountry {
   population: number;
   /** Centre of the main landmass, in projected map units. */
   centroid: [number, number];
+  /** A point guaranteed to be on the country's own land; see below. */
+  anchor: [number, number];
   /** Bounding box of the main landmass: [minX, minY, maxX, maxY]. */
   bbox: [number, number, number, number];
   area: number;
@@ -613,6 +616,17 @@ for (const owner of [...owners.values()].sort((a, b) => a.name.localeCompare(b.n
   };
   const [[x0, y0], [x1, y1]] = pathGen.bounds(mainland);
   const projected = projection(geoCentroid(mainland));
+
+  // Where the traveller stands. A centroid is the wrong point for that: it
+  // falls outside the country for 21 of them -- in the sea in the middle of an
+  // island chain like Japan or Indonesia or the hollow of a crescent like
+  // Vietnam, and in a neighbour for Vatican City and Monaco. This
+  // is the point inside the country's largest landmass that is furthest from
+  // any coast or border, measured on the simplified shape the player is shown,
+  // so it is on land the player can see.
+  const largest = polys[polyAreas.indexOf(largestArea)];
+  const projectedRings = largest.map((ring) => ring.map((point) => projection(point as [number, number])!));
+  const label = polylabel(projectedRings, 0.25);
   const aliasSet = new Set<string>(ALIASES[iso2] ?? []);
   const iso3 = countries.alpha2ToAlpha3(iso2) ?? iso2;
   aliasSet.add(iso3.toLowerCase());
@@ -636,6 +650,7 @@ for (const owner of [...owners.values()].sort((a, b) => a.name.localeCompare(b.n
     centroid: projected
       ? [Number(projected[0].toFixed(1)), Number(projected[1].toFixed(1))]
       : [Number(((x0 + x1) / 2).toFixed(1)), Number(((y0 + y1) / 2).toFixed(1))],
+    anchor: [Number(label[0].toFixed(2)), Number(label[1].toFixed(2))],
     bbox: [x0, y0, x1, y1].map((n) => Number(n.toFixed(1))) as [number, number, number, number],
     area: Number((geoArea(shape) * 1e4).toFixed(2)),
   });

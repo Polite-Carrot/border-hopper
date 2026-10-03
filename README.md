@@ -189,6 +189,14 @@ below for what that costs.
 The recentre button appears as soon as you move the map, and travelling puts
 the camera back in charge.
 
+### The traveller
+
+The studio's carrot stands on the country you are in and **hops** to each new
+one -- a quick jump over a border, a long high arc for a flight -- squashing as
+it lands, with its shadow left on the ground below. It stands on dry land in
+every country, including the ones whose middle is sea, like Japan and
+Indonesia. With reduce motion on, it simply appears in the next country.
+
 ## Sound
 
 Two sounds, both synthesised with Web Audio rather than shipped as files, the

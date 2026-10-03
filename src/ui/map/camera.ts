@@ -128,3 +128,17 @@ export function projectToScreen(
   const offset = cameraOffset(camera, stage);
   return { x: point[0] * camera.k + offset.x, y: point[1] * camera.k + offset.y };
 }
+
+/**
+ * Moves a camera move onto the middle copy of the world, shifting both ends
+ * by the same whole number of worlds so the move itself looks identical.
+ *
+ * `nearestTurn` lets the camera step off the canvas to cross the seam, and
+ * without this, someone flying west across the Pacific again and again would
+ * walk the camera past the last tiled copy and into empty ocean.
+ */
+export function recentre(from: Camera, to: Camera): { from: Camera; to: Camera } {
+  const shift = Math.floor(to.x / MAP_WIDTH) * MAP_WIDTH;
+  if (shift === 0) return { from, to };
+  return { from: { ...from, x: from.x - shift }, to: { ...to, x: to.x - shift } };
+}

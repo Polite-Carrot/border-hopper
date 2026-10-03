@@ -22,6 +22,12 @@ export interface Country {
   population: number;
   /** Projected map coordinates of the country's centre. */
   centroid: [number, number];
+  /**
+   * Projected point where the traveller stands: on the country's largest
+   * landmass, as far from any edge as possible. Unlike the centroid, always on
+   * land -- the centroid of Japan or Indonesia is in the sea.
+   */
+  anchor: [number, number];
   /** Projected bounding box: [minX, minY, maxX, maxY]. */
   bbox: [number, number, number, number];
   /** Spherical area x 10^4 steradians. Used for weighting and zoom levels. */

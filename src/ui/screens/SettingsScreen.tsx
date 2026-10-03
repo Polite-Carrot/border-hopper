@@ -71,7 +71,7 @@ export function SettingsScreen({ settings, onChange, onReset, onBack, onPrivacy 
           />
           <SettingRow
             label="Reduce motion"
-            hint="Skip the camera travel animation"
+            hint="No camera travel, and no jumping about"
             value={settings.reduceMotion}
             onChange={(reduceMotion) => onChange({ ...settings, reduceMotion })}
           />
