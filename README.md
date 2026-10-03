@@ -191,8 +191,13 @@ This is why the map is equirectangular rather than the better-looking Natural
 Earth 1: only a cylindrical projection repeats cleanly. See "The country data"
 below for what that costs.
 
-The recentre button appears as soon as you move the map, and travelling puts
-the camera back in charge.
+**Zoom and re-centre buttons** sit at the bottom right of the map. Zooming
+out goes as far as the whole world -- pinch, scroll wheel and the − button all
+stop there -- and in to nine times the framed view. Each press doubles or
+halves, about the middle of the clear part of the map, so the country you are
+in stays in view. The explorer and the destination marker keep their size at
+every zoom. Re-centre lights up once you have moved the map, and travelling
+puts the camera back in charge anyway.
 
 ### The traveller
 

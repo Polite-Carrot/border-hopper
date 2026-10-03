@@ -8,6 +8,8 @@ export interface OffscreenTargetProps {
   destinationCentroid: readonly [number, number];
   camera: Camera;
   stage: Stage;
+  /** Screen area the pointer must not cover -- the map's zoom controls. */
+  keepClear?: { x: number; y: number; width: number; height: number };
 }
 
 const PILL_WIDTH = 56;
@@ -23,6 +25,7 @@ export function OffscreenTarget({
   destinationCentroid,
   camera,
   stage,
+  keepClear,
 }: OffscreenTargetProps) {
   const { visible } = stage;
   const midX = visible.x + visible.width / 2;
@@ -48,7 +51,18 @@ export function OffscreenTarget({
   if (onScreen) return null;
 
   const x = Math.min(maxX, Math.max(minX, point.x));
-  const y = Math.min(maxY, Math.max(minY, point.y));
+  let y = Math.min(maxY, Math.max(minY, point.y));
+  // Pinned to the edge right where the zoom controls are: slide up the edge
+  // to just above them instead of hiding underneath.
+  if (
+    keepClear &&
+    x + PILL_WIDTH / 2 > keepClear.x &&
+    x - PILL_WIDTH / 2 < keepClear.x + keepClear.width &&
+    y + 14 > keepClear.y - 6 &&
+    y - 14 < keepClear.y + keepClear.height
+  ) {
+    y = keepClear.y - 26;
+  }
   const angle = Math.atan2(point.y - y, point.x - x);
 
   return (

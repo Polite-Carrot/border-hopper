@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, PanResponder, Platform, type View } from 'react-native';
 
-/** How far in and out the player may take the map, relative to the framed view. */
-const MIN_SCALE = 1;
+/**
+ * How far in the player may take the map, relative to the framed view. How
+ * far out depends on the country -- out to the whole world -- so it comes in
+ * as an option rather than a constant.
+ */
 const MAX_SCALE = 9;
+/** One press of the zoom buttons doubles or halves the scale. */
+const BUTTON_STEP = 2;
+/** Scales this close to a limit count as at it, so a button greys out cleanly. */
+const EPSILON = 1e-3;
 /** Finger travel, in pixels, before a drag counts as a drag rather than a tap. */
 const DRAG_SLOP = 3;
 
@@ -21,6 +28,24 @@ export interface MapGestures {
   adjusted: boolean;
   /** Eases the map back to wherever the camera is pointing. */
   reset: (animated?: boolean) => void;
+  /**
+   * One step in (+1) or out (-1), about a point given relative to the middle
+   * of the view -- the zoom buttons, which want the middle of the visible map
+   * to stay put rather than the middle of the screen.
+   */
+  zoomStep: (direction: 1 | -1, focal: { x: number; y: number }, animated?: boolean) => void;
+  /** False at the zoom limits, so the buttons can say so. */
+  canZoomIn: boolean;
+  canZoomOut: boolean;
+}
+
+export interface MapGestureOptions {
+  /**
+   * The furthest out the map may go, as a scale on the framed view: whatever
+   * fits the whole world in. Anything above 1 is treated as 1, so the framed
+   * view is always reachable.
+   */
+  minScale?: number;
 }
 
 const distance = (a: { pageX: number; pageY: number }, b: { pageX: number; pageY: number }) =>
@@ -39,10 +64,28 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 export function useMapGestures(
   size: { width: number; height: number },
   /** On-screen size of one copy of the world under the current camera. */
-  world: { width: number; height: number }
+  world: { width: number; height: number },
+  options: MapGestureOptions = {}
 ): MapGestures {
   const containerRef = useRef<View | null>(null);
   const [adjusted, setAdjusted] = useState(false);
+  const minScale = useRef(1);
+  minScale.current = Math.min(1, options.minScale ?? 1);
+
+  // Whether each button has anywhere left to go. Kept as state, but only set
+  // when it actually changes: `apply` runs on every frame of a pinch.
+  const [limits, setLimits] = useState({ canZoomIn: true, canZoomOut: minScale.current < 1 - EPSILON });
+  const limitsRef = useRef(limits);
+  const report = useCallback((scale: number) => {
+    const next = {
+      canZoomIn: scale < MAX_SCALE - EPSILON,
+      canZoomOut: scale > minScale.current + EPSILON,
+    };
+    if (next.canZoomIn !== limitsRef.current.canZoomIn || next.canZoomOut !== limitsRef.current.canZoomOut) {
+      limitsRef.current = next;
+      setLimits(next);
+    }
+  }, []);
 
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
@@ -106,8 +149,9 @@ export function useMapGestures(
       scale.setValue(settled.scale);
       translateX.setValue(settled.x);
       translateY.setValue(settled.y);
+      report(settled.scale);
     },
-    [scale, translateX, translateY]
+    [scale, translateX, translateY, report]
   );
 
   const markAdjusted = useCallback(() => setAdjusted(true), []);
@@ -116,6 +160,7 @@ export function useMapGestures(
     (animated = true) => {
       setAdjusted(false);
       current.current = { scale: 1, x: 0, y: 0 };
+      report(1);
       if (!animated) {
         scale.setValue(1);
         translateX.setValue(0);
@@ -134,7 +179,7 @@ export function useMapGestures(
         Animated.timing(translateY, { ...config, toValue: 0 }),
       ]).start();
     },
-    [scale, translateX, translateY]
+    [scale, translateX, translateY, report]
   );
 
   /**
@@ -144,7 +189,7 @@ export function useMapGestures(
    */
   const zoomAbout = useCallback(
     (nextScale: number, focalX: number, focalY: number, base: { scale: number; x: number; y: number }) => {
-      const limited = clamp(nextScale, MIN_SCALE, MAX_SCALE);
+      const limited = clamp(nextScale, minScale.current, MAX_SCALE);
       const ratio = limited / base.scale;
       apply({
         scale: limited,
@@ -154,6 +199,45 @@ export function useMapGestures(
     },
     [apply]
   );
+
+  const zoomStep = useCallback(
+    (direction: 1 | -1, focal: { x: number; y: number }, animated = true) => {
+      const base = current.current;
+      const limited = clamp(base.scale * BUTTON_STEP ** direction, minScale.current, MAX_SCALE);
+      if (Math.abs(limited - base.scale) < EPSILON) return;
+      const ratio = limited / base.scale;
+      const target = {
+        scale: limited,
+        x: focal.x - (focal.x - base.x) * ratio,
+        y: clampY(focal.y - (focal.y - base.y) * ratio, limited),
+      };
+      markAdjusted();
+      if (!animated) {
+        apply(target);
+        return;
+      }
+      // Recorded straight away, so a second press mid-animation steps on from
+      // where this one is going rather than where it started.
+      current.current = target;
+      report(limited);
+      const config = { duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: false };
+      Animated.parallel([
+        Animated.timing(scale, { ...config, toValue: target.scale }),
+        Animated.timing(translateX, { ...config, toValue: target.x }),
+        Animated.timing(translateY, { ...config, toValue: target.y }),
+      ]).start(({ finished }) => {
+        // Folding x back inside one world width only once it has arrived, so
+        // the animation never slides a whole world sideways to get there.
+        if (finished) apply(current.current);
+      });
+    },
+    [apply, markAdjusted, report, scale, translateX, translateY]
+  );
+
+  // The limit moves with the camera -- the whole world is a different zoom
+  // from France than from Russia -- so re-check the buttons when it does.
+  const limit = minScale.current;
+  useEffect(() => report(current.current.scale), [limit, report]);
 
   const panResponder = useMemo(
     () =>
@@ -245,5 +329,8 @@ export function useMapGestures(
     transform: { scale, translateX, translateY },
     adjusted,
     reset,
+    zoomStep,
+    canZoomIn: limits.canZoomIn,
+    canZoomOut: limits.canZoomOut,
   };
 }

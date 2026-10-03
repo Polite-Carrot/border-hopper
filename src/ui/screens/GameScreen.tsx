@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   allowsFlights, applyMove, createGame, currentCountry, elapsedSeconds, moveCount,
@@ -11,17 +11,17 @@ import { track } from '../../core/analytics';
 import { newStamps, type Passport } from '../../core/passport';
 import { MAP_HEIGHT, MAP_WIDTH, requireCountry } from '../../core/world';
 import type { GameConfig, GameResult, GameState } from '../../core/types';
-import { colors, radius, timing } from '../../theme';
-import { Icon } from '../components/Icon';
+import { colors, timing } from '../../theme';
 import { play } from '../../audio/sounds';
 import { WorldMap } from '../map/WorldMap';
 import { useMapGestures } from '../map/useMapGestures';
-import { frameBoxes, makeStage } from '../map/camera';
+import { frameBoxes, makeStage, worldCamera } from '../map/camera';
 import { ControlPanel } from '../components/ControlPanel';
 import { GameHud } from '../components/GameHud';
 import { OffscreenTarget } from '../components/OffscreenTarget';
 import { RouteTrail } from '../components/RouteTrail';
 import { Toast } from '../components/Toast';
+import { MAP_CONTROLS_SIZE, MapControls } from '../components/MapControls';
 import { COUNTRY_ROW_HEIGHT } from '../components/CountryRow';
 import { onScreenKeyboardHeight } from '../components/OnScreenKeyboard';
 import { ResultOverlay } from './ResultOverlay';
@@ -143,12 +143,28 @@ export function GameScreen({
 
   /**
    * Pan and pinch, told how big a copy of the world currently is on screen so
-   * it can wrap a westward drag round the back of the map.
+   * it can wrap a westward drag round the back of the map, and how far out it
+   * may go: far enough to see the whole world, wherever the camera is.
    */
   const gestures = useMapGestures(
     { width: layout.width, height: layout.height },
-    { width: MAP_WIDTH * camera.k, height: MAP_HEIGHT * camera.k }
+    { width: MAP_WIDTH * camera.k, height: MAP_HEIGHT * camera.k },
+    { minScale: worldCamera(stage).k / camera.k }
   );
+
+  // The zoom buttons zoom about the middle of the clear part of the map, so
+  // the country in view stays in view. Measured from the middle of the screen,
+  // which is where the gesture transform is centred.
+  const visibleCentre = {
+    x: stage.visible.x + stage.visible.width / 2 - layout.width / 2,
+    y: stage.visible.y + stage.visible.height / 2 - layout.height / 2,
+  };
+  const controls = {
+    x: stage.visible.x + stage.visible.width - MAP_CONTROLS_SIZE.width - 14,
+    y: stage.visible.y + stage.visible.height - MAP_CONTROLS_SIZE.height - 14,
+    width: MAP_CONTROLS_SIZE.width,
+    height: MAP_CONTROLS_SIZE.height,
+  };
 
   // Travelling to a new country earns the full camera move. Everything else
   // that nudges the camera -- the keyboard opening, a rotation -- should just
@@ -316,23 +332,19 @@ export function GameScreen({
           destinationCentroid={requireCountry(config.destination).centroid}
           camera={camera}
           stage={stage}
+          keepClear={controls}
         />
       ) : null}
 
-      {gestures.adjusted ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Recentre the map"
-          onPress={() => gestures.reset()}
-          style={({ pressed }) => [
-            styles.recentre,
-            { top: insets.top + HUD_HEIGHT + TRAIL_HEIGHT + 22, right: (docked ? layout.panelWidth : 0) + 16 },
-            pressed && styles.recentrePressed,
-          ]}
-        >
-          <Icon name="target" size={18} color={colors.current} />
-        </Pressable>
-      ) : null}
+      <MapControls
+        style={{ left: controls.x, top: controls.y }}
+        onZoomIn={() => gestures.zoomStep(1, visibleCentre, !reduceMotion)}
+        onZoomOut={() => gestures.zoomStep(-1, visibleCentre, !reduceMotion)}
+        onRecentre={() => gestures.reset(!reduceMotion)}
+        canZoomIn={gestures.canZoomIn}
+        canZoomOut={gestures.canZoomOut}
+        canRecentre={gestures.adjusted}
+      />
 
       <View
         style={[styles.top, { paddingTop: insets.top + 6, right: docked ? layout.panelWidth : 0 }]}
@@ -421,16 +433,4 @@ const styles = StyleSheet.create({
   bottomPanel: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   sidebar: { position: 'absolute', top: 0, right: 0, bottom: 0 },
   hidden: { opacity: 0 },
-  recentre: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surfaceSolid,
-    borderWidth: 1,
-    borderColor: colors.hairlineStrong,
-  },
-  recentrePressed: { opacity: 0.6 },
 });

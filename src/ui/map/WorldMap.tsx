@@ -208,6 +208,12 @@ export function WorldMap({
    */
   const stageCentre = { x: stage.width / 2, y: stage.height / 2 };
 
+  // Undoes the player's zoom for things that mark a spot rather than cover
+  // ground -- the explorer and the destination reticle -- so they stay the same
+  // size on screen however far in or out the map goes.
+  const userScale = userTransform?.scale;
+  const counterScale = useMemo(() => (userScale ? Animated.divide(1, userScale) : 1), [userScale]);
+
   return (
     <>
     <Animated.View
@@ -312,6 +318,7 @@ export function WorldMap({
               from={from.current}
               stage={stage}
               progress={progress}
+              counterScale={counterScale}
             />
           ))}
 
@@ -325,6 +332,7 @@ export function WorldMap({
                   camera={transform}
                   copy={copy}
                   skin={skin}
+                  counterScale={counterScale}
                 />
               ))
             : null}
@@ -383,10 +391,12 @@ interface MarkerProps {
   progress: Animated.Value;
   /** Which wrapped copy of the world this marker belongs to: -1, 0 or 1. */
   copy: number;
+  /** Cancels the player's zoom, so the reticle keeps its size. */
+  counterScale: Animated.AnimatedNode | number;
 }
 
 /** A small reticle over the destination: visible, but it gives no route away. */
-function DestinationMarker({ destination, camera, from, stage, progress, copy }: MarkerProps) {
+function DestinationMarker({ destination, camera, from, stage, progress, copy, counterScale }: MarkerProps) {
   if (!destination) return null;
   const at = (c: Camera) => {
     const offset = cameraOffset(c, stage);
@@ -402,9 +412,11 @@ function DestinationMarker({ destination, camera, from, stage, progress, copy }:
 
   return (
     <AnimatedG translateX={cx as unknown as number} translateY={cy as unknown as number}>
-      <Circle r={17} fill="none" stroke={mapColors.destination} strokeWidth={1.4} strokeOpacity={0.5} />
-      <Circle r={8} fill="none" stroke={mapColors.destination} strokeWidth={2} />
-      <Circle r={2.6} fill={mapColors.destination} />
+      <AnimatedG scale={counterScale as unknown as number}>
+        <Circle r={17} fill="none" stroke={mapColors.destination} strokeWidth={1.4} strokeOpacity={0.5} />
+        <Circle r={8} fill="none" stroke={mapColors.destination} strokeWidth={2} />
+        <Circle r={2.6} fill={mapColors.destination} />
+      </AnimatedG>
     </AnimatedG>
   );
 }

@@ -32,6 +32,12 @@ export interface TravellerProps {
   copy: number;
   /** The flag on the explorer's jumper, if he is wearing one. */
   skin: string | null;
+  /**
+   * The inverse of the player's own zoom. He is placed inside it, so he moves
+   * with the map, but drawn through this, so zooming in shows more of the
+   * country around him rather than a giant explorer.
+   */
+  counterScale?: Animated.AnimatedNode | number;
 }
 
 /**
@@ -45,7 +51,7 @@ export interface TravellerProps {
  * Everything runs off one clock in milliseconds, so the arc, the shadow and
  * the squash on landing can never drift apart.
  */
-export function Traveller({ trip, clock, progress, camera, copy, skin }: TravellerProps) {
+export function Traveller({ trip, clock, progress, camera, copy, skin, counterScale = 1 }: TravellerProps) {
   const motion = useMemo(() => {
     const air = trip.air;
     const height = trip.flown ? ARC_HEIGHT.flight : ARC_HEIGHT.hop;
@@ -89,18 +95,20 @@ export function Traveller({ trip, clock, progress, camera, copy, skin }: Travell
 
   return (
     <AnimatedG translateX={motion.x as unknown as number} translateY={motion.y as unknown as number}>
-      <AnimatedEllipse
-        rx={8}
-        ry={2.6}
-        fill="#000"
-        opacity={motion.shadowOpacity as unknown as number}
-        scale={motion.shadowScale as unknown as number}
-      />
-      <AnimatedG translateY={motion.lift as unknown as number}>
-        <AnimatedG scaleX={motion.scaleX as unknown as number} scaleY={motion.scaleY as unknown as number}>
-          <G scaleX={trip.facing}>
-            <Explorer skin={skin} facing={trip.facing} />
-          </G>
+      <AnimatedG scale={counterScale as unknown as number}>
+        <AnimatedEllipse
+          rx={8}
+          ry={2.6}
+          fill="#000"
+          opacity={motion.shadowOpacity as unknown as number}
+          scale={motion.shadowScale as unknown as number}
+        />
+        <AnimatedG translateY={motion.lift as unknown as number}>
+          <AnimatedG scaleX={motion.scaleX as unknown as number} scaleY={motion.scaleY as unknown as number}>
+            <G scaleX={trip.facing}>
+              <Explorer skin={skin} facing={trip.facing} />
+            </G>
+          </AnimatedG>
         </AnimatedG>
       </AnimatedG>
     </AnimatedG>
