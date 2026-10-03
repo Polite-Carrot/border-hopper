@@ -81,8 +81,16 @@ const eligible = COUNTRIES.filter((c) => c.neighbours.length > 0 && c.area >= 0.
  * Route length for a level: 2 moves at the start, 8 by the end. Rounded
  * rather than floored so the longest routes get a proper band of levels
  * instead of only the very last one.
+ *
+ * The exponent sets how front-loaded the climb is. It was 0.85, which kept the
+ * first twelve levels at two moves -- long enough for the opening to feel
+ * samey rather than gentle. At 0.6 there are three easy levels, three-move
+ * routes from level 4 and four-move routes from level 23, while the eight-move
+ * ceiling only arrives a little earlier, at 195 rather than 210.
  */
-const movesForLevel = (level: number) => 2 + Math.min(6, Math.round((level / LEVELS) ** 0.85 * 6.4));
+const DISTANCE_CURVE = 0.6;
+const movesForLevel = (level: number) =>
+  2 + Math.min(6, Math.round((level / LEVELS) ** DISTANCE_CURVE * 6.4));
 
 /** How far down the recognisability ranking a level is allowed to reach. */
 const poolForLevel = (level: number) =>

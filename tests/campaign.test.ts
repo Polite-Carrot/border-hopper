@@ -54,12 +54,23 @@ describe('campaign ladder', () => {
     const late = average(226, 250);
     expect(early).toBeLessThan(middle);
     expect(middle).toBeLessThan(late);
-    expect(early).toBeLessThan(3);
+    expect(early).toBeLessThan(3.5);
     expect(late).toBeGreaterThan(7);
   });
 
+  it('opens gently, then starts climbing straight away', () => {
+    // A short warm-up of two-move routes, not a long one: twelve flat levels
+    // in a row read as samey rather than easy, and that is where a new player
+    // decides whether the game has anything else to offer.
+    const moves = CAMPAIGN_LEVELS.map((entry) => entry.moves);
+    expect(moves.slice(0, 3)).toEqual([2, 2, 2]);
+    const firstLonger = moves.findIndex((m) => m > 2) + 1;
+    expect(firstLonger).toBeGreaterThanOrEqual(3);
+    expect(firstLonger).toBeLessThanOrEqual(6);
+  });
+
   it('starts easy and never asks for more than eight moves', () => {
-    for (const entry of CAMPAIGN_LEVELS.slice(0, 10)) expect(entry.moves).toBe(2);
+    for (const entry of CAMPAIGN_LEVELS.slice(0, 3)) expect(entry.moves).toBe(2);
     for (const entry of CAMPAIGN_LEVELS) {
       expect(entry.moves).toBeGreaterThanOrEqual(2);
       expect(entry.moves).toBeLessThanOrEqual(8);

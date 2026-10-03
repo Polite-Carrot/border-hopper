@@ -353,7 +353,8 @@ stored on the device. There is no account and no backend.
 ## Game modes
 
 **Campaign** — 250 fixed levels that everyone climbs in the same order,
-getting harder two ways at once. Routes grow from two moves to eight, and the
+getting harder two ways at once. Routes grow from two moves to eight — three
+warm-up levels, three-move routes from level 4, four from level 23 — and the
 countries used as start and destination get steadily less familiar: level 1 is
 Canada to Mexico, level 250 is a trek between places most people could not
 place on a map. A level opens when the one before it is finished, and
