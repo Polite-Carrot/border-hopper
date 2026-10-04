@@ -26,10 +26,11 @@ at the end.
 > **The game:** you're given two countries, and you travel from one to the
 > other by naming the countries in between, one border at a time. A little
 > explorer in a safari hat hops across each border on a world map. Every
-> border is real: 195 countries, with sea crossings like Dover to Calais.
-> There's a 1,000-level campaign, a daily challenge, and a flight mode with
-> long-haul routes. Every country you pass through stamps your passport, and
-> your explorer can wear the flag of any country you've stamped.
+> border is a real land border between 195 countries. There's a 1,000-level
+> campaign, a daily challenge, and a flight mode that adds real sea crossings
+> like Dover to Calais plus long-haul routes. Every country you pass
+> through stamps your passport, and your explorer can wear the flag of any
+> country you've stamped.
 >
 > **Look and feel:** a dark, night-time map. Use these colours:
 > - background `#050A12`, ocean `#07101D`, land `#1E2E43`
@@ -85,13 +86,10 @@ at the end.
 
 ---
 
-## Store text, if you need it
+## Store text
 
-- **Name:** Border Hopper
-- **Subtitle (30 characters max):** Cross the world, one border
-- **Promotional text (170 max):** Name your way across the world, one border
-  at a time. 1,000 levels, a daily challenge, flight mode, and a passport full
-  of flags for your explorer to wear.
+The App Store description, promotional text, subtitle and keywords are in
+[`APP_STORE_TEXT.md`](APP_STORE_TEXT.md).
 
 ## Recapturing the screenshots
 
