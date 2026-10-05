@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COUNTRIES, requireCountry } from '../../core/world';
 import { dateKey } from '../../core/daily';
@@ -66,56 +66,67 @@ export function MenuScreen({
       />
       <View style={styles.scrim} pointerEvents="none" />
 
-      <Animated.View
-        style={[
-          styles.content,
-          { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl, opacity: fade },
-        ]}
-      >
-        <View style={styles.brand}>
-          {/* Broken deliberately, so the wordmark stacks the same way on a
-              phone and on a desktop browser rather than reflowing. */}
-          <Text style={styles.wordmark}>{'BORDER\nHOPPER'}</Text>
-          <View style={styles.rule} />
-          <Text style={styles.tagline}>Cross the world, one border at a time</Text>
-        </View>
-
-        <View style={styles.actions}>
-          <Button
-            label={campaignLevel === null ? 'Campaign · complete' : `Campaign · level ${campaignLevel}`}
-            variant="primary"
-            icon="play"
-            onPress={onCampaign}
-          />
-          <Button label="Flight mode" icon="plane" onPress={onFlight} />
-          <Button label="Random" icon="again" onPress={onRandom} />
-          <Button
-            label={dailyDone ? 'Daily challenge · done' : 'Daily challenge'}
-            icon="calendar"
-            onPress={onDaily}
-          />
-          <Button
-            label={stamps > 0 ? `Passport · ${stamps} of ${COUNTRIES.length}` : 'Passport'}
-            icon="passport"
-            onPress={onPassport}
-          />
-          <View style={styles.row}>
-            <Button label="Statistics" icon="stats" onPress={onStats} style={styles.half} />
-            <Button label="Settings" icon="settings" onPress={onSettings} style={styles.half} />
+      {/*
+        The title, the buttons and the footer sit together as one block in the
+        middle of the screen, and the block scrolls when the screen is too
+        short for it -- an iPhone on its side, an iPad in Split View. Pinning
+        the title to the top and the buttons to the bottom left a hole in the
+        middle of a tall iPad and pushed the buttons off a short one.
+      */}
+      <Animated.View style={[styles.fill, { opacity: fade }]}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl },
+          ]}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View style={styles.brand}>
+            {/* Broken deliberately, so the wordmark stacks the same way on a
+                phone and on a desktop browser rather than reflowing. */}
+            <Text style={styles.wordmark}>{'BORDER\nHOPPER'}</Text>
+            <View style={styles.rule} />
+            <Text style={styles.tagline}>Cross the world, one border at a time</Text>
           </View>
-        </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            {campaignDone > 0 ? `${campaignDone} levels cleared · ` : ''}
-            {dateKey()}
-          </Text>
-          {dailyStreak > 0 ? (
-            <View style={styles.streak}>
-              <Text style={styles.streakText}>{dailyStreak} day streak</Text>
+          <View style={styles.actions}>
+            <Button
+              label={campaignLevel === null ? 'Campaign · complete' : `Campaign · level ${campaignLevel}`}
+              variant="primary"
+              icon="play"
+              onPress={onCampaign}
+            />
+            <Button label="Flight mode" icon="plane" onPress={onFlight} />
+            <Button label="Random" icon="again" onPress={onRandom} />
+            <Button
+              label={dailyDone ? 'Daily challenge · done' : 'Daily challenge'}
+              icon="calendar"
+              onPress={onDaily}
+            />
+            <Button
+              label={stamps > 0 ? `Passport · ${stamps} of ${COUNTRIES.length}` : 'Passport'}
+              icon="passport"
+              onPress={onPassport}
+            />
+            <View style={styles.row}>
+              <Button label="Statistics" icon="stats" onPress={onStats} style={styles.half} />
+              <Button label="Settings" icon="settings" onPress={onSettings} style={styles.half} />
             </View>
-          ) : null}
-        </View>
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              {campaignDone > 0 ? `${campaignDone} levels cleared · ` : ''}
+              {dateKey()}
+            </Text>
+            {dailyStreak > 0 ? (
+              <View style={styles.streak}>
+                <Text style={styles.streakText}>{dailyStreak} day streak</Text>
+              </View>
+            ) : null}
+          </View>
+        </ScrollView>
       </Animated.View>
     </View>
   );
@@ -124,8 +135,9 @@ export function MenuScreen({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(5, 10, 18, 0.62)' },
-  content: { flex: 1, paddingHorizontal: spacing.xl, justifyContent: 'space-between' },
-  brand: { alignItems: 'center', marginTop: '18%' },
+  fill: { flex: 1 },
+  content: { flexGrow: 1, paddingHorizontal: spacing.xl, justifyContent: 'center' },
+  brand: { alignItems: 'center' },
   wordmark: {
     color: colors.text,
     fontFamily: fonts.display,
@@ -144,10 +156,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   tagline: { color: colors.textMuted, fontFamily: fonts.body, fontSize: 14, letterSpacing: 0.4, textAlign: 'center' },
-  actions: { gap: spacing.sm, maxWidth: 440, width: '100%', alignSelf: 'center' },
+  actions: { gap: spacing.sm, maxWidth: 440, width: '100%', alignSelf: 'center', marginTop: spacing.xxl },
   row: { flexDirection: 'row', gap: spacing.sm },
   half: { flex: 1 },
-  footer: { alignItems: 'center', gap: spacing.sm },
+  footer: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.xl },
   footerText: { color: colors.textFaint, fontSize: 11.5, letterSpacing: 1.4, fontVariant: ['tabular-nums'] },
   streak: {
     paddingHorizontal: spacing.md,
