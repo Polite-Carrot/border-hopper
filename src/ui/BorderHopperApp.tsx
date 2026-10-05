@@ -19,7 +19,7 @@ import { setSoundEnabled } from '../audio/sounds';
 import { setAnalyticsEnabled, track } from '../core/analytics';
 import { colors } from '../theme';
 import { setHapticsEnabled } from './hooks/useHaptics';
-import { getAds } from '../ads/ads';
+import { getAds } from '../ads';
 import { GameScreen } from './screens/GameScreen';
 import { MenuScreen } from './screens/MenuScreen';
 import { StatsScreen } from './screens/StatsScreen';

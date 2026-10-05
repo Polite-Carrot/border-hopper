@@ -28,6 +28,12 @@ jobs:
           node-version: 22
           cache: npm
 
+      # The Unity Ads package lives in a private studio repository this build
+      # cannot read. The website has no ads, so it builds without it; see
+      # scripts/drop-private-deps.mjs. The app builds, made on a machine with
+      # access, install it as normal.
+      - run: node scripts/drop-private-deps.mjs
+
       - run: npm ci
 
       - name: Typecheck

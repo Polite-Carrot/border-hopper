@@ -1,6 +1,4 @@
-import { Capacitor } from '@capacitor/core';
-import { createUnityAds, type UnityAdsClient } from '@politecarrot/capacitor-unity-ads';
-import { track } from '../core/analytics';
+import type { UnityAdsClient } from '@politecarrot/capacitor-unity-ads';
 import { adDue, noteAdShown, noteGameFinished, shouldPrepare, startPacing, type AdPacing } from './policy';
 
 /** Border Hopper's Unity project. Both apps live under one Unity project. */
@@ -145,16 +143,4 @@ export function createAds(client: Client, clock: () => number = Date.now, onShow
       }
     },
   };
-}
-
-let instance: Ads | null = null;
-
-/** The app's one ads client: Unity's native SDK is a singleton. */
-export function getAds(): Ads {
-  instance ??= createAds(
-    createUnityAds({ ...UNITY_CONFIG, capacitor: Capacitor }),
-    Date.now,
-    () => track('ad_shown', { format: 'interstitial' })
-  );
-  return instance;
 }
