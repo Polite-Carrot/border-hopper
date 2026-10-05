@@ -22,6 +22,8 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'never',
     backgroundColor: '#000000',
+    // The game never scrolls the page; without this, drags rubber-band the whole WebView.
+    scrollEnabled: false,
   },
   android: {
     backgroundColor: '#000000',

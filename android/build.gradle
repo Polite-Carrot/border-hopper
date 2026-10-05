@@ -3,6 +3,9 @@
 buildscript {
     
     repositories {
+        // Aliyun first: dl.google.com stalls on this network. google() stays as a fallback.
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
         google()
         mavenCentral()
     }
@@ -19,8 +22,20 @@ apply from: "variables.gradle"
 
 allprojects {
     repositories {
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
         google()
         mavenCentral()
+    }
+}
+
+// AGP 8.13 defaults to Build-Tools 35.0.0, which is not installed locally. Set here
+// because `cap sync` regenerates the plugin modules' build files.
+subprojects {
+    afterEvaluate { proj ->
+        if (proj.hasProperty('android')) {
+            proj.android.buildToolsVersion = "36.1.0"
+        }
     }
 }
 

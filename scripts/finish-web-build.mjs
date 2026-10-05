@@ -48,7 +48,7 @@ const head = [
   // a white flash directly in front of a black startup screen -- exactly the
   // thing the startup screen exists to prevent. Black rather than the app's
   // own background, so the first paint already matches the splash.
-  `<style>html,body,#root{background-color:#000;}</style>`,
+  `<style>html,body,#root{background-color:#000;overscroll-behavior:none;}</style>`,
   `<link rel="apple-touch-icon" href="${base}/icons/apple-touch-icon.png"/>`,
   `<link rel="manifest" href="${base}/manifest.webmanifest"/>`,
   // The browser's own chrome while the app loads, so it matches the splash

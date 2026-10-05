@@ -94,7 +94,9 @@ export function useMapGestures(
   // Plain mirrors of the animated values. Animated does not expose its current
   // value synchronously, and a gesture needs it on every frame.
   const current = useRef({ scale: 1, x: 0, y: 0 });
-  const gestureStart = useRef({ scale: 1, x: 0, y: 0, distance: 0, focalX: 0, focalY: 0 });
+  // `dx`/`dy` is the PanResponder's running offset when this phase began, and
+  // `touches` how many fingers it began with: a change of either starts afresh.
+  const gestureStart = useRef({ scale: 1, x: 0, y: 0, distance: 0, focalX: 0, focalY: 0, dx: 0, dy: 0, touches: 0 });
 
   /**
    * Transforms are applied about the view's centre, and focal points are
@@ -239,56 +241,69 @@ export function useMapGestures(
   const limit = minScale.current;
   useEffect(() => report(current.current.scale), [limit, report]);
 
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (event, gesture) =>
-          event.nativeEvent.touches.length >= 2 ||
-          Math.abs(gesture.dx) > DRAG_SLOP ||
-          Math.abs(gesture.dy) > DRAG_SLOP,
-        onPanResponderGrant: (event) => {
-          const touches = event.nativeEvent.touches;
-          gestureStart.current = {
-            ...current.current,
-            distance: touches.length >= 2 ? distance(touches[0], touches[1]) : 0,
-            focalX: 0,
-            focalY: 0,
-          };
-          if (touches.length >= 2) {
-            gestureStart.current.focalX =
-              (touches[0].pageX + touches[1].pageX) / 2 - centre.current.x;
-            gestureStart.current.focalY =
-              (touches[0].pageY + touches[1].pageY) / 2 - centre.current.y;
-          }
-          markAdjusted();
-        },
-        onPanResponderMove: (event, gesture) => {
-          const touches = event.nativeEvent.touches;
-          const start = gestureStart.current;
+  const panResponder = useMemo(() => {
+    type Touch = { pageX: number; pageY: number };
+    const begin = (touches: readonly Touch[], gesture: { dx: number; dy: number }) => {
+      const two = touches.length >= 2;
+      gestureStart.current = {
+        ...current.current,
+        distance: two ? distance(touches[0], touches[1]) : 0,
+        focalX: two ? (touches[0].pageX + touches[1].pageX) / 2 - centre.current.x : 0,
+        focalY: two ? (touches[0].pageY + touches[1].pageY) / 2 - centre.current.y : 0,
+        dx: gesture.dx,
+        dy: gesture.dy,
+        touches: Math.min(touches.length, 2),
+      };
+    };
 
-          if (touches.length >= 2) {
-            const spread = distance(touches[0], touches[1]);
-            if (start.distance === 0) {
-              // A second finger landed mid-drag; restart the pinch from here.
-              gestureStart.current = {
-                ...current.current,
-                distance: spread,
-                focalX: (touches[0].pageX + touches[1].pageX) / 2 - centre.current.x,
-                focalY: (touches[0].pageY + touches[1].pageY) / 2 - centre.current.y,
-              };
-              return;
-            }
-            zoomAbout(start.scale * (spread / start.distance), start.focalX, start.focalY, start);
-            return;
-          }
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (event, gesture) =>
+        event.nativeEvent.touches.length >= 2 ||
+        Math.abs(gesture.dx) > DRAG_SLOP ||
+        Math.abs(gesture.dy) > DRAG_SLOP,
+      onPanResponderGrant: (event, gesture) => {
+        begin(event.nativeEvent.touches, gesture);
+        markAdjusted();
+      },
+      onPanResponderMove: (event, gesture) => {
+        const touches = event.nativeEvent.touches;
+        // A finger landing or lifting mid-gesture carries on from where the
+        // map is, rather than snapping back to how the gesture started.
+        if (Math.min(touches.length, 2) !== gestureStart.current.touches) {
+          begin(touches, gesture);
+          return;
+        }
+        const start = gestureStart.current;
 
-          apply({ scale: start.scale, x: start.x + gesture.dx, y: start.y + gesture.dy });
-        },
-        onPanResponderTerminationRequest: () => false,
-      }),
-    [apply, markAdjusted, zoomAbout]
-  );
+        if (touches.length >= 2) {
+          const limited = clamp(
+            start.scale * (distance(touches[0], touches[1]) / Math.max(start.distance, 1)),
+            minScale.current,
+            MAX_SCALE
+          );
+          const ratio = limited / start.scale;
+          // The point under the fingers follows their midpoint, so a pinch can
+          // pan at the same time.
+          const focalX = (touches[0].pageX + touches[1].pageX) / 2 - centre.current.x;
+          const focalY = (touches[0].pageY + touches[1].pageY) / 2 - centre.current.y;
+          apply({
+            scale: limited,
+            x: focalX - (start.focalX - start.x) * ratio,
+            y: focalY - (start.focalY - start.y) * ratio,
+          });
+          return;
+        }
+
+        apply({
+          scale: start.scale,
+          x: start.x + gesture.dx - start.dx,
+          y: start.y + gesture.dy - start.dy,
+        });
+      },
+      onPanResponderTerminationRequest: () => false,
+    });
+  }, [apply, markAdjusted]);
 
   // Web: take over the browser's own pinch and wheel zoom, which would
   // otherwise scale the entire page -- HUD, panel and all.
