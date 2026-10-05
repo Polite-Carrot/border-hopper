@@ -4,6 +4,7 @@ import { colors, fonts, spacing } from '../../theme';
 import type { Settings } from '../../storage/storage';
 import { SettingRow, settingCard } from '../components/SettingRow';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { PolicyLink } from '../components/PolicyLink';
 
 export interface PrivacyScreenProps {
   settings: Settings;
@@ -55,9 +56,11 @@ export function PrivacyScreen({ settings, onChange, onBack }: PrivacyScreenProps
         <Text style={styles.section}>WHAT THIS BUILD ACTUALLY DOES</Text>
         <View style={settingCard}>
           <Note text="No ads are shown, and nothing is sent anywhere." />
-          <Note text="Your statistics, settings and campaign progress are stored on this device. There is no account and no backend." />
+          <Note text="Your statistics, settings, campaign progress and passport are stored on this device. There is no account and no backend." />
           <Note text="The switches above are here so your answer is already recorded, and already no, if that ever changes." />
         </View>
+
+        <PolicyLink style={styles.policy} />
       </ScrollView>
     </View>
   );
@@ -109,5 +112,6 @@ const styles = StyleSheet.create({
     marginTop: 7,
     backgroundColor: colors.current,
   },
+  policy: { marginTop: spacing.xl },
   noteText: { flex: 1, color: colors.textMuted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
 });

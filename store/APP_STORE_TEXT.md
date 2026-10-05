@@ -3,6 +3,11 @@
 Checked against the game: every claim here is something it does. Character
 counts are what App Store Connect will count.
 
+## Links
+
+- **Privacy policy URL:** https://politecarrot.com/privacy (the studio's
+  policy; the game links to it from the consent card and Privacy & data)
+
 ## Promotional text (151 of 170)
 
 Shown above the description, and the only part you can change without a

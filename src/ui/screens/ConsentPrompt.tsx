@@ -3,6 +3,7 @@ import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius, spacing } from '../../theme';
 import type { Settings } from '../../storage/storage';
 import { Button } from '../components/Button';
+import { PolicyLink } from '../components/PolicyLink';
 import { SettingRow, settingCard } from '../components/SettingRow';
 
 export interface ConsentPromptProps {
@@ -68,6 +69,7 @@ export function ConsentPrompt({ settings, onChange, onContinue }: ConsentPromptP
         </Text>
 
         <Button label="Continue" variant="primary" onPress={onContinue} style={styles.button} />
+        <PolicyLink />
       </Animated.View>
     </View>
   );
