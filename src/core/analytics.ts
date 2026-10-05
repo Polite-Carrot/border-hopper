@@ -112,6 +112,13 @@ export interface AnalyticsEvents {
    * stamps they had says how far into the passport that choice comes.
    */
   skin_changed: { skin: string; stamps: number };
+
+  /**
+   * An interstitial actually played -- not just came due. Against
+   * game_complete it gives the real ads-per-game rate, which is the number to
+   * watch if anyone ever wonders whether the pacing is too aggressive.
+   */
+  ad_shown: { format: string };
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvents;

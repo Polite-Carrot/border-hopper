@@ -47,17 +47,18 @@ export function PrivacyScreen({ settings, onChange, onBack }: PrivacyScreenProps
           />
           <SettingRow
             label="Personalised ads"
-            hint="Ads matched to your interests. Left off, ads still appear but are generic."
+            hint="Ads matched to your interests. Left off, ads still appear but are generic. On iPhone this also needs tracking allowed."
             value={settings.personalisedAds}
             onChange={(personalisedAds) => onChange({ ...settings, personalisedAds })}
           />
         </View>
 
-        <Text style={styles.section}>WHAT THIS BUILD ACTUALLY DOES</Text>
+        <Text style={styles.section}>WHAT THE GAME ACTUALLY DOES</Text>
         <View style={settingCard}>
-          <Note text="No ads are shown, and nothing is sent anywhere." />
-          <Note text="Your statistics, settings, campaign progress and passport are stored on this device. There is no account and no backend." />
-          <Note text="The switches above are here so your answer is already recorded, and already no, if that ever changes." />
+          <Note text="Ads come from Unity Ads, and only ever between games: never in the middle of a route, and not in your first few minutes." />
+          <Note text="With personalised ads off, or tracking declined on iPhone, the ads are generic and nothing about you is used to choose them." />
+          <Note text="Usage data is not sent anywhere yet. Your answer is recorded now, so it is already in place when it is." />
+          <Note text="Your statistics, settings, campaign progress and passport are stored on this device. There is no account." />
         </View>
 
         <PolicyLink style={styles.policy} />

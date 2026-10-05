@@ -381,16 +381,17 @@ It holds two switches, **Send usage data** and **Personalised ads**, both off
 until a player turns them on.
 
 A first run asks once, on a card after the how-it-works intro: usage data
-only, off, with Continue leaving it off. Personalised ads are not asked there
-— there are no ads to encounter yet, and one question is the most a first run
-can carry before consent becomes a form people tap through, which is not
-consent. Whether the question has been asked is stored separately from whether
+only, off, with Continue leaving it off. On iPhone, Apple's tracking prompt
+follows it, and allowing tracking turns personalised ads on, as in the
+studio's other games; on Android personalised ads stay off until the player
+turns them on. One question is the most a first run can carry before consent
+becomes a form people tap through, which is not consent. Whether the question has been asked is stored separately from whether
 the intro has been seen, so changing one never silently re-asks or skips the
 other.
 
 ### What "send usage data" actually sends
 
-Nine events, defined in `src/core/analytics.ts`, none of which leave unless
+Eleven events, defined in `src/core/analytics.ts`, none of which leave unless
 the switch is on:
 
 | Event | When | Why it earns its place |
@@ -405,6 +406,7 @@ the switch is on:
 | `onboarding_complete` | the how-it-works card is dismissed | how many never start |
 | `consent_changed` | a privacy switch moves | whether the asking is reasonable |
 | `skin_changed` | a flag is put on the explorer (or taken off) | which countries people are proud of |
+| `ad_shown` | an interstitial actually played | real ads per game, to keep the pacing honest |
 
 `wrong_guess` is the one the privacy screen promises by name: enough of them
 together say which countries people get stuck on.
@@ -414,11 +416,36 @@ them back for a later yes would be collecting first and asking afterwards.
 `track` also swallows everything a backend can throw: an analytics failure
 must never cost somebody their game.
 
-There is no backend yet. `setAnalyticsSink` takes one when there is, and no
-call site changes. Nothing in this build reports usage or shows
-an ad, so today they record an answer rather than change behaviour — but they
-are the only authority on the question, and anything added later has to read
-them first.
+There is no analytics backend yet. `setAnalyticsSink` takes one when there
+is, and no call site changes; until then the usage-data switch records an
+answer rather than changing behaviour. The personalised-ads switch is live:
+it goes straight to Unity Ads. Both are the only authority on their question,
+and anything added later has to read them first.
+
+### Ads
+
+Interstitials from **Unity Ads**, through the studio's shared
+`@politecarrot/capacitor-unity-ads` package (pinned to the same commit as
+Color Sort), with Border Hopper's own game IDs and placements in
+`src/ads/ads.ts`. They only exist in the iOS and Android apps; on the website
+every call is a no-op.
+
+**When:** only when a player leaves a finished game from its result card
+(next level, new game, menu), and only if it has been at least **two minutes
+and three finished games** since the last one. The clock starts at launch,
+so nobody sees an ad in their first two minutes or before their third
+finished game. Never mid-route, never on abandoning a game. The rule is
+`src/ads/policy.ts`, tested on its own.
+
+**Never waits:** an ad starts loading one game before it could be due. If
+none has loaded by the time it is allowed, the game carries straight on and
+the next one is tried later.
+
+**Consent:** the saved personalised-ads choice is applied before the SDK
+starts. On iPhone, Unity only personalises with both that switch on and
+Apple's tracking allowed; the package re-checks before every load. To see
+test ads on a phone, register it under Unity Dashboard → Monetization →
+Settings → Test device; the build itself always requests real ads.
 
 Off is the default because a player who has never been asked has not agreed,
 and because a player upgrading from a build without these switches has not

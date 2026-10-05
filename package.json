@@ -10,6 +10,7 @@
     "@capacitor/ios": "^8.5.2",
     "@capacitor/preferences": "^8.0.1",
     "@expo/metro-runtime": "~57.0.16",
+    "@politecarrot/capacitor-unity-ads": "github:Polite-Carrot/polite-carrot-unity-ads#96f31aa21ee8cd5e966797b37c438540c092f444",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "expo": "~57.0.24",
     "expo-haptics": "~57.0.3",

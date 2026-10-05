@@ -15,11 +15,11 @@ export interface ConsentPromptProps {
 /**
  * The one question asked on the way in.
  *
- * Only usage data: personalised ads live in Privacy & data, because there are
- * no ads yet and asking about something the player cannot encounter would be
- * noise. One question is also the most a first run can carry without becoming
- * a form -- which is how consent turns into something people tap through
- * without reading, and a tapped-through yes is not consent.
+ * Only usage data. Personalised ads are Apple's question on iPhone -- its
+ * tracking prompt follows this card -- and a switch in Privacy & data
+ * everywhere. One question is also the most a first run can carry without
+ * becoming a form -- which is how consent turns into something people tap
+ * through without reading, and a tapped-through yes is not consent.
  *
  * The switch starts off and continuing without touching it leaves it off, so
  * the path of least resistance is the private one rather than the profitable
@@ -64,8 +64,8 @@ export function ConsentPrompt({ settings, onChange, onContinue }: ConsentPromptP
         </View>
 
         <Text style={styles.note}>
-          Nothing is sent anywhere in this build. Your answer is recorded now so it is already
-          in place if that changes.
+          The game shows ads between games. Usage data is not sent anywhere yet; your answer is
+          recorded now so it is already in place when it is.
         </Text>
 
         <Button label="Continue" variant="primary" onPress={onContinue} style={styles.button} />

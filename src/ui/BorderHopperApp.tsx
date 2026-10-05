@@ -19,6 +19,7 @@ import { setSoundEnabled } from '../audio/sounds';
 import { setAnalyticsEnabled, track } from '../core/analytics';
 import { colors } from '../theme';
 import { setHapticsEnabled } from './hooks/useHaptics';
+import { getAds } from '../ads/ads';
 import { GameScreen } from './screens/GameScreen';
 import { MenuScreen } from './screens/MenuScreen';
 import { StatsScreen } from './screens/StatsScreen';
@@ -54,6 +55,12 @@ export function BorderHopperApp() {
   /** Which mode the new-game sheet is open on, or null when it is closed. */
   const [picking, setPicking] = useState<RandomMode | null>(null);
   const [ready, setReady] = useState(false);
+  // The latest settings, for code that resumes after the tracking prompt and
+  // must not write back the settings as they were before it opened.
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  // Set while leaving a result card, so a double tap cannot start two games.
+  const leaving = useRef(false);
   const [booting, setBooting] = useState(true);
 
   useEffect(() => {
@@ -72,8 +79,19 @@ export function BorderHopperApp() {
       setNeedsOnboarding(!onboarded);
       setNeedsConsent(!consentAsked);
       setReady(true);
+      // The player's saved choice goes to Unity before anything else does.
+      // Someone who has already answered the consent card is not asked about
+      // tracking again here; this only reads what they said last time.
+      const ads = getAds();
+      await ads.start(savedSettings.personalisedAds);
+      if (consentAsked) await ads.tracking(false);
     })();
   }, []);
+
+  // Personalised ads follow the switch, whichever screen moved it.
+  useEffect(() => {
+    if (ready) void getAds().setPersonalised(settings.personalisedAds);
+  }, [ready, settings.personalisedAds]);
 
   useEffect(() => {
     setHapticsEnabled(settings.haptics);
@@ -188,6 +206,7 @@ export function BorderHopperApp() {
   const handleComplete = useCallback(
     (result: GameResult) => {
       persistStats(recordGameCompleted(stats, result));
+      getAds().noteGameFinished();
       track('game_complete', {
         mode: result.mode,
         difficulty: result.difficulty,
@@ -238,10 +257,25 @@ export function BorderHopperApp() {
     void saveOnboarded();
   }, []);
 
+  /**
+   * After the consent card, iPhone asks about tracking -- Apple's prompt,
+   * shown once, at the moment the player has just been told what it is for.
+   * Allowing it turns personalised ads on, as in the studio's other games;
+   * it can be turned off again in Privacy & data. Android has no such prompt,
+   * so personalised ads stay off there until the player turns them on.
+   */
   const finishConsent = useCallback(() => {
     setNeedsConsent(false);
     void saveConsentAsked();
-  }, []);
+    void (async () => {
+      const status = await getAds().tracking(true);
+      const current = settingsRef.current;
+      if (status === 'authorized' && !current.personalisedAds) {
+        track('consent_changed', { setting: 'personalised_ads', enabled: true });
+        updateSettings({ ...current, personalisedAds: true });
+      }
+    })();
+  }, [updateSettings]);
 
   /**
    * Settings changes, but only the two that are consent. Recording which
@@ -256,11 +290,31 @@ export function BorderHopperApp() {
       }
       if (next.personalisedAds !== settings.personalisedAds) {
         track('consent_changed', { setting: 'personalised_ads', enabled: next.personalisedAds });
+        // On iPhone, personalised ads also need Apple's permission. Asks only
+        // if the player has never been asked; otherwise the answer stands.
+        if (next.personalisedAds) void getAds().tracking(true);
       }
       updateSettings(next);
     },
     [settings, updateSettings]
   );
+
+  /**
+   * Leaving a finished game is the only time an ad may appear: the result is
+   * on screen, the player has chosen to move on, and nothing is interrupted.
+   * Whether one actually shows is the pacing's call (see src/ads/policy.ts);
+   * most of the time it resolves at once and the game simply carries on.
+   */
+  const afterAd = useCallback((next: () => void) => {
+    if (leaving.current) return;
+    leaving.current = true;
+    void getAds()
+      .maybeShowInterstitial()
+      .finally(() => {
+        leaving.current = false;
+        next();
+      });
+  }, []);
 
   const todayKey = dateKey();
   const campaignNext = nextLevel(campaign);
@@ -285,15 +339,17 @@ export function BorderHopperApp() {
             reduceMotion={settings.reduceMotion}
             // The screen knows whether the game was finished; it is the only
             // thing that does.
-            onExit={leaveGame}
-            onNewGame={
-              config.mode === 'campaign'
-                ? advanceCampaign
-                : config.mode === 'daily'
-                  ? () => leaveGame(false)
-                  : config.mode === 'flight'
-                    ? startFlight
-                    : startClassic
+            onExit={(unfinished) => (unfinished ? leaveGame(true) : afterAd(() => leaveGame(false)))}
+            onNewGame={() =>
+              afterAd(
+                config.mode === 'campaign'
+                  ? advanceCampaign
+                  : config.mode === 'daily'
+                    ? () => leaveGame(false)
+                    : config.mode === 'flight'
+                      ? startFlight
+                      : startClassic
+              )
             }
             onComplete={handleComplete}
             passport={passport}

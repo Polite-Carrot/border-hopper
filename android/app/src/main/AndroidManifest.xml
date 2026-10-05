@@ -44,4 +44,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Unity Ads reads the advertising ID for personalised ads; Android 13+
+         hides it from apps that do not declare this. Declared in Play's Data
+         safety form as used for advertising. -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 </manifest>
