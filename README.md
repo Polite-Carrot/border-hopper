@@ -111,6 +111,13 @@ and ignored.
 The apps run the same web export the site does, so what ships on a phone is the
 build the browser tests cover.
 
+**The app icon** comes from `resources/icon-only.png` (1024 × 1024, opaque,
+because Apple rejects icons with transparency). `npm run assets:native`
+builds every iOS and Android size from it; Android's adaptive icon uses
+`resources/icon-foreground.png`, which is the same artwork, and launchers crop
+it to the middle two thirds, so keep anything important in there. The web
+icons are in `assets/web/` and the favicon is `assets/favicon.png`.
+
 **Saves live on the phone**, not in the web view. Stats, settings, campaign
 progress and the passport go through Capacitor's Preferences plugin --
 UserDefaults on iOS, SharedPreferences on Android -- because a web view's
