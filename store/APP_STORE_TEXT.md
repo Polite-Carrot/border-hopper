@@ -7,6 +7,8 @@ counts are what App Store Connect will count.
 
 - **Privacy policy URL:** https://politecarrot.com/privacy (the studio's
   policy; the game links to it from the consent card and Privacy & data)
+- **Support URL (Apple):** https://politecarrot.com/contact
+- **Contact email (Google Play):** hello@politecarrot.com
 
 ## Promotional text (151 of 170)
 
