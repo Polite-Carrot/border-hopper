@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "181617995506",
+    "project_id": "border-hopper-5bc52",
+    "storage_bucket": "border-hopper-5bc52.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:181617995506:android:220d1bdfea4701b42faa6b",
+        "android_client_info": {
+          "package_name": "com.politecarrot.borderhopper"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnXCkHic3VpNo0p2Vsw8Z0nXyDXiO2dls"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop, Use } from 'react-native-svg';
 import { MAP_HEIGHT, MAP_WIDTH, getCountry } from '../../core/world';
 import { mapColors } from '../../theme';
-import { cameraOffset, nearestTurn, recentre, type Camera, type Stage } from './camera';
+import { nearestTurn, recentre, type Camera, type Stage } from './camera';
 import { BaseLayer } from './BaseLayer';
 import { PATH_BY_KEY } from './shapes';
 import { Traveller, tripLength } from './Traveller';
@@ -29,6 +29,17 @@ const AT_REST = 1e6;
 
 /** Sample points used to interpolate scale geometrically rather than linearly. */
 const CURVE = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
+
+/** Where the camera is `t` of the way through a move: the same curve `transform` draws. */
+function cameraAt(start: Camera, end: Camera, t: number): Camera {
+  if (t >= 1) return end;
+  if (t <= 0) return start;
+  return {
+    x: start.x + (end.x - start.x) * t,
+    y: start.y + (end.y - start.y) * t,
+    k: Math.exp(Math.log(start.k) * (1 - t) + Math.log(end.k) * t),
+  };
+}
 
 export interface WorldMapProps {
   stage: Stage;
@@ -83,21 +94,44 @@ export function WorldMap({
   panHandlers,
   containerRef,
 }: WorldMapProps) {
-  const progress = useRef(new Animated.Value(1)).current;
+  // A fresh progress value for every camera move. Resetting one shared value
+  // would drag the previous move's nodes back to their start for a frame
+  // before the new ones took over; a new value leaves them where they are.
+  const progressRef = useRef<Animated.Value | null>(null);
+  const progressNow = useRef(1);
+  const watch = (value: Animated.Value) => {
+    value.addListener(({ value: t }) => {
+      progressNow.current = t;
+    });
+    return value;
+  };
+  progressRef.current ??= watch(new Animated.Value(1));
   const from = useRef<Camera>(camera);
   const to = useRef<Camera>(camera);
   const ping = useRef(new Animated.Value(0)).current;
 
   // Re-aim the camera whenever the target changes, across the seam if that is
   // the shorter way. `seen` tracks the prop itself, because `to` holds the
-  // re-aimed copy of it rather than the object that came in.
+  // re-aimed copy of it rather than the object that came in. A move that
+  // arrives mid-flight starts from wherever the camera is now, not from where
+  // it was heading, or the map would jump.
   const seen = useRef<Camera>(camera);
   if (seen.current !== camera) {
     seen.current = camera;
-    const turn = recentre(to.current, nearestTurn(camera, to.current));
+    const here = cameraAt(from.current, to.current, progressNow.current);
+    const turn = recentre(here, nearestTurn(camera, here));
     from.current = turn.from;
     to.current = turn.to;
+    progressRef.current.stopAnimation();
+    progressRef.current.removeAllListeners();
+    progressNow.current = duration > 0 ? 0 : 1;
+    progressRef.current = watch(new Animated.Value(progressNow.current));
   }
+  const progress = progressRef.current;
+  // Read when a move starts, not watched: the screen changes `duration` on the
+  // render after a move, and restarting the flight then would jump it back.
+  const durationRef = useRef(duration);
+  durationRef.current = duration;
 
   // The traveller's next move, planned when the player enters a new country,
   // after the camera has been re-aimed, so it can travel in step with it.
@@ -113,21 +147,21 @@ export function WorldMap({
   const currentTrip = trip.current;
 
   useEffect(() => {
-    progress.setValue(0);
-    if (duration <= 0) {
+    const length = durationRef.current;
+    if (length <= 0) {
       progress.setValue(1);
       return;
     }
     const animation = Animated.timing(progress, {
       toValue: 1,
-      duration,
+      duration: length,
       // Slow at both ends: the map settles rather than snapping into place.
       easing: Easing.bezier(0.5, 0, 0.15, 1),
       useNativeDriver: false,
     });
     animation.start();
     return () => animation.stop();
-  }, [camera, duration, progress]);
+  }, [progress]);
 
   // Hop whenever there is somewhere new to hop to. The camera's duration is 0
   // for the opening frame and whenever reduce motion is on, and then the
@@ -224,68 +258,15 @@ export function WorldMap({
     >
       <Svg width={stage.width} height={stage.height}>
         <Rect x={0} y={0} width={stage.width} height={stage.height} fill={mapColors.ocean} />
+        {/*
+          Only the never-changing base map is shared through <use>. Anything
+          that changes during play lives outside <Defs>: touching a <Defs>
+          child makes the browser rebuild every copy of the whole world.
+        */}
         <Defs>
           <G id={WORLD_ID}>
           <Rect x={0} y={0} width={MAP_WIDTH} height={MAP_HEIGHT} fill="transparent" />
           <BaseLayer />
-
-          {visited.map((iso) =>
-            PATH_BY_KEY[iso] ? (
-              <Path
-                key={`visited-${iso}`}
-                d={PATH_BY_KEY[iso]}
-                fill={mapColors.visited}
-                stroke={mapColors.stroke}
-                strokeWidth={0.7}
-                vectorEffect="non-scaling-stroke"
-              />
-            ) : null
-          )}
-
-          {destinationPath ? (
-            <Path
-              d={destinationPath}
-              fill="none"
-              stroke={mapColors.destination}
-              strokeWidth={2.4}
-              strokeOpacity={0.95}
-              vectorEffect="non-scaling-stroke"
-            />
-          ) : null}
-
-          {currentPath ? (
-            <>
-              {/* A wide translucent stroke reads as a glow at every zoom level. */}
-              <Path
-                d={currentPath}
-                fill="none"
-                stroke={mapColors.current}
-                strokeOpacity={0.22}
-                strokeWidth={14}
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-              />
-              <Path
-                d={currentPath}
-                fill={mapColors.current}
-                fillOpacity={0.9}
-                stroke={mapColors.currentStroke}
-                strokeWidth={1.4}
-                vectorEffect="non-scaling-stroke"
-              />
-            </>
-          ) : null}
-
-          {invalidPath ? (
-            <Path
-              d={invalidPath}
-              fill={mapColors.invalid}
-              fillOpacity={0.55}
-              stroke={mapColors.invalid}
-              strokeWidth={1.6}
-              vectorEffect="non-scaling-stroke"
-            />
-          ) : null}
           </G>
         </Defs>
 
@@ -306,6 +287,16 @@ export function WorldMap({
             {COPIES.map((copy) => (
               <Use key={copy} href={`#${WORLD_ID}`} x={copy * MAP_WIDTH} />
             ))}
+            {COPIES.map((copy) => (
+              <Highlights
+                key={`highlights-${copy}`}
+                offset={copy * MAP_WIDTH}
+                visited={visited}
+                destinationPath={destinationPath}
+                currentPath={currentPath}
+                invalidPath={invalidPath}
+              />
+            ))}
           </AnimatedG>
 
           {/* Markers sit outside the camera group so they keep a constant size. */}
@@ -314,10 +305,7 @@ export function WorldMap({
               key={copy}
               copy={copy}
               destination={destination}
-              camera={to.current}
-              from={from.current}
-              stage={stage}
-              progress={progress}
+              camera={transform}
               counterScale={counterScale}
             />
           ))}
@@ -383,12 +371,93 @@ const styles = StyleSheet.create({
   scrim: { position: 'absolute', top: 0, left: 0, right: 0 },
 });
 
+interface HighlightsProps {
+  offset: number;
+  visited: readonly string[];
+  destinationPath?: string;
+  currentPath?: string;
+  invalidPath?: string;
+}
+
+/** Current, visited, destination and rejected countries, drawn over one copy of the world. */
+const Highlights = memo(function Highlights({
+  offset,
+  visited,
+  destinationPath,
+  currentPath,
+  invalidPath,
+}: HighlightsProps) {
+  return (
+    <G translateX={offset}>
+      {visited.map((iso) =>
+        PATH_BY_KEY[iso] ? (
+          <Path
+            key={`visited-${iso}`}
+            d={PATH_BY_KEY[iso]}
+            fill={mapColors.visited}
+            stroke={mapColors.stroke}
+            strokeWidth={0.7}
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : null
+      )}
+
+      {destinationPath ? (
+        <Path
+          d={destinationPath}
+          fill="none"
+          stroke={mapColors.destination}
+          strokeWidth={2.4}
+          strokeOpacity={0.95}
+          vectorEffect="non-scaling-stroke"
+        />
+      ) : null}
+
+      {currentPath ? (
+        <>
+          {/* A wide translucent stroke reads as a glow at every zoom level. */}
+          <Path
+            d={currentPath}
+            fill="none"
+            stroke={mapColors.current}
+            strokeOpacity={0.22}
+            strokeWidth={14}
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+          <Path
+            d={currentPath}
+            fill={mapColors.current}
+            fillOpacity={0.9}
+            stroke={mapColors.currentStroke}
+            strokeWidth={1.4}
+            vectorEffect="non-scaling-stroke"
+          />
+        </>
+      ) : null}
+
+      {invalidPath ? (
+        <Path
+          d={invalidPath}
+          fill={mapColors.invalid}
+          fillOpacity={0.55}
+          stroke={mapColors.invalid}
+          strokeWidth={1.6}
+          vectorEffect="non-scaling-stroke"
+        />
+      ) : null}
+    </G>
+  );
+});
+
 interface MarkerProps {
   destination: ReturnType<typeof getCountry>;
-  camera: Camera;
-  from: Camera;
-  stage: Stage;
-  progress: Animated.Value;
+  /** The live camera transform, so the reticle stays pinned to the country mid-move. */
+  camera: {
+    scale: Animated.AnimatedInterpolation<number>;
+    x: Animated.AnimatedNode;
+    y: Animated.AnimatedNode;
+  };
   /** Which wrapped copy of the world this marker belongs to: -1, 0 or 1. */
   copy: number;
   /** Cancels the player's zoom, so the reticle keeps its size. */
@@ -396,19 +465,10 @@ interface MarkerProps {
 }
 
 /** A small reticle over the destination: visible, but it gives no route away. */
-function DestinationMarker({ destination, camera, from, stage, progress, copy, counterScale }: MarkerProps) {
+function DestinationMarker({ destination, camera, copy, counterScale }: MarkerProps) {
   if (!destination) return null;
-  const at = (c: Camera) => {
-    const offset = cameraOffset(c, stage);
-    return {
-      x: (destination.centroid[0] + copy * MAP_WIDTH) * c.k + offset.x,
-      y: destination.centroid[1] * c.k + offset.y,
-    };
-  };
-  const start = at(from);
-  const end = at(camera);
-  const cx = progress.interpolate({ inputRange: [0, 1], outputRange: [start.x, end.x] });
-  const cy = progress.interpolate({ inputRange: [0, 1], outputRange: [start.y, end.y] });
+  const cx = Animated.add(Animated.multiply(destination.centroid[0] + copy * MAP_WIDTH, camera.scale), camera.x);
+  const cy = Animated.add(Animated.multiply(destination.centroid[1], camera.scale), camera.y);
 
   return (
     <AnimatedG translateX={cx as unknown as number} translateY={cy as unknown as number}>

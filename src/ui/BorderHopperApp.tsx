@@ -20,6 +20,7 @@ import { setAnalyticsEnabled, track } from '../core/analytics';
 import { colors } from '../theme';
 import { setHapticsEnabled } from './hooks/useHaptics';
 import { getAds } from '../ads';
+import { installFirebaseSink, setFirebaseConsent } from '../analytics/firebase';
 import { GameScreen } from './screens/GameScreen';
 import { MenuScreen } from './screens/MenuScreen';
 import { StatsScreen } from './screens/StatsScreen';
@@ -92,6 +93,12 @@ export function BorderHopperApp() {
   useEffect(() => {
     if (ready) void getAds().setPersonalised(settings.personalisedAds);
   }, [ready, settings.personalisedAds]);
+
+  useEffect(() => installFirebaseSink(), []);
+
+  useEffect(() => {
+    if (ready) void setFirebaseConsent(settings.analytics, settings.personalisedAds);
+  }, [ready, settings.analytics, settings.personalisedAds]);
 
   useEffect(() => {
     setHapticsEnabled(settings.haptics);
