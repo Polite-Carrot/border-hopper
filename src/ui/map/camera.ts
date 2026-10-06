@@ -51,6 +51,10 @@ export function makeStage(width: number, height: number, insets: Partial<Rect> =
 const MIN_SPAN = 175;
 /** Headroom kept around the framed shape, as a multiple of its size. */
 const PADDING = 2.8;
+/** Most headroom a big country gets, in map units, so Canada is not framed at a third of the planet. */
+const MAX_CONTEXT = 300;
+/** Headroom for `fit`: just enough that the edges are not flush with the screen. */
+const FIT_PADDING = 1.15;
 const MAX_SCALE = 26;
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -68,21 +72,31 @@ export function worldCamera(stage: Stage): Camera {
 
 /**
  * Frames one or more bounding boxes with room to breathe, never zooming in
- * past `MIN_SPAN` or out past the whole world.
+ * past `MIN_SPAN` or out past the whole world. `fit` trims the room to a thin
+ * margin, so the boxes reach the edges of the visible area.
  */
 export function frameBoxes(
   boxes: readonly (readonly [number, number, number, number])[],
-  stage: Stage
+  stage: Stage,
+  { fit = false }: { fit?: boolean } = {}
 ): Camera {
-  const x0 = Math.min(...boxes.map((b) => b[0]));
-  const y0 = Math.min(...boxes.map((b) => b[1]));
-  const x1 = Math.max(...boxes.map((b) => b[2]));
-  const y1 = Math.max(...boxes.map((b) => b[3]));
+  // Each box is moved to the copy of the world nearest the first, so a pair
+  // either side of the date line is framed across it, not across the planet.
+  const anchor = (boxes[0][0] + boxes[0][2]) / 2;
+  const placed = boxes.map((b) => {
+    const shift = Math.round((anchor - (b[0] + b[2]) / 2) / MAP_WIDTH) * MAP_WIDTH;
+    return [b[0] + shift, b[1], b[2] + shift, b[3]] as const;
+  });
+  const x0 = Math.min(...placed.map((b) => b[0]));
+  const y0 = Math.min(...placed.map((b) => b[1]));
+  const x1 = Math.max(...placed.map((b) => b[2]));
+  const y1 = Math.max(...placed.map((b) => b[3]));
 
   const { width, height } = stage.visible;
   const aspect = height / width;
-  const spanX = Math.max((x1 - x0) * PADDING, MIN_SPAN);
-  const spanY = Math.max((y1 - y0) * PADDING, MIN_SPAN * aspect);
+  const room = (size: number) => (fit ? size * FIT_PADDING : Math.min(size * PADDING, size + MAX_CONTEXT));
+  const spanX = Math.max(room(x1 - x0), MIN_SPAN);
+  const spanY = Math.max(room(y1 - y0), MIN_SPAN * aspect);
 
   const minScale = Math.min(stage.width / MAP_WIDTH, stage.height / MAP_HEIGHT);
   const k = clamp(Math.min(width / spanX, height / spanY), minScale, MAX_SCALE);

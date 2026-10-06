@@ -46,7 +46,7 @@ export function SearchField({ value, onPress, onClear, focused, placeholder = 'S
 
       <View style={styles.textRow}>
         <Text style={[styles.text, !value && styles.placeholder]} numberOfLines={1}>
-          {value || placeholder}
+          {value || (focused ? '' : placeholder)}
         </Text>
         {focused ? <Animated.View style={[styles.caret, { opacity: caret }]} /> : null}
       </View>
