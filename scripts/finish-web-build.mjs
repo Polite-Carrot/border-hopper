@@ -8,7 +8,8 @@
  *
  * Run with: node scripts/finish-web-build.mjs [outputDir]
  */
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -24,6 +25,20 @@ for (const icon of ICONS) {
   copyFileSync(join(root, 'assets/web', icon), join(out, 'icons', icon));
 }
 
+/**
+ * A file's URL with a fingerprint of its contents on the end. Browsers --
+ * Safari above all -- keep favicons and home-screen icons for a very long
+ * time, well past a refresh, so a new icon at the same address can go unseen
+ * for weeks. A changed icon gets a changed address and is fetched afresh; an
+ * unchanged one keeps its address and stays cached.
+ */
+function versioned(path) {
+  const file = join(out, path.replace(/^\//, ''));
+  if (!existsSync(file)) return `${base}${path}`;
+  const hash = createHash('sha256').update(readFileSync(file)).digest('hex').slice(0, 10);
+  return `${base}${path}?v=${hash}`;
+}
+
 const manifest = {
   name: 'Border Hopper',
   short_name: 'Border Hopper',
@@ -35,9 +50,9 @@ const manifest = {
   background_color: '#050A12',
   theme_color: '#050A12',
   icons: [
-    { src: `${base}/icons/icon-192.png`, sizes: '192x192', type: 'image/png', purpose: 'any' },
-    { src: `${base}/icons/icon-512.png`, sizes: '512x512', type: 'image/png', purpose: 'any' },
-    { src: `${base}/icons/icon-maskable-512.png`, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    { src: versioned('/icons/icon-192.png'), sizes: '192x192', type: 'image/png', purpose: 'any' },
+    { src: versioned('/icons/icon-512.png'), sizes: '512x512', type: 'image/png', purpose: 'any' },
+    { src: versioned('/icons/icon-maskable-512.png'), sizes: '512x512', type: 'image/png', purpose: 'maskable' },
   ],
 };
 writeFileSync(join(out, 'manifest.webmanifest'), `${JSON.stringify(manifest, null, 2)}\n`);
@@ -49,8 +64,11 @@ const head = [
   // thing the startup screen exists to prevent. Black rather than the app's
   // own background, so the first paint already matches the splash.
   `<style>html,body,#root{background-color:#000;}</style>`,
-  `<link rel="apple-touch-icon" href="${base}/icons/apple-touch-icon.png"/>`,
-  `<link rel="manifest" href="${base}/manifest.webmanifest"/>`,
+  `<link rel="apple-touch-icon" href="${versioned('/icons/apple-touch-icon.png')}"/>`,
+  // A sharp PNG alongside Expo's 16/32px favicon.ico, for the browsers and
+  // high-density screens that would otherwise scale the tiny one up.
+  `<link rel="icon" type="image/png" sizes="192x192" href="${versioned('/icons/icon-192.png')}"/>`,
+  `<link rel="manifest" href="${versioned('/manifest.webmanifest')}"/>`,
   // The browser's own chrome while the app loads, so it matches the splash
   // rather than the menu that comes after it.
   `<meta name="theme-color" content="#000000"/>`,
@@ -74,6 +92,8 @@ for (const page of ['index.html', '404.html']) {
     /<meta name="viewport" content="([^"]*)"/,
     (tag, content) => (content.includes('viewport-fit') ? tag : `<meta name="viewport" content="${content}, viewport-fit=cover"`)
   );
+  // Expo writes the favicon link itself; give it a fingerprint too.
+  html = html.replace(`href="${base}/favicon.ico"`, `href="${versioned('/favicon.ico')}"`);
   if (!html.includes('rel="manifest"')) html = html.replace('</head>', `  ${head}\n  </head>`);
   writeFileSync(path, html);
 }
