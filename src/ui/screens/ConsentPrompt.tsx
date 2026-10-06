@@ -64,8 +64,8 @@ export function ConsentPrompt({ settings, onChange, onContinue }: ConsentPromptP
         </View>
 
         <Text style={styles.note}>
-          The game shows ads between games. Usage data is not sent anywhere yet; your answer is
-          recorded now so it is already in place when it is.
+          The game shows ads between games. Usage data goes to Firebase Analytics only if you
+          switch it on here.
         </Text>
 
         <Button label="Continue" variant="primary" onPress={onContinue} style={styles.button} />

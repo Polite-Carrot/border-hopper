@@ -57,7 +57,7 @@ export function PrivacyScreen({ settings, onChange, onBack }: PrivacyScreenProps
         <View style={settingCard}>
           <Note text="Ads come from Unity Ads, and only ever between games: never in the middle of a route, and not in your first few minutes." />
           <Note text="With personalised ads off, or tracking declined on iPhone, the ads are generic and nothing about you is used to choose them." />
-          <Note text="Usage data is not sent anywhere yet. Your answer is recorded now, so it is already in place when it is." />
+          <Note text="Usage data goes to Firebase Analytics (Google) only while Send usage data is on. Turn it off and sending stops straight away." />
           <Note text="Your statistics, settings, campaign progress and passport are stored on this device. There is no account." />
         </View>
 

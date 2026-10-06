@@ -59,9 +59,8 @@ export interface Settings {
    * authority on the matter: anything that ever reports usage or asks for a
    * personalised ad has to read these first.
    *
-   * Personalised ads go to Unity Ads (see src/ads). Nothing reports usage yet;
-   * the answer is stored so it is already recorded, and already "no", on the
-   * day something does.
+   * Personalised ads go to Unity Ads (see src/ads); usage data to Firebase
+   * Analytics (see src/analytics/firebase.ts), and only while this is on.
    */
   analytics: boolean;
   personalisedAds: boolean;

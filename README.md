@@ -416,11 +416,12 @@ them back for a later yes would be collecting first and asking afterwards.
 `track` also swallows everything a backend can throw: an analytics failure
 must never cost somebody their game.
 
-There is no analytics backend yet. `setAnalyticsSink` takes one when there
-is, and no call site changes; until then the usage-data switch records an
-answer rather than changing behaviour. The personalised-ads switch is live:
-it goes straight to Unity Ads. Both are the only authority on their question,
-and anything added later has to read them first.
+In the apps, events go to **Firebase Analytics** (`src/analytics/firebase.ts`
+installs it as the sink), which starts with collection off and is switched
+on and off with "Send usage data". The personalised-ads switch goes to Unity
+Ads and to Firebase's ad-consent signals. Both switches are the only
+authority on their question, and anything added later has to read them
+first.
 
 ### Ads
 
