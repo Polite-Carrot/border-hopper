@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { StatusBar, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { dailyGame, dateKey } from '../core/daily';
 import {
@@ -21,6 +21,7 @@ import { colors } from '../theme';
 import { setHapticsEnabled } from './hooks/useHaptics';
 import { getAds } from '../ads';
 import { installFirebaseSink, setFirebaseConsent } from '../analytics/firebase';
+import { getReminders, type DailyProgress, type ReminderPrefs } from '../reminders';
 import { GameScreen } from './screens/GameScreen';
 import { MenuScreen } from './screens/MenuScreen';
 import { StatsScreen } from './screens/StatsScreen';
@@ -33,6 +34,10 @@ import { PrivacyScreen } from './screens/PrivacyScreen';
 import { PassportScreen } from './screens/PassportScreen';
 import { ConsentPrompt } from './screens/ConsentPrompt';
 import { BootScreen } from './screens/BootScreen';
+import { ReminderOffer } from './screens/ReminderOffer';
+
+/** Finished games, in any mode, after which the reminder is offered anyway. */
+const REMINDER_AFTER_GAMES = 10;
 
 type Screen = 'menu' | 'game' | 'campaign' | 'stats' | 'settings' | 'privacy' | 'passport' | 'daily-done';
 
@@ -63,13 +68,20 @@ export function BorderHopperApp() {
   // Set while leaving a result card, so a double tap cannot start two games.
   const leaving = useRef(false);
   const [booting, setBooting] = useState(true);
+  const [reminder, setReminder] = useState<ReminderPrefs>(() => getReminders().state());
+  /** Notifications are switched off for the game in the phone's settings. */
+  const [reminderBlocked, setReminderBlocked] = useState(false);
+  /** The one-time offer has been earned and waits for a calm screen. */
+  const [offerDue, setOfferDue] = useState<'daily' | 'games' | null>(null);
+  /** A reminder was tapped; acted on once the saved progress is loaded. */
+  const [openedFromReminder, setOpenedFromReminder] = useState(false);
 
   useEffect(() => {
     void (async () => {
       const [savedStats, savedSettings, savedDaily, savedCampaign, onboarded, consentAsked, savedPassport] =
         await Promise.all([
           loadStats(), loadSettings(), loadDailyResults(), loadCampaign(), loadOnboarded(),
-          loadConsentAsked(), loadPassport(dateKey()),
+          loadConsentAsked(), loadPassport(dateKey()), getReminders().load(),
         ]);
       passportRef.current = savedPassport;
       setPassport(savedPassport);
@@ -79,6 +91,7 @@ export function BorderHopperApp() {
       setCampaign(savedCampaign);
       setNeedsOnboarding(!onboarded);
       setNeedsConsent(!consentAsked);
+      setReminder(getReminders().state());
       setReady(true);
       // The player's saved choice goes to Unity before anything else does.
       // Someone who has already answered the consent card is not asked about
@@ -99,6 +112,41 @@ export function BorderHopperApp() {
   useEffect(() => {
     if (ready) void setFirebaseConsent(settings.analytics, settings.personalisedAds);
   }, [ready, settings.analytics, settings.personalisedAds]);
+
+  /**
+   * What the reminders are worked out from. Any change -- a finished daily,
+   * a reset, the first load -- reschedules the week, so today's reminder is
+   * dropped once today is done and the streak in the wording is always true.
+   */
+  const dailyProgress = useMemo<DailyProgress>(
+    () => ({ played: dailyResults, dailyStreak: stats.dailyStreak, lastDailyKey: stats.lastDailyKey }),
+    [dailyResults, stats.dailyStreak, stats.lastDailyKey]
+  );
+  const dailyProgressRef = useRef(dailyProgress);
+  dailyProgressRef.current = dailyProgress;
+
+  useEffect(() => {
+    if (ready) void getReminders().sync(dailyProgress);
+  }, [ready, dailyProgress]);
+
+  // Coming back to the foreground: a new day may have started, and the
+  // player may have changed the notification setting while away.
+  const readyRef = useRef(ready);
+  readyRef.current = ready;
+  useEffect(() => {
+    const reminders = getReminders();
+    if (!reminders.available()) return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || !readyRef.current) return;
+      void reminders.sync(dailyProgressRef.current);
+      void reminders.permission().then((answer) => setReminderBlocked(answer === 'denied'));
+    });
+    return () => subscription.remove();
+  }, []);
+
+  // Attached at once: the plugin holds a tap that launched the app until
+  // somebody is listening.
+  useEffect(() => getReminders().onOpen(() => setOpenedFromReminder(true)), []);
 
   useEffect(() => {
     setHapticsEnabled(settings.haptics);
@@ -212,7 +260,8 @@ export function BorderHopperApp() {
 
   const handleComplete = useCallback(
     (result: GameResult) => {
-      persistStats(recordGameCompleted(stats, result));
+      const nextStats = recordGameCompleted(stats, result);
+      persistStats(nextStats);
       getAds().noteGameFinished();
       track('game_complete', {
         mode: result.mode,
@@ -243,6 +292,17 @@ export function BorderHopperApp() {
         const next = { ...dailyResults, [result.dailyKey]: result };
         setDailyResults(next);
         void saveDailyResults(next);
+      }
+      // The reminder is about the daily, so the first one finished is when it
+      // means most; ten games anywhere catches a player who has stuck around
+      // without finding it. Shown later, off the game screen.
+      const earned = result.mode === 'daily' ? 'daily' : nextStats.gamesCompleted >= REMINDER_AFTER_GAMES ? 'games' : null;
+      if (earned) {
+        void getReminders()
+          .shouldOffer()
+          .then((ok) => {
+            if (ok) setOfferDue((due) => due ?? earned);
+          });
       }
     },
     [stats, dailyResults, campaign, persistStats]
@@ -323,6 +383,78 @@ export function BorderHopperApp() {
       });
   }, []);
 
+  const refreshReminder = useCallback(async () => {
+    const reminders = getReminders();
+    setReminder(reminders.state());
+    setReminderBlocked((await reminders.permission()) === 'denied');
+  }, []);
+
+  /** "Remind me" on the offer, or the Settings switch turned on. */
+  const enableReminder = useCallback(
+    async (from: 'offer' | 'settings') => {
+      const reminders = getReminders();
+      const result = await reminders.enable(dailyProgressRef.current);
+      if (result === 'on') track('reminder_changed', { enabled: true, hour: reminders.state().hour, from });
+      await refreshReminder();
+    },
+    [refreshReminder]
+  );
+
+  const toggleReminder = useCallback(
+    (on: boolean) => {
+      if (on) {
+        void enableReminder('settings');
+        return;
+      }
+      void (async () => {
+        const reminders = getReminders();
+        await reminders.disable();
+        track('reminder_changed', { enabled: false, hour: reminders.state().hour, from: 'settings' });
+        await refreshReminder();
+      })();
+    },
+    [enableReminder, refreshReminder]
+  );
+
+  const setReminderHour = useCallback(
+    (hour: number) => {
+      const reminders = getReminders();
+      void reminders.setHour(hour, dailyProgressRef.current).then(() => setReminder(reminders.state()));
+      // Shown at once rather than after the reschedule, so the stepper keeps up with taps.
+      setReminder((current) => ({ ...current, hour }));
+    },
+    []
+  );
+
+  // Opening Settings checks the phone's setting, which can change while the
+  // game is closed: "On" next to reminders that cannot arrive would be a lie.
+  useEffect(() => {
+    if (screen === 'settings' && getReminders().available()) void refreshReminder();
+  }, [screen, refreshReminder]);
+
+  const calm = ready && !booting && !needsOnboarding && !needsConsent && !picking && screen !== 'game';
+  const showOffer = calm && offerDue !== null;
+
+  useEffect(() => {
+    if (!showOffer || !offerDue) return;
+    void getReminders().markOffered();
+    track('reminder_offer', { from: offerDue });
+  }, [showOffer, offerDue]);
+
+  /**
+   * A tapped reminder opens today's daily -- or, once it is done, the daily's
+   * done screen. A game in progress is left alone rather than thrown away, and
+   * so is the first-run intro and consent card.
+   */
+  useEffect(() => {
+    if (!openedFromReminder || !ready) return;
+    setOpenedFromReminder(false);
+    if (screen === 'game' || needsOnboarding || needsConsent) return;
+    setOfferDue(null);
+    setPicking(null);
+    startDaily();
+  }, [openedFromReminder, ready, screen, needsOnboarding, needsConsent, startDaily]);
+
   const todayKey = dateKey();
   const campaignNext = nextLevel(campaign);
 
@@ -388,6 +520,17 @@ export function BorderHopperApp() {
             }}
             onBack={() => setScreen('menu')}
             onPrivacy={() => setScreen('privacy')}
+            reminder={
+              getReminders().available()
+                ? {
+                    on: reminder.on,
+                    hour: reminder.hour,
+                    blocked: reminderBlocked,
+                    onToggle: toggleReminder,
+                    onHour: setReminderHour,
+                  }
+                : null
+            }
           />
         ) : screen === 'privacy' ? (
           <PrivacyScreen
@@ -445,6 +588,19 @@ export function BorderHopperApp() {
             difficulty={settings.difficulty}
             onStart={startRandom}
             onCancel={() => setPicking(null)}
+          />
+        ) : null}
+
+        {showOffer && offerDue ? (
+          <ReminderOffer
+            from={offerDue}
+            gamesCompleted={stats.gamesCompleted}
+            hour={reminder.hour}
+            onYes={() => {
+              setOfferDue(null);
+              void enableReminder('offer');
+            }}
+            onNo={() => setOfferDue(null)}
           />
         ) : null}
 

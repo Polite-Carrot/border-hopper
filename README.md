@@ -131,6 +131,25 @@ Native believes it is running in a browser, where Expo's haptics do nothing,
 so `useHaptics` asks Capacitor first: on a phone that is the Taptic Engine or
 the vibrator; in a plain browser there is none.
 
+**Daily reminders** are local notifications (`@capacitor/local-notifications`,
+`src/reminders/`): the phone schedules them itself, so there is no push
+server, no Firebase Cloud Messaging and no APNs key, and nothing leaves the
+device. Same design as Color Sort:
+
+- Off until the player says yes. A one-time "Daily reminder?" card appears
+  after their first finished daily, or after ten finished games if that comes
+  first, and only on a calm screen (never mid-game or over a result card).
+  The system permission prompt appears only after "Remind me", never at
+  launch. Settings has the switch and the time (7am-10pm, default 6pm).
+- The next seven days are scheduled one by one and rebuilt on launch, on
+  return to the foreground and on every finished daily, so today's reminder
+  is dropped once today is done, and the streak in the wording is always
+  true when it fires.
+- Android uses inexact alarms; `SCHEDULE_EXACT_ALARM` is removed in the
+  manifest, and `res/drawable/ic_stat_daily.xml` is the white status-bar icon.
+- Tapping one opens today's daily (a game in progress is left alone).
+- "Reset all progress" keeps the reminder choice. The website has none of it.
+
 ## Deploying to GitHub Pages
 
 Already set up, and it needs nothing configured in the repository settings.

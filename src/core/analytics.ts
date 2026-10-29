@@ -119,6 +119,16 @@ export interface AnalyticsEvents {
    * watch if anyone ever wonders whether the pacing is too aggressive.
    */
   ad_shown: { format: string };
+
+  /**
+   * The daily reminder was turned on or off, and from where: the one-time
+   * offer or Settings. Against reminder_offer it says whether the offer is
+   * worth its interruption.
+   */
+  reminder_changed: { enabled: boolean; hour: number; from: string };
+
+  /** The one-time "Daily reminder?" card appeared, and what earned it. */
+  reminder_offer: { from: string };
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvents;
