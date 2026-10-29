@@ -98,7 +98,7 @@ export function GameScreen({
    * this an exact number rather than a guess.
    */
   const reserved = Math.min(
-    onScreenKeyboardHeight(panelInnerWidth),
+    onScreenKeyboardHeight(panelInnerWidth, safeBottom),
     layout.height - topInset - SEARCH_BLOCK - GRABBER_BLOCK - (allowsFlights(config) ? FLIGHT_STRIP : 0)
   );
 
@@ -137,7 +137,7 @@ export function GameScreen({
   // ---- camera ------------------------------------------------------------
   const camera = useMemo(() => {
     const target = requireCountry(config.destination).bbox;
-    if (phase === 'establishing') return frameBoxes([requireCountry(config.start).bbox, target], stage);
+    if (phase === 'establishing') return frameBoxes([requireCountry(config.start).bbox, target], stage, { fit: true });
     return frameBoxes([requireCountry(iso).bbox], stage);
   }, [phase, iso, config.start, config.destination, stage]);
 

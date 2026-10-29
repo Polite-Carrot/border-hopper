@@ -636,7 +636,27 @@ for (const owner of [...owners.values()].sort((a, b) => a.name.localeCompare(b.n
       coordinates: polys.filter((_, i) => polyAreas[i] >= largestArea * MAIN_LANDMASS_SHARE),
     },
   };
-  const [[x0, y0], [x1, y1]] = pathGen.bounds(mainland);
+  let [[x0, y0], [x1, y1]] = pathGen.bounds(mainland);
+  // A landmass cut by the date line (Russia's Chukotka) spans the whole canvas.
+  // Carry the western pieces round to the east so the box hugs the country;
+  // x past MAP_WIDTH is fine, the map is drawn wrapped.
+  if (x1 - x0 > MAP_WIDTH / 2) {
+    // The box is the circle of longitudes minus its widest empty gap.
+    const xs = mainland.geometry.coordinates
+      .flat(2)
+      .map((point) => projection(point as [number, number])![0])
+      .sort((a, b) => a - b);
+    let gap = xs[0] + MAP_WIDTH - xs[xs.length - 1];
+    let start = xs[0];
+    for (let i = 1; i < xs.length; i++) {
+      if (xs[i] - xs[i - 1] > gap) {
+        gap = xs[i] - xs[i - 1];
+        start = xs[i];
+      }
+    }
+    x0 = start;
+    x1 = start + MAP_WIDTH - gap;
+  }
   const projected = projection(geoCentroid(mainland));
 
   // Where the traveller stands. A centroid is the wrong point for that: it

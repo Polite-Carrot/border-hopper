@@ -63,7 +63,9 @@ const head = [
   // a white flash directly in front of a black startup screen -- exactly the
   // thing the startup screen exists to prevent. Black rather than the app's
   // own background, so the first paint already matches the splash.
-  `<style>html,body,#root{background-color:#000;overscroll-behavior:none;}</style>`,
+  `<style>html,body,#root{background-color:#000;overscroll-behavior:none;}*{-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;}</style>`,
+  // No selecting, copying or long-press menus anywhere: the game has no text worth copying.
+  `<script>['copy','cut','selectstart','contextmenu','dragstart'].forEach(function(t){document.addEventListener(t,function(e){e.preventDefault()},{capture:true})})</script>`,
   `<link rel="apple-touch-icon" href="${versioned('/icons/apple-touch-icon.png')}"/>`,
   // A sharp PNG alongside Expo's 16/32px favicon.ico, for the browsers and
   // high-density screens that would otherwise scale the tiny one up.

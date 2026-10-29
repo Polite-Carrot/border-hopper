@@ -20,7 +20,7 @@ const SUGGESTION_STRIP = 46;
 /** Key size for a given panel width, so the keyboard fills it edge to edge. */
 function keyMetrics(width: number) {
   const keyWidth = (width - PAD * 2 - GAP * (COLUMNS - 1)) / COLUMNS;
-  const keyHeight = Math.max(40, Math.min(54, keyWidth * 1.38));
+  const keyHeight = Math.max(46, Math.min(62, keyWidth * 1.55));
   return { keyWidth, keyHeight };
 }
 
@@ -29,13 +29,15 @@ function keyMetrics(width: number) {
  * room, which is the whole point of owning the keyboard: the height is known
  * before it is ever shown, so nothing has to move when it appears.
  */
-export function onScreenKeyboardHeight(width: number): number {
+export function onScreenKeyboardHeight(width: number, bottomInset = 0): number {
   const { keyHeight } = keyMetrics(width);
-  return Math.round(SUGGESTION_STRIP + (keyHeight + GAP) * 4 + PAD);
+  return Math.round(SUGGESTION_STRIP + (keyHeight + GAP) * 4 + PAD + bottomInset);
 }
 
 export interface OnScreenKeyboardProps {
   width: number;
+  /** Safe-area space below the keys, so the bottom row clears the phone's rounded corners. */
+  bottomInset?: number;
   /** Top matches for the current query, offered above the keys. */
   suggestions: readonly Country[];
   onKey: (character: string) => void;
@@ -46,7 +48,7 @@ export interface OnScreenKeyboardProps {
 }
 
 function KeyboardComponent({
-  width, suggestions, onKey, onBackspace, onSubmit, onHide, onPickSuggestion,
+  width, bottomInset = 0, suggestions, onKey, onBackspace, onSubmit, onHide, onPickSuggestion,
 }: OnScreenKeyboardProps) {
   const { keyWidth, keyHeight } = keyMetrics(width);
 
@@ -78,7 +80,7 @@ function KeyboardComponent({
   );
 
   return (
-    <View style={[styles.keyboard, { height: onScreenKeyboardHeight(width) }]}>
+    <View style={[styles.keyboard, { height: onScreenKeyboardHeight(width, bottomInset), paddingBottom: PAD + bottomInset }]}>
       <View style={styles.strip}>
         {suggestions.length === 0 ? (
           <Text style={styles.stripHint}>Type a country name</Text>
@@ -197,7 +199,7 @@ const styles = StyleSheet.create({
   keyMuted: { backgroundColor: '#1A2536' },
   keyAccent: { backgroundColor: colors.current },
   keyPressed: { opacity: 0.55 },
-  keyLabel: { color: colors.text, fontFamily: fonts.body, fontSize: 19, fontWeight: '500' },
+  keyLabel: { color: colors.text, fontFamily: fonts.body, fontSize: 21, fontWeight: '500' },
   keyLabelAccent: { color: '#04121C', fontSize: 15, fontWeight: '800', letterSpacing: 1 },
   space: { flex: 1 },
   spaceLabel: { color: colors.textMuted, fontFamily: fonts.body, fontSize: 13, letterSpacing: 0.5 },
