@@ -31,7 +31,7 @@ describe('passport stamps', () => {
   });
 
   it('ignores codes that are not playable countries', () => {
-    expect(stamp(EMPTY_PASSPORT, ['GL', 'XX'], '2026-10-01')).toBe(EMPTY_PASSPORT);
+    expect(stamp(EMPTY_PASSPORT, ['AQ', 'XX'], '2026-10-01')).toBe(EMPTY_PASSPORT);
   });
 
   it('lists what a route added, in the order it was walked', () => {

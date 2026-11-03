@@ -26,7 +26,7 @@ at the end.
 > **The game:** you're given two countries, and you travel from one to the
 > other by naming the countries in between, one border at a time. A little
 > explorer in a safari hat hops across each border on a world map. Every
-> border is a real land border between 195 countries. There's a 1,000-level
+> border is a real land border between 196 countries. There's a 2,000-level
 > campaign, a daily challenge, and a flight mode that adds real sea crossings
 > like Dover to Calais plus flights between hub airports. Every country you pass
 > through stamps your passport, and your explorer can wear the flag of any
@@ -56,11 +56,11 @@ at the end.
 > | # | Screenshot | Headline | Subline |
 > | --- | --- | --- | --- |
 > | 1 | `gameplay-hop` | Hop the world | Name the next country, and your explorer jumps the border |
-> | 2 | `world-zoomed-out` | Every border is real | 195 countries, and every neighbour is a real one |
+> | 2 | `world-zoomed-out` | Every border is real | 196 countries, and every neighbour is a real one |
 > | 3 | `flight-departures` | Take to the skies | Flight mode: real straits and hub airports |
 > | 4 | `passport` | Collect every flag | Each country you cross stamps your passport |
 > | 5 | `result` | Find the shortest route | Perfect routes, streaks and new stamps |
-> | 6 | `campaign` | 1,000 levels | Plus a new daily challenge every day |
+> | 6 | `campaign` | 2,000 levels | Plus a new daily challenge every day |
 >
 > The first three frames matter most, because they're the ones people see in
 > search results. Frame 1 should make the game obvious at a glance. Spare

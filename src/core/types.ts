@@ -23,6 +23,14 @@ export interface Country {
   flights: { iso2: string; km: number }[];
   /** A hub airport: in flight mode, it flies to every other hub. */
   hub: boolean;
+  /**
+   * A territory rather than a sovereign state: Gibraltar, Greenland, Hong
+   * Kong. Playable as somewhere to pass through and stamp, never as a start
+   * or a destination.
+   */
+  territory?: true;
+  /** The state a territory belongs to, where that is not disputed. */
+  sovereign?: string;
   population: number;
   /** Which page of the passport the country's stamp goes on. */
   continent: Continent;

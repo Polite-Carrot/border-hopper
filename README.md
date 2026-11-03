@@ -262,7 +262,7 @@ stamps a game added.
   first load it is filled in from the daily results and campaign levels the
   game already kept.
 - The flags are the [`country-flag-icons`](https://www.npmjs.com/package/country-flag-icons)
-  set, bundled (about 110KB for all 195) so a skin is there instantly and
+  set, bundled (about 130KB for all 234) so a skin is there instantly and
   offline. Regenerate with `npm run build:flags`.
 - When he faces west the explorer is mirrored, but his flag is not: it is never
   back to front.
@@ -341,19 +341,30 @@ their territory touches on land. Sea crossings never count, however short: the U
 borders only Ireland, Spain does not border Morocco, and Japan borders nobody.
 This is the single rule the whole game rests on.
 
-**195 playable countries.** The 193 UN member states, plus the two UN observer
-states (Vatican City and Palestine), plus Taiwan. Dependencies, overseas
-territories and special areas — Greenland, Puerto Rico, Hong Kong, Gibraltar,
-Western Sahara, Antarctica and the rest — are still *drawn* on the map, so the
-world has no holes in it, but they are not playable and take no part in the
-adjacency graph.
+**196 countries and 38 territories.** The countries are the 193 UN member
+states, plus the two UN observer states (Vatican City and Palestine), plus
+Taiwan. Tuvalu and Gibraltar are too small for the 1:50m map, so they come from
+the 1:10m one; Gibraltar's border with Spain is declared by hand
+(`EXTRA_BORDERS`), since the two maps share no outline.
+
+The territories are Greenland, Puerto Rico, Hong Kong, Macau, Gibraltar,
+Western Sahara, the Falklands, the Channel Islands and the rest of those the
+map draws (`TERRITORIES` in `scripts/sovereign.ts`). They are places to pass
+through: you can walk or fly into them, type them, and stamp them in the
+passport, and the search list says whose they are. They are never a start or
+a destination. That keeps every daily and campaign level exactly as it was
+before they were added, so an app that has not updated yet deals the same
+daily as one that has. A test checks that no territory shortens a route
+between two countries or changes the order games are dealt in. Most have no
+land border and are only reachable in flight mode. Antarctica, and the
+overseas departments that are part of France (Réunion, French Guiana), stay
+out.
 
 **Unrecognised regions are merged into the state that contains them.** Natural
 Earth draws Somaliland, Northern Cyprus and Kosovo separately. Under ISO
 3166-1 their territory belongs to Somalia, Cyprus and Serbia, and merging them
 keeps the borders that run *through* them intact — without it Somalia would
-not border Djibouti. Hong Kong and Macao are merged into China for the same
-reason. Siachen Glacier is merged into India.
+not border Djibouti. Siachen Glacier is merged into India.
 
 **Exclaves count.** Russia borders Poland and Lithuania only through
 Kaliningrad, and Azerbaijan borders Türkiye only through Nakhchivan. Both are
@@ -427,7 +438,7 @@ the switch is on:
 | `game_abandoned` | a game is left unfinished | where people give up, and in which country |
 | `wrong_guess` | a guess the rules refused | which borders people believe in that do not exist |
 | `flight_taken` | a flight rather than a border | whether flight mode's mechanic gets used |
-| `campaign_complete` | the 1000th level | how many finish at all |
+| `campaign_complete` | the 2000th level | how many finish at all |
 | `result_shared` | a result is shared | which modes people show off |
 | `onboarding_complete` | the how-it-works card is dismissed | how many never start |
 | `consent_changed` | a privacy switch moves | whether the asking is reasonable |
@@ -488,8 +499,9 @@ stored on the device. There is no account and no backend.
 
 ## Game modes
 
-**Campaign** — 1000 fixed levels that everyone climbs in the same order,
-getting harder two ways at once. Routes grow from two moves to twelve — three
+**Campaign** — 2000 fixed levels that everyone climbs in the same order.
+
+*Levels 1–1000* get harder two ways at once. Routes grow from two moves to twelve — three
 warm-up levels, three-move routes from level 4, then one move longer every 60
 to 150 levels to the end — and the countries used as start and destination get
 steadily less familiar: level 1 is Canada to Mexico, level 1000 is a
@@ -520,6 +532,19 @@ when few people live there. Early levels draw only from the top of that
 ranking and the pool widens as the ladder climbs. The ladder is built at build
 time by `npm run build:campaign` into `src/data/campaign.generated.json`, so it
 never shifts under a player mid-climb.
+
+*Levels 1001–2000* came later, and the first thousand are frozen in
+`scripts/data/campaign-part-one.json` so they could not shift when they did.
+By level 1000 every country is in play and routes are already twelve moves, so
+making each level longer than the last would have turned a thousand more into
+one long slog. Instead they come in waves of 100: each climbs from a middling
+route to a long one, the first wave running 6 to 12 moves and the last 9 to 14,
+with a final run of the longest routes there are. Level 2000 is the longest
+walk on the map: Lesotho to Papua New Guinea, 18 moves. No pair of countries is
+used twice in the whole ladder, and no country appears more than about 30 times
+in the second thousand (long routes need far-apart ends, and left alone
+Eswatini and Lesotho came round every 25 levels). The Americas can only give
+33 routes long enough, and get all of them.
 
 **Random** and **Flight mode** — both open the same sheet, differing only in
 which mode it starts on: they are the same game with a different rule, and two
@@ -557,9 +582,11 @@ carries over into flight mode, so a country on a busy sea does not get a dozen
 short hops.
 
 A few island groups can reach neither a hub nor a crossing to one, so one of
-them flies to the hub a player would expect, chosen by hand: Barbados and
-Antigua to the United States, Micronesia to Japan, Fiji and Kiribati to
-Australia. The build fails if a new stranded group appears without an entry.
+them flies to the hub a player would expect, chosen by hand: the Caribbean
+islands and French Polynesia to the United States, Micronesia and Guam to
+Japan, and New Zealand, Fiji, Samoa, Tonga and Kiribati to Australia
+(`STRANDED_LINKS`). The build fails if a new stranded group appears without an
+entry, or an entry stops being needed.
 
 Hubs replaced an earlier network of random long-haul routes. Those could not
 be guessed (the UK flew to Grenada and Laos, Australia to Luxembourg) and they

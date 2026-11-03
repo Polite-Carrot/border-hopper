@@ -23,7 +23,10 @@ import populationRows from 'country-json/src/country-by-population.json' with { 
 import continentRows from 'country-json/src/country-by-continent.json' with { type: 'json' };
 import enLocale from 'i18n-iso-countries/langs/en.json' with { type: 'json' };
 import topology from 'world-atlas/countries-50m.json' with { type: 'json' };
-import { NON_SOVEREIGN_ISO2, MERGE_INTO, DISPLAY_NAME, ALIASES, EXCLUDED_BORDERS } from './sovereign.ts';
+import detailedTopology from 'world-atlas/countries-10m.json' with { type: 'json' };
+import {
+  NON_SOVEREIGN_ISO2, MERGE_INTO, DISPLAY_NAME, ALIASES, EXCLUDED_BORDERS, TERRITORIES, FROM_DETAILED_MAP, EXTRA_BORDERS,
+} from './sovereign.ts';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson';
 import polylabel from 'polylabel';
@@ -84,6 +87,8 @@ interface Owner {
   iso2: string | null;
   name: string;
   playable: boolean;
+  /** Not a sovereign state: see TERRITORIES. */
+  territory: boolean;
 }
 
 const owners = new Map<string, Owner>();
@@ -103,14 +108,30 @@ rawGeometries.forEach((geom, i) => {
   }
 
   const key = iso2 ?? `ne:${neName}`;
-  const playable = iso2 !== null && !NON_SOVEREIGN_ISO2.has(iso2);
+  const territory = iso2 !== null && iso2 in TERRITORIES;
+  const playable = iso2 !== null && (!NON_SOVEREIGN_ISO2.has(iso2) || territory);
   const name = iso2
     ? DISPLAY_NAME[iso2] ?? countries.getName(iso2, 'en') ?? neName
     : neName;
 
-  if (!owners.has(key)) owners.set(key, { key, iso2, name, playable });
+  if (!owners.has(key)) owners.set(key, { key, iso2, name, playable, territory });
   geomOwner[i] = key;
 });
+
+// Places only the 1:10m map has. They join as owners of their own; their
+// shapes are added below, and their land borders come from EXTRA_BORDERS.
+const detailedTopo = detailedTopology as unknown as Topology<{ countries: GeometryCollection<{ name: string }> }>;
+const detailedGeometries = detailedTopo.objects.countries.geometries as unknown as NeGeom[];
+for (const [neName, iso2] of Object.entries(FROM_DETAILED_MAP)) {
+  if (!detailedGeometries.some((geom) => geom.properties.name === neName)) {
+    throw new Error(`${neName} is not in the 1:10m map`);
+  }
+  if (owners.has(iso2)) throw new Error(`${iso2} is already on the 1:50m map`);
+  const territory = iso2 in TERRITORIES;
+  owners.set(iso2, { key: iso2, iso2, name: DISPLAY_NAME[iso2] ?? neName, playable: true, territory });
+}
+const missingTerritories = Object.keys(TERRITORIES).filter((iso2) => !owners.get(iso2)?.playable);
+if (missingTerritories.length) throw new Error(`territories not on the map: ${missingTerritories.join(', ')}`);
 
 // ---------------------------------------------------------------------------
 // 2. Adjacency, from shared TopoJSON arcs.
@@ -162,6 +183,12 @@ for (const [a, b] of EXCLUDED_BORDERS) {
   }
 }
 
+for (const [a, b] of EXTRA_BORDERS) {
+  if (!neighbours.has(a) || !neighbours.has(b)) throw new Error(`EXTRA_BORDERS lists ${a}-${b}, which is not on the map`);
+  neighbours.get(a)!.add(b);
+  neighbours.get(b)!.add(a);
+}
+
 // ---------------------------------------------------------------------------
 // 3. Projected geometry.
 // ---------------------------------------------------------------------------
@@ -208,6 +235,21 @@ fc.features.forEach((f, i) => {
   if (existing) existing.geometry.coordinates.push(...polys);
   else shapes.set(key, { type: 'Feature', properties: {}, geometry: { type: 'MultiPolygon', coordinates: [...polys] } });
 });
+
+// The places only the 1:10m map has, at full detail: they are a few dozen
+// points each, and simplifying them at the 1:50m weight would erase them.
+const detailedDequantized = dequantize(structuredClone(detailedTopo));
+const detailedFc = feature(detailedDequantized, detailedDequantized.objects.countries) as unknown as FeatureCollection<
+  Polygon | MultiPolygon,
+  { name: string }
+>;
+for (const f of detailedFc.features) {
+  const iso2 = FROM_DETAILED_MAP[f.properties.name];
+  if (!iso2) continue;
+  const geom = f.geometry;
+  const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+  shapes.set(iso2, { type: 'Feature', properties: {}, geometry: { type: 'MultiPolygon', coordinates: polys } });
+}
 
 // Drop offshore specks, keeping each country's largest landmass.
 for (const shape of shapes.values()) {
@@ -468,7 +510,13 @@ for (const row of populationRows as { country: string; population: number | null
  */
 type Continent = 'Africa' | 'Asia' | 'Europe' | 'North America' | 'South America' | 'Oceania';
 /** Countries country-json leaves out or that it names too differently to match. */
-const CONTINENT_OVERRIDES: Record<string, Continent> = { TW: 'Asia' };
+const CONTINENT_OVERRIDES: Record<string, Continent> = {
+  TW: 'Asia',
+  VI: 'North America', CW: 'North America', MF: 'North America', BL: 'North America', SX: 'North America',
+  JE: 'Europe', GG: 'Europe', IM: 'Europe', AX: 'Europe',
+  // South Georgia sits under South America on most maps; the passport has no Antarctica page.
+  GS: 'South America',
+};
 const continentByIso = new Map<string, Continent>();
 for (const row of continentRows as { country: string; continent: string }[]) {
   const iso2 = isoForName(row.country);
@@ -480,7 +528,9 @@ for (const [iso2, continent] of Object.entries(CONTINENT_OVERRIDES)) continentBy
 const withoutContinent = playableOwners.filter((o) => !continentByIso.has(o.iso2!)).map((o) => `${o.iso2} ${o.name}`);
 if (withoutContinent.length) throw new Error(`no continent for: ${withoutContinent.join(', ')}`);
 
-const withoutPopulation = playableOwners.filter((o) => !populationByIso.has(o.iso2!));
+// Territories may go without: population only ranks start and destination
+// countries, and a territory is never either.
+const withoutPopulation = playableOwners.filter((o) => !o.territory && !populationByIso.has(o.iso2!));
 if (withoutPopulation.length > 3) {
   throw new Error(`population joined for only ${playableOwners.length - withoutPopulation.length} countries`);
 }
@@ -557,6 +607,13 @@ const STRANDED_LINKS: Record<string, string> = {
   FM: 'JP', // Micronesia, with the Marshall Islands and Nauru
   FJ: 'AU', // Fiji, with Samoa and Tonga
   KI: 'AU', // Kiribati
+  NZ: 'AU', // New Zealand, with New Caledonia, Norfolk Island and Vanuatu
+  GU: 'JP', // Guam, with the Northern Mariana Islands
+  WS: 'AU', // Samoa, with American Samoa
+  PF: 'US', // French Polynesia, with the Pitcairn and Cook Islands
+  SX: 'US', // Sint Maarten, with Saint Martin and Anguilla
+  KN: 'US', // Saint Kitts and Nevis, with Saint Barthélemy
+  TO: 'AU', // Tonga, with Niue
 };
 const isoToKey = new Map(playableOwners.map((o) => [o.iso2!, o.key]));
 const keyToIso = new Map(playableOwners.map((o) => [o.key, o.iso2!]));
@@ -576,15 +633,24 @@ function groupOf(start: string): Set<string> {
   return seen;
 }
 const linked = new Set<string>();
+const unlinked: string[] = [];
+const usedLinks = new Set<string>();
 for (const owner of playableOwners) {
   if (linked.has(owner.iso2!)) continue;
   const group = groupOf(owner.iso2!);
   group.forEach((member) => linked.add(member));
   if ([...group].some((member) => hubSet.has(member))) continue;
   const from = [...group].find((member) => STRANDED_LINKS[member]);
-  if (!from) throw new Error(`no hub reachable from ${[...group].join(', ')}: add it to STRANDED_LINKS`);
+  if (!from) {
+    unlinked.push([...group].join(', '));
+    continue;
+  }
   addFlight(from, STRANDED_LINKS[from], centreKm(from, STRANDED_LINKS[from]));
+  usedLinks.add(from);
 }
+const staleLinks = Object.keys(STRANDED_LINKS).filter((iso) => !usedLinks.has(iso));
+if (staleLinks.length) throw new Error(`STRANDED_LINKS entries no longer needed: ${staleLinks.join(', ')}`);
+if (unlinked.length) throw new Error(`no hub reachable from: ${unlinked.join(' / ')}. Add each to STRANDED_LINKS`);
 
 // ---------------------------------------------------------------------------
 // 4. Emit.
@@ -603,6 +669,10 @@ interface OutCountry {
   flights: { iso2: string; km: number }[];
   /** A hub airport: in flight mode, flies to every other hub. */
   hub: boolean;
+  /** Set on territories only: never a start or destination. */
+  territory?: true;
+  /** The state a territory belongs to, where that is not disputed. */
+  sovereign?: string;
   population: number;
   continent: Continent;
   /** Centre of the main landmass, in projected map units. */
@@ -698,6 +768,8 @@ for (const owner of [...owners.values()].sort((a, b) => a.name.localeCompare(b.n
       .map(([to, km]) => ({ iso2: to, km }))
       .sort((a, b) => a.km - b.km),
     hub: hubSet.has(iso2),
+    ...(owner.territory ? { territory: true as const } : {}),
+    ...(TERRITORIES[iso2] ? { sovereign: TERRITORIES[iso2]! } : {}),
     population: populationByIso.get(iso2) ?? 0,
     continent: continentByIso.get(iso2)!,
     centroid: projected
@@ -709,11 +781,18 @@ for (const owner of [...owners.values()].sort((a, b) => a.name.localeCompare(b.n
   });
 }
 
+// The 1:10m places go last, so they are drawn over the coarser land around
+// them: the 1:50m Spain covers the Rock of Gibraltar.
+const detailedKeys = new Set(Object.values(FROM_DETAILED_MAP));
+shapesOut.sort((a, b) => Number(detailedKeys.has(a.key)) - Number(detailedKeys.has(b.key)));
+
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(
   OUT,
   JSON.stringify({
-    generated: 'scripts/build-country-data.ts from world-atlas/countries-50m (Natural Earth 1:50m data, equirectangular)',
+    generated:
+      'scripts/build-country-data.ts from world-atlas/countries-50m (Natural Earth 1:50m data, equirectangular), ' +
+      'with Gibraltar and Tuvalu from countries-10m',
     width: MAP_WIDTH,
     height: MAP_HEIGHT,
     countries: outCountries,

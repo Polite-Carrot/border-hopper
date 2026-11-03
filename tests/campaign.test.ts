@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   CAMPAIGN_LENGTH, CAMPAIGN_LEVELS, campaignGame, campaignLevel, completedCount,
@@ -21,9 +22,23 @@ const result = (over: Partial<GameResult> = {}): GameResult => ({
 });
 
 describe('campaign ladder', () => {
-  it('has 1000 levels, numbered in order', () => {
-    expect(CAMPAIGN_LENGTH).toBe(1000);
+  it('has 2000 levels, numbered in order', () => {
+    expect(CAMPAIGN_LENGTH).toBe(2000);
     CAMPAIGN_LEVELS.forEach((entry, index) => expect(entry.level).toBe(index + 1));
+  });
+
+  it('keeps the first thousand levels exactly as they shipped', () => {
+    // Players have progress against these. Changing one would move a star
+    // or a time onto a different journey.
+    const frozen = JSON.parse(
+      readFileSync(new URL('../scripts/data/campaign-part-one.json', import.meta.url), 'utf8')
+    ) as { levels: unknown[] };
+    expect(CAMPAIGN_LEVELS.slice(0, 1000)).toEqual(frozen.levels);
+  });
+
+  it('ends on the longest walk on the map', () => {
+    expect(campaignLevel(2000)).toMatchObject({ start: 'LS', destination: 'PG', moves: 18 });
+    for (const entry of CAMPAIGN_LEVELS) expect(entry.moves, `level ${entry.level}`).toBeLessThanOrEqual(18);
   });
 
   it('opens on somewhere everyone knows', () => {
@@ -69,9 +84,9 @@ describe('campaign ladder', () => {
     expect(firstLonger).toBeLessThanOrEqual(6);
   });
 
-  it('starts easy and never asks for more than twelve moves', () => {
+  it('starts easy, and asks for no more than twelve moves in the first thousand', () => {
     for (const entry of CAMPAIGN_LEVELS.slice(0, 3)) expect(entry.moves).toBe(2);
-    for (const entry of CAMPAIGN_LEVELS) {
+    for (const entry of CAMPAIGN_LEVELS.slice(0, 1000)) {
       expect(entry.moves).toBeGreaterThanOrEqual(2);
       expect(entry.moves).toBeLessThanOrEqual(12);
     }
@@ -87,13 +102,29 @@ describe('campaign ladder', () => {
     expect(median(spread(1, 30))).toBeGreaterThan(median(spread(CAMPAIGN_LENGTH - 29, CAMPAIGN_LENGTH)));
   });
 
-  it('never drops back sharply in difficulty', () => {
+  it('never drops back sharply in difficulty, except where a new wave begins', () => {
     // A two-move level dropped into a run of four-move ones reads as a
     // mistake. When the generator has to bend, it bends variety, not this.
+    // The second thousand comes in waves of 100 that each start lower than
+    // the last one ended: that drop is the point, and the only one allowed.
     for (let i = 1; i < CAMPAIGN_LEVELS.length; i++) {
       const [before, level] = [CAMPAIGN_LEVELS[i - 1], CAMPAIGN_LEVELS[i]];
-      expect(level.moves, `level ${level.level}`).toBeGreaterThanOrEqual(before.moves - 1);
+      const waveStart = level.level > 1000 && (level.level - 1001) % 100 === 0;
+      if (waveStart) continue;
+      const slack = level.level > 1000 ? 2 : 1;
+      expect(level.moves, `level ${level.level}`).toBeGreaterThanOrEqual(before.moves - slack);
     }
+  });
+
+  it('climbs within each wave of the second thousand, and each wave ends harder', () => {
+    const average = (from: number, to: number) => {
+      const slice = CAMPAIGN_LEVELS.slice(from - 1, to);
+      return slice.reduce((sum, e) => sum + e.moves, 0) / slice.length;
+    };
+    for (let wave = 1001; wave < 2000; wave += 100) {
+      expect(average(wave, wave + 19), `wave ${wave}`).toBeLessThan(average(wave + 80, wave + 99));
+    }
+    expect(average(1081, 1100)).toBeLessThan(average(1981, 2000));
   });
 
   it('does not keep coming back to the same countries', () => {
@@ -112,8 +143,12 @@ describe('campaign ladder', () => {
     // only 196 routes in all, so a full 15% is out of reach -- but it should
     // not fall back to a token handful either.
     const americas = new Set(distancesFrom('US').keys());
-    const there = CAMPAIGN_LEVELS.filter((e) => americas.has(e.start)).length;
-    expect(there / CAMPAIGN_LENGTH).toBeGreaterThan(0.05);
+    const partOne = CAMPAIGN_LEVELS.slice(0, 1000).filter((e) => americas.has(e.start)).length;
+    expect(partOne / 1000).toBeGreaterThan(0.05);
+    // The second thousand asks for longer routes than most of the Americas
+    // can give, so it uses every one long enough there is.
+    const partTwo = CAMPAIGN_LEVELS.slice(1000).filter((e) => americas.has(e.start)).length;
+    expect(partTwo).toBeGreaterThanOrEqual(30);
   });
 
   it('builds a playable config from a level', () => {

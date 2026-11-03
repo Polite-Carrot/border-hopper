@@ -5,9 +5,16 @@ import { Icon } from './Icon';
 export interface ScreenHeaderProps {
   title: string;
   onBack: () => void;
+  /**
+   * Straight to the main menu. Defaults to `onBack`, which is the menu for
+   * every screen opened from it; a screen opened from another (Privacy &
+   * data, from Settings) passes its own.
+   */
+  onClose?: () => void;
 }
 
-export function ScreenHeader({ title, onBack }: ScreenHeaderProps) {
+/** Back on the left, the title, and an X on the right that always means "main menu". */
+export function ScreenHeader({ title, onBack, onClose = onBack }: ScreenHeaderProps) {
   return (
     <View style={styles.header}>
       <Pressable
@@ -20,7 +27,15 @@ export function ScreenHeader({ title, onBack }: ScreenHeaderProps) {
         <Icon name="back" size={20} color={colors.text} />
       </Pressable>
       <Text style={styles.title}>{title.toUpperCase()}</Text>
-      <View style={styles.back} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Close, back to the main menu"
+        onPress={onClose}
+        hitSlop={12}
+        style={({ pressed }) => [styles.back, pressed && styles.pressed]}
+      >
+        <Icon name="close" size={18} color={colors.text} />
+      </Pressable>
     </View>
   );
 }

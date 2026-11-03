@@ -3,8 +3,9 @@ import { COUNTRIES, SHAPES, MAP_WIDTH, MAP_HEIGHT, getCountry } from '../src/cor
 
 describe('country data', () => {
   it('loads a full set of sovereign countries', () => {
-    expect(COUNTRIES.length).toBeGreaterThanOrEqual(190);
-    expect(COUNTRIES.length).toBeLessThanOrEqual(200);
+    // 196 sovereign states and 38 territories.
+    expect(COUNTRIES.filter((c) => !c.territory)).toHaveLength(196);
+    expect(COUNTRIES.filter((c) => c.territory)).toHaveLength(38);
   });
 
   it('gives every country a valid ISO code, name and flag', () => {
@@ -30,10 +31,12 @@ describe('country data', () => {
     expect(getCountry('CZ')!.name).toBe('Czechia');
   });
 
-  it('excludes dependencies and territories from play', () => {
-    for (const iso of ['GL', 'PR', 'HK', 'MO', 'GI', 'FK', 'EH', 'AQ']) {
-      expect(getCountry(iso), iso).toBeUndefined();
+  it('plays the listed territories, and leaves out the rest', () => {
+    for (const iso of ['GL', 'PR', 'HK', 'MO', 'GI', 'FK', 'EH']) {
+      expect(getCountry(iso)?.territory, iso).toBe(true);
     }
+    // Antarctica is never played; Réunion and French Guiana are part of France.
+    for (const iso of ['AQ', 'RE', 'GF']) expect(getCountry(iso), iso).toBeUndefined();
   });
 
   it('positions every country inside the projected canvas', () => {
@@ -52,7 +55,7 @@ describe('country data', () => {
   it('draws a shape for every playable country plus extra territories', () => {
     const drawn = new Set(SHAPES.filter((s) => s.playable).map((s) => s.key));
     for (const country of COUNTRIES) expect(drawn.has(country.iso2), country.name).toBe(true);
-    expect(SHAPES.length).toBeGreaterThan(COUNTRIES.length);
+    expect(SHAPES.length).toBeGreaterThanOrEqual(COUNTRIES.length);
     for (const shape of SHAPES) expect(shape.d.startsWith('M')).toBe(true);
   });
 

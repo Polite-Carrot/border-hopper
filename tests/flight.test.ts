@@ -123,7 +123,10 @@ describe('hub airports', () => {
   it('are the only long flights: everywhere else flies only its short sea crossings', () => {
     // A few remote island groups have one hand-picked flight to a hub, since
     // nothing else reaches them.
-    const stranded: Record<string, string> = { BB: 'US', AG: 'US', FM: 'JP', FJ: 'AU', KI: 'AU' };
+    const stranded: Record<string, string> = {
+      BB: 'US', AG: 'US', FM: 'JP', FJ: 'AU', KI: 'AU', NZ: 'AU', GU: 'JP', WS: 'AU',
+      PF: 'US', SX: 'US', KN: 'US', TO: 'AU',
+    };
     for (const country of COUNTRIES) {
       for (const flight of country.flights) {
         const hubHop = country.hub && isHub(flight.iso2);

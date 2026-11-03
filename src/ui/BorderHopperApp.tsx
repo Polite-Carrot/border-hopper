@@ -538,6 +538,7 @@ export function BorderHopperApp() {
             onChange={changeSettings}
             // Back to Settings, which is where it was opened from.
             onBack={() => setScreen('settings')}
+            onClose={() => setScreen('menu')}
           />
         ) : screen === 'passport' ? (
           <PassportScreen

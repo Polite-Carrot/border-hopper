@@ -6,8 +6,9 @@
  * plus Taiwan (ISO 3166-1 assigns TW and players expect it in a geography game).
  *
  * Everything else in ISO 3166-1 is a dependency, overseas territory or
- * special area. Those are still *drawn* on the map (so the world has no holes)
- * but are not playable and take no part in the adjacency graph.
+ * special area. Those listed in TERRITORIES below are playable as places to
+ * pass through; the rest are drawn on the map (so the world has no holes) but
+ * take no part in the game.
  */
 export const NON_SOVEREIGN_ISO2 = new Set([
   'AI', 'AQ', 'AS', 'AW', 'AX', 'BL', 'BM', 'BQ', 'BV', 'CC', 'CK', 'CW', 'CX',
@@ -30,11 +31,41 @@ export const MERGE_INTO: Record<string, string> = {
   'N. Cyprus': 'CY',
   Kosovo: 'RS',
   'Siachen Glacier': 'IN',
-  'Hong Kong': 'CN',
-  Macao: 'CN',
   'Ashmore and Cartier Is.': 'AU',
   'Indian Ocean Ter.': 'AU',
 };
+
+/**
+ * Territories: playable places that are not sovereign states, each with the
+ * state it belongs to (null where that is disputed).
+ *
+ * They can be walked or flown through, searched for and stamped in the
+ * passport, but they are never a start or a destination. That keeps every
+ * daily challenge and campaign level exactly as it was before they were
+ * added -- an app that has not updated yet deals the same daily as one that
+ * has -- and spares players a level that ends on Pitcairn. Most have no land
+ * border and are only reachable in flight mode, by a sea crossing.
+ */
+export const TERRITORIES: Record<string, string | null> = {
+  AX: 'FI', AS: 'US', AI: 'GB', AW: 'NL', BM: 'GB', IO: 'GB', KY: 'GB', CK: 'NZ',
+  CW: 'NL', FK: 'GB', FO: 'DK', PF: 'FR', GL: 'DK', GU: 'US', GG: 'GB', IM: 'GB',
+  JE: 'GB', MS: 'GB', NC: 'FR', NU: 'NZ', NF: 'AU', MP: 'US', PN: 'GB', PR: 'US',
+  BL: 'FR', SH: 'GB', MF: 'FR', PM: 'FR', SX: 'NL', GS: 'GB', TC: 'GB', VG: 'GB',
+  VI: 'US', WF: 'FR', EH: null, GI: 'GB', HK: 'CN', MO: 'CN',
+};
+
+/**
+ * Places too small for the 1:50m map, taken from the 1:10m one: Gibraltar,
+ * and Tuvalu -- a UN member state the coarser map leaves out altogether.
+ * Keyed by Natural Earth name.
+ */
+export const FROM_DETAILED_MAP: Record<string, string> = { Gibraltar: 'GI', Tuvalu: 'TV' };
+
+/**
+ * Land borders the 1:50m map cannot know about, because one side comes from
+ * the 1:10m map and shares no arc with it.
+ */
+export const EXTRA_BORDERS: [string, string][] = [['GI', 'ES']];
 
 /** Short, canonical display names preferred over the long ISO English names. */
 export const DISPLAY_NAME: Record<string, string> = {
@@ -50,6 +81,17 @@ export const DISPLAY_NAME: Record<string, string> = {
   AE: 'United Arab Emirates', CF: 'Central African Republic',
   DO: 'Dominican Republic', GW: 'Guinea-Bissau', GQ: 'Equatorial Guinea', CN: 'China',
   PG: 'Papua New Guinea', SB: 'Solomon Islands', MH: 'Marshall Islands',
+  TV: 'Tuvalu',
+  // Territories.
+  AX: 'Åland Islands', AS: 'American Samoa', AI: 'Anguilla', AW: 'Aruba', BM: 'Bermuda',
+  IO: 'British Indian Ocean Territory', KY: 'Cayman Islands', CK: 'Cook Islands', CW: 'Curaçao',
+  FK: 'Falkland Islands', FO: 'Faroe Islands', PF: 'French Polynesia', GL: 'Greenland', GU: 'Guam',
+  GG: 'Guernsey', IM: 'Isle of Man', JE: 'Jersey', MS: 'Montserrat', NC: 'New Caledonia', NU: 'Niue',
+  NF: 'Norfolk Island', MP: 'Northern Mariana Islands', PN: 'Pitcairn Islands', PR: 'Puerto Rico',
+  BL: 'Saint Barthélemy', SH: 'Saint Helena', MF: 'Saint Martin', PM: 'Saint Pierre and Miquelon',
+  SX: 'Sint Maarten', GS: 'South Georgia', TC: 'Turks and Caicos Islands', VG: 'British Virgin Islands',
+  VI: 'US Virgin Islands', WF: 'Wallis and Futuna', EH: 'Western Sahara', GI: 'Gibraltar',
+  HK: 'Hong Kong', MO: 'Macau',
 };
 
 /** Common names, abbreviations and former names players are likely to type. */
@@ -96,6 +138,25 @@ export const ALIASES: Record<string, string[]> = {
   SS: ['south sudan'],
   GQ: ['equatorial guinea'],
   LI: ['liechtenstein'],
+  AX: ['aland', 'aland islands'],
+  FK: ['falklands', 'malvinas'],
+  FO: ['faroes', 'faeroe islands', 'faroe'],
+  GS: ['south georgia and the south sandwich islands'],
+  VG: ['bvi', 'virgin islands'],
+  VI: ['usvi', 'united states virgin islands', 'virgin islands'],
+  MO: ['macao'],
+  CW: ['curacao'],
+  BL: ['st barts', 'st barths', 'saint barthelemy', 'st barthelemy'],
+  PN: ['pitcairn'],
+  SH: ['st helena', 'saint helena ascension and tristan da cunha', 'ascension', 'tristan da cunha'],
+  IO: ['chagos', 'chagos islands', 'biot'],
+  PM: ['st pierre and miquelon', 'st pierre'],
+  KY: ['caymans', 'cayman'],
+  TC: ['turks and caicos'],
+  MF: ['st martin', 'saint-martin'],
+  SX: ['st maarten'],
+  HK: ['hongkong'],
+  IM: ['mann'],
 };
 
 /**

@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius, spacing } from '../../theme';
 import type { Country } from '../../core/types';
+import { countryName } from '../../core/world';
 
 export interface CountryRowProps {
   country: Country;
@@ -27,6 +28,13 @@ function CountryRowComponent({ country, onPress, isCurrent, isVisited }: Country
       >
         {country.name}
       </Text>
+      {/* Territories say whose they are, so nobody wonders why Gibraltar is
+          listed among countries -- and why it is never a destination. */}
+      {country.territory ? (
+        <Text style={styles.territory} numberOfLines={1}>
+          {country.sovereign ? `${countryName(country.sovereign)} territory` : 'Territory'}
+        </Text>
+      ) : null}
       {isCurrent ? (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>YOU</Text>
@@ -55,6 +63,7 @@ const styles = StyleSheet.create({
   name: { flex: 1, color: colors.text, fontFamily: fonts.body, fontSize: 16.5, letterSpacing: 0.1 },
   current: { color: colors.current, fontWeight: '600' },
   visited: { color: colors.textMuted },
+  territory: { color: colors.textFaint, fontFamily: fonts.body, fontSize: 12.5, maxWidth: '45%' },
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 3,

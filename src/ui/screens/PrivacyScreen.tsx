@@ -10,6 +10,8 @@ export interface PrivacyScreenProps {
   settings: Settings;
   onChange: (settings: Settings) => void;
   onBack: () => void;
+  /** The X: the main menu, where Back is Settings. */
+  onClose: () => void;
 }
 
 /**
@@ -20,7 +22,7 @@ export interface PrivacyScreenProps {
  * deliberately, perhaps months later and in a hurry, so it gets its own door
  * and room to explain itself instead of two switches in a list.
  */
-export function PrivacyScreen({ settings, onChange, onBack }: PrivacyScreenProps) {
+export function PrivacyScreen({ settings, onChange, onBack, onClose }: PrivacyScreenProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -31,7 +33,7 @@ export function PrivacyScreen({ settings, onChange, onBack }: PrivacyScreenProps
           { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.xl },
         ]}
       >
-        <ScreenHeader title="Privacy & data" onBack={onBack} />
+        <ScreenHeader title="Privacy & data" onBack={onBack} onClose={onClose} />
 
         <Text style={styles.intro}>
           Both of these stay off unless you turn them on, and you can change them whenever you

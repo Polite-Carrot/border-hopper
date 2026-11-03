@@ -42,10 +42,10 @@ You're in Portugal. Get to Poland. Which countries are in the way?
 Border Hopper is a geography puzzle about the world's borders. You're given a start and a destination, and you travel between them by naming each country in between, one border at a time. Your little explorer hops across every border as you go. Find the shortest route for a perfect score.
 
 EVERY BORDER IS REAL
-All 195 countries, drawn from real map data. If two countries share a land border, you can cross it. You'll be surprised which countries touch, and which ones don't.
+All 196 countries, plus territories like Gibraltar and Greenland, drawn from real map data. If two countries share a land border, you can cross it. You'll be surprised which countries touch, and which ones don't.
 
 WAYS TO PLAY
-• Campaign: 1,000 levels, from quick two-step trips to routes that cross whole continents.
+• Campaign: 2,000 levels, from quick two-step trips to the longest walk on Earth.
 • Daily challenge: one new route every day, the same for everyone. Keep your streak going.
 • Random: pick Easy, Medium or Hard and play as many as you like.
 • Flight mode: walk to a hub airport and fly to any other hub, or hop across real sea crossings like Dover to Calais. Island nations like Japan and Australia join the game here.

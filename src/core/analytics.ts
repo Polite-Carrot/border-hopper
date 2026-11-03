@@ -90,7 +90,7 @@ export interface AnalyticsEvents {
   /** A flight was taken rather than a border crossed. Flight mode only. */
   flight_taken: { from: string; to: string; km: number; moves_in: number };
 
-  /** The player got to the end of the 250-level ladder. */
+  /** The player got to the end of the campaign ladder. */
   campaign_complete: { seconds_total: number; perfect_levels: number };
 
   /** A finished game was shared, and from which mode. */

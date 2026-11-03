@@ -40,9 +40,12 @@ export function difficultyFor(moves: number): Difficulty {
  */
 const MIN_ENDPOINT_AREA = 0.25;
 
-/** Countries eligible to be a start or destination: on the land graph and not tiny. */
+/**
+ * Countries eligible to be a start or destination: sovereign, on the land
+ * graph and not tiny. Territories are places to pass through, never a goal.
+ */
 export const ENDPOINT_CANDIDATES: readonly Country[] = COUNTRIES.filter(
-  (c) => c.neighbours.length > 0 && c.area >= MIN_ENDPOINT_AREA
+  (c) => !c.territory && c.neighbours.length > 0 && c.area >= MIN_ENDPOINT_AREA
 );
 
 /**
@@ -50,7 +53,7 @@ export const ENDPOINT_CANDIDATES: readonly Country[] = COUNTRIES.filter(
  * pool is wider than the land one.
  */
 export const FLIGHT_ENDPOINT_CANDIDATES: readonly Country[] = COUNTRIES.filter(
-  (c) => (c.neighbours.length > 0 || c.crossings.length > 0) && c.area >= MIN_ENDPOINT_AREA
+  (c) => !c.territory && (c.neighbours.length > 0 || c.crossings.length > 0) && c.area >= MIN_ENDPOINT_AREA
 );
 
 /** Larger countries come up more often, so objectives stay recognisable. */
