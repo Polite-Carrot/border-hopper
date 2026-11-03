@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Capacitor } from '@capacitor/core';
 import { dailyGame, dateKey } from '../core/daily';
 import {
   CAMPAIGN_LENGTH, campaignGame, nextLevel, recordLevel, type CampaignProgress,
@@ -22,10 +23,11 @@ import { setHapticsEnabled } from './hooks/useHaptics';
 import { getAds } from '../ads';
 import { installFirebaseSink, setFirebaseConsent } from '../analytics/firebase';
 import { getReminders, type DailyProgress, type ReminderPrefs } from '../reminders';
+import { getPurchases, type BuyResult, type PurchaseStatus } from '../purchases';
 import { GameScreen } from './screens/GameScreen';
 import { MenuScreen } from './screens/MenuScreen';
 import { StatsScreen } from './screens/StatsScreen';
-import { SettingsScreen } from './screens/SettingsScreen';
+import { REMOVE_ADS_OWNED, REMOVE_ADS_PENDING, SettingsScreen } from './screens/SettingsScreen';
 import { OnboardingOverlay } from './screens/OnboardingOverlay';
 import { DailyDoneScreen } from './screens/DailyDoneScreen';
 import { CampaignScreen } from './screens/CampaignScreen';
@@ -75,13 +77,23 @@ export function BorderHopperApp() {
   const [offerDue, setOfferDue] = useState<'daily' | 'games' | null>(null);
   /** A reminder was tapped; acted on once the saved progress is loaded. */
   const [openedFromReminder, setOpenedFromReminder] = useState(false);
+  /**
+   * Set while the phone's notification settings are open from the switch,
+   * so coming back with notifications allowed finishes switching it on.
+   */
+  const reminderFromSettings = useRef(false);
+  const [purchase, setPurchase] = useState<PurchaseStatus>(() => getPurchases().status());
+  /** What happened to the last purchase or restore, shown in Settings. */
+  const [purchaseMessage, setPurchaseMessage] = useState<string | null>(null);
+  /** "Thank you!" stays on the menu button this long after buying from it. */
+  const [thanksUntil, setThanksUntil] = useState(0);
 
   useEffect(() => {
     void (async () => {
       const [savedStats, savedSettings, savedDaily, savedCampaign, onboarded, consentAsked, savedPassport] =
         await Promise.all([
           loadStats(), loadSettings(), loadDailyResults(), loadCampaign(), loadOnboarded(),
-          loadConsentAsked(), loadPassport(dateKey()), getReminders().load(),
+          loadConsentAsked(), loadPassport(dateKey()), getReminders().load(), getPurchases().load(),
         ]);
       passportRef.current = savedPassport;
       setPassport(savedPassport);
@@ -93,12 +105,18 @@ export function BorderHopperApp() {
       setNeedsConsent(!consentAsked);
       setReminder(getReminders().state());
       setReady(true);
+      // Asks the store what this player owns. Until it answers, the saved
+      // answer stands, so someone who paid is never shown an ad offline.
+      const purchases = getPurchases();
+      purchases.start();
+      setPurchase(purchases.status());
       // The player's saved choice goes to Unity before anything else does.
       // Someone who has already answered the consent card is not asked about
-      // tracking again here; this only reads what they said last time.
+      // tracking again here; this only reads what they said last time. Unity
+      // is never started for someone who has removed ads.
       const ads = getAds();
       await ads.start(savedSettings.personalisedAds);
-      if (consentAsked) await ads.tracking(false);
+      if (consentAsked && !purchases.adsRemoved()) await ads.tracking(false);
     })();
   }, []);
 
@@ -129,17 +147,26 @@ export function BorderHopperApp() {
     if (ready) void getReminders().sync(dailyProgress);
   }, [ready, dailyProgress]);
 
-  // Coming back to the foreground: a new day may have started, and the
-  // player may have changed the notification setting while away.
+  useEffect(() => getPurchases().onChange(setPurchase), []);
+
+  // Coming back to the foreground: a new day may have started, the player
+  // may have changed the notification setting while away, and the store may
+  // know about a purchase (a refund, another device, a parent's approval).
   const readyRef = useRef(ready);
   readyRef.current = ready;
   useEffect(() => {
     const reminders = getReminders();
-    if (!reminders.available()) return;
+    const purchases = getPurchases();
+    if (!reminders.available() && !purchases.available()) return;
     const subscription = AppState.addEventListener('change', (state) => {
       if (state !== 'active' || !readyRef.current) return;
+      if (!purchases.status().busy) void purchases.refresh();
       void reminders.sync(dailyProgressRef.current);
       void reminders.permission().then((answer) => setReminderBlocked(answer === 'denied'));
+      if (reminderFromSettings.current) {
+        reminderFromSettings.current = false;
+        void finishReminderFromSettingsRef.current();
+      }
     });
     return () => subscription.remove();
   }, []);
@@ -335,12 +362,24 @@ export function BorderHopperApp() {
     setNeedsConsent(false);
     void saveConsentAsked();
     void (async () => {
-      const status = await getAds().tracking(true);
-      const current = settingsRef.current;
-      if (status === 'authorized' && !current.personalisedAds) {
-        track('consent_changed', { setting: 'personalised_ads', enabled: true });
-        updateSettings({ ...current, personalisedAds: true });
+      // No ads, nothing to track for: someone who has bought them away (on a
+      // reinstall, say) is not asked.
+      if (!getPurchases().adsRemoved()) {
+        const status = await getAds().tracking(true);
+        const current = settingsRef.current;
+        if (status === 'authorized' && !current.personalisedAds) {
+          track('consent_changed', { setting: 'personalised_ads', enabled: true });
+          updateSettings({ ...current, personalisedAds: true });
+        }
       }
+      // Then notifications, once: iOS shows one system prompt at a time, so
+      // this waits for the tracking answer. The phone remembers the answer,
+      // and the Settings switch handles a change of mind.
+      const reminders = getReminders();
+      if (!reminders.available() || reminders.state().asked) return;
+      const result = await reminders.enable(dailyProgressRef.current);
+      if (result === 'on') track('reminder_changed', { enabled: true, hour: reminders.state().hour, from: 'first_run' });
+      setReminder(reminders.state());
     })();
   }, [updateSettings]);
 
@@ -389,16 +428,78 @@ export function BorderHopperApp() {
     setReminderBlocked((await reminders.permission()) === 'denied');
   }, []);
 
-  /** "Remind me" on the offer, or the Settings switch turned on. */
+  /**
+   * "Remind me" on the offer, or the Settings switch turned on. After a
+   * refusal no prompt can appear, so the switch opens the phone's own
+   * notification settings, and coming back with them allowed finishes the job.
+   */
   const enableReminder = useCallback(
     async (from: 'offer' | 'settings') => {
       const reminders = getReminders();
       const result = await reminders.enable(dailyProgressRef.current);
       if (result === 'on') track('reminder_changed', { enabled: true, hour: reminders.state().hour, from });
+      if (result === 'blocked') {
+        reminderFromSettings.current = true;
+        reminders.openSettings();
+      }
       await refreshReminder();
     },
     [refreshReminder]
   );
+
+  const finishReminderFromSettings = useCallback(async () => {
+    const reminders = getReminders();
+    if ((await reminders.permission()) !== 'granted') return;
+    await enableReminder('settings');
+  }, [enableReminder]);
+  const finishReminderFromSettingsRef = useRef(finishReminderFromSettings);
+  finishReminderFromSettingsRef.current = finishReminderFromSettings;
+
+  /**
+   * Remove Ads, from the menu or from Settings. The menu has no room to
+   * explain a payment that failed or is waiting, so those go to Settings,
+   * where the explanation sits next to Restore.
+   */
+  const buyRemoveAds = useCallback(async (from: 'menu' | 'settings') => {
+    const result: BuyResult = await getPurchases().buy();
+    track('remove_ads', { result, from });
+    if (result === 'owned') {
+      if (from === 'menu') setThanksUntil(Date.now() + 2500);
+      setPurchaseMessage(REMOVE_ADS_OWNED);
+    } else if (result === 'pending') {
+      setPurchaseMessage(REMOVE_ADS_PENDING);
+    } else if (result === 'failed') {
+      setPurchaseMessage(
+        from === 'menu'
+          ? 'The purchase did not go through. Check your connection and try again. Bought it before? Tap Restore.'
+          : 'The purchase did not go through. Check your connection and try again.'
+      );
+    }
+    if (from === 'menu' && (result === 'failed' || result === 'pending')) setScreen('settings');
+  }, []);
+
+  const restorePurchases = useCallback(async () => {
+    const purchases = getPurchases();
+    const found = await purchases.restore();
+    track('remove_ads_restore', { found });
+    setPurchaseMessage(
+      found
+        ? 'Restored. Ads are gone for good.'
+        : `No Remove Ads purchase found for this ${isIos() ? 'Apple ID' : 'Google account'}.`
+    );
+  }, []);
+
+  // A message is about what just happened; it does not outlive leaving Settings.
+  useEffect(() => {
+    if (screen !== 'settings') setPurchaseMessage(null);
+  }, [screen]);
+
+  // The menu's "Thank you!" goes away by itself.
+  useEffect(() => {
+    if (!thanksUntil) return;
+    const timer = setTimeout(() => setThanksUntil(0), Math.max(0, thanksUntil - Date.now()));
+    return () => clearTimeout(timer);
+  }, [thanksUntil]);
 
   const toggleReminder = useCallback(
     (on: boolean) => {
@@ -520,6 +621,17 @@ export function BorderHopperApp() {
             }}
             onBack={() => setScreen('menu')}
             onPrivacy={() => setScreen('privacy')}
+            purchase={
+              purchase.available
+                ? {
+                    status: purchase,
+                    message: purchaseMessage,
+                    onBuy: () => void buyRemoveAds('settings'),
+                    onRestore: () => void restorePurchases(),
+                    platform: isIos() ? 'ios' : 'android',
+                  }
+                : null
+            }
             reminder={
               getReminders().available()
                 ? {
@@ -539,6 +651,7 @@ export function BorderHopperApp() {
             // Back to Settings, which is where it was opened from.
             onBack={() => setScreen('settings')}
             onClose={() => setScreen('menu')}
+            adsRemoved={purchase.owned}
           />
         ) : screen === 'passport' ? (
           <PassportScreen
@@ -569,6 +682,7 @@ export function BorderHopperApp() {
             campaignLevel={campaignNext}
             campaignDone={Object.keys(campaign).length}
             reduceMotion={settings.reduceMotion}
+            removeAds={menuRemoveAds(purchase, thanksUntil, () => void buyRemoveAds('menu'))}
           />
         )}
 
@@ -609,6 +723,24 @@ export function BorderHopperApp() {
       </View>
     </SafeAreaProvider>
   );
+}
+
+const isIos = () => Capacitor.getPlatform() === 'ios';
+
+/**
+ * The menu's Remove Ads button: the store's price, "…" while a sheet is up,
+ * disabled while a payment is pending, "Thank you!" for a moment after
+ * buying from it, and gone once owned and on the website.
+ */
+function menuRemoveAds(status: PurchaseStatus, thanksUntil: number, onPress: () => void) {
+  if (!status.available) return null;
+  if (status.owned) return thanksUntil > Date.now() ? { label: 'Thank you!', disabled: true, onPress } : null;
+  if (status.pending) return { label: 'Payment pending', disabled: true, onPress };
+  return {
+    label: status.busy ? 'Remove ads · …' : status.price ? `Remove ads · ${status.price}` : 'Remove ads',
+    disabled: status.busy,
+    onPress,
+  };
 }
 
 const styles = StyleSheet.create({

@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { createUnityAds } from '@politecarrot/capacitor-unity-ads';
 import { track } from '../core/analytics';
+import { getPurchases } from '../purchases';
 import { UNITY_CONFIG, createAds, type Ads } from './ads';
 
 let instance: Ads | null = null;
@@ -15,7 +16,8 @@ export function getAds(): Ads {
   instance ??= createAds(
     createUnityAds({ ...UNITY_CONFIG, capacitor: Capacitor }),
     Date.now,
-    () => track('ad_shown', { format: 'interstitial' })
+    () => track('ad_shown', { format: 'interstitial' }),
+    () => getPurchases().adsRemoved()
   );
   return instance;
 }

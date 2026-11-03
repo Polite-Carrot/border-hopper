@@ -136,6 +136,16 @@ export interface AnalyticsEvents {
    * borders the game expects too much of.
    */
   hint_used: { mode: string; level?: number; at: string; named: boolean; moves_in: number };
+
+  /**
+   * A Remove Ads purchase was tried, from the menu or Settings: owned,
+   * pending, cancelled or failed. Against ad_shown it says what removing
+   * ads is worth to people.
+   */
+  remove_ads: { result: string; from: string };
+
+  /** Restore was tapped, and whether it found a purchase. */
+  remove_ads_restore: { found: boolean };
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvents;

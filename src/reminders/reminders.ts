@@ -16,9 +16,12 @@ import { dateKey, previousDateKey } from '../core/daily';
  *   - the wording can mention the streak, and is always true when it fires;
  *   - someone who stops playing hears from us for a week and then not again.
  *
- * The player is asked for notification permission only after tapping
- * "Remind me" (offered after their first daily, or from Settings), never at
- * launch: iOS lets an app show that system prompt once, ever.
+ * Permission is asked once, at the end of the first-run consent card, right
+ * after Apple's tracking prompt (iOS shows one system prompt at a time).
+ * Players who answered that card before reminders existed get a one-time
+ * offer instead, after their first daily or tenth game. iOS shows the prompt
+ * once per install and Android at most twice, so after a refusal switching
+ * reminders on opens the phone's notification settings instead.
  */
 
 /**
@@ -53,7 +56,11 @@ export interface DailyProgress {
 }
 
 export type ReminderPermission = 'granted' | 'denied' | 'prompt' | 'unavailable';
-export type EnableResult = 'on' | 'denied' | 'unavailable';
+/**
+ * 'on', 'denied' (refused the prompt just shown), 'blocked' (refused earlier,
+ * so no prompt can appear: call openSettings), or 'unavailable' (web).
+ */
+export type EnableResult = 'on' | 'denied' | 'blocked' | 'unavailable';
 
 export type NotificationsPlugin = Pick<
   LocalNotificationsPlugin,
@@ -69,6 +76,8 @@ export interface ReminderDeps {
     setItem(key: string, value: string): Promise<void>;
   };
   clock?: () => Date;
+  /** Opens this app's notification settings on the phone. */
+  openSettings?: () => void;
 }
 
 export interface Reminders {
@@ -85,6 +94,8 @@ export interface Reminders {
   /** Cancels and reschedules from the current progress. Safe to call often. */
   sync(progress?: DailyProgress): Promise<void>;
   shouldOffer(): Promise<boolean>;
+  /** The phone's notification settings for the game: the only route left after a refusal. */
+  openSettings(): void;
   markOffered(): Promise<void>;
   /** `fn(dayKey)` runs when the player taps a reminder. */
   onOpen(fn: (day: string) => void): void;
@@ -150,7 +161,9 @@ export function plan(progress: DailyProgress, hour: number, now: Date): LocalNot
 const warn = (what: string, error: unknown) =>
   console.warn(`Reminders: ${what}:`, (error as { message?: string } | null)?.message ?? error);
 
-export function createReminders({ plugin, platform, storage, clock = () => new Date() }: ReminderDeps): Reminders {
+export function createReminders({
+  plugin, platform, storage, clock = () => new Date(), openSettings = () => {},
+}: ReminderDeps): Reminders {
   let prefs: ReminderPrefs = { ...DEFAULT_PREFS };
   let loading: Promise<ReminderPrefs> | null = null;
   let channelMade = false;
@@ -257,7 +270,8 @@ export function createReminders({ plugin, platform, storage, clock = () => new D
       await load();
       prefs.asked = true;
       let answer = await permission();
-      if (answer === 'prompt') {
+      const prompted = answer === 'prompt';
+      if (prompted) {
         try {
           answer = (await plugin.requestPermissions()).display === 'granted' ? 'granted' : 'denied';
         } catch {
@@ -267,7 +281,9 @@ export function createReminders({ plugin, platform, storage, clock = () => new D
       prefs.on = answer === 'granted';
       await save();
       await sync(progress);
-      return prefs.on ? 'on' : answer === 'unavailable' ? 'unavailable' : 'denied';
+      if (prefs.on) return 'on';
+      if (answer === 'unavailable') return 'unavailable';
+      return !prompted && answer === 'denied' ? 'blocked' : 'denied';
     },
 
     async disable() {
@@ -298,6 +314,10 @@ export function createReminders({ plugin, platform, storage, clock = () => new D
       if (prefs.asked || prefs.on) return false;
       const answer = await permission();
       return answer === 'prompt' || answer === 'granted';
+    },
+
+    openSettings() {
+      if (available()) openSettings();
     },
 
     async markOffered() {

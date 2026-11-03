@@ -7,7 +7,8 @@ import { EARLIEST_HOUR, LATEST_HOUR, hourLabel } from '../../reminders';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { SettingRow } from '../components/SettingRow';
+import { ActionRow, SettingRow } from '../components/SettingRow';
+import type { PurchaseStatus } from '../../purchases';
 
 export interface SettingsScreenProps {
   settings: Settings;
@@ -18,7 +19,24 @@ export interface SettingsScreenProps {
   onPrivacy: () => void;
   /** The daily reminder, or null where there are no notifications (the website). */
   reminder: ReminderSetting | null;
+  /** Remove Ads, or null where there is no store (the website). */
+  purchase: PurchaseSetting | null;
 }
+
+export interface PurchaseSetting {
+  status: PurchaseStatus;
+  /** The outcome of the last thing the player tried, in place of the usual note. */
+  message: string | null;
+  onBuy: () => void;
+  onRestore: () => void;
+  /** Which store, for "this Apple ID" or "this Google account". */
+  platform: string;
+}
+
+export const REMOVE_ADS_NOTE = 'Pay once, no more ads. Stays removed if you reinstall or change phone.';
+export const REMOVE_ADS_OWNED = 'Thank you! Ads are gone for good.';
+export const REMOVE_ADS_PENDING =
+  'Waiting for the payment to be approved. Ads switch off by themselves when it goes through.';
 
 export interface ReminderSetting {
   on: boolean;
@@ -31,9 +49,11 @@ export interface ReminderSetting {
 
 const REMINDER_NOTE = 'One notification when the daily challenge is ready. Skipped on days you have already finished it.';
 const REMINDER_BLOCKED =
-  'Notifications are turned off for Border Hopper. Allow them in your phone’s Settings app, then switch this on.';
+  'Notifications are turned off for Border Hopper. Switch this on to open your phone’s settings and allow them.';
 
-export function SettingsScreen({ settings, onChange, onReset, onBack, onPrivacy, reminder }: SettingsScreenProps) {
+export function SettingsScreen({
+  settings, onChange, onReset, onBack, onPrivacy, reminder, purchase,
+}: SettingsScreenProps) {
   const insets = useSafeAreaInsets();
   const [confirmingReset, setConfirmingReset] = useState(false);
 
@@ -85,6 +105,8 @@ export function SettingsScreen({ settings, onChange, onReset, onBack, onPrivacy,
           </>
         ) : null}
 
+        {purchase ? <RemoveAdsRows purchase={purchase} /> : null}
+
         <Text style={styles.section}>PRIVACY &amp; DATA</Text>
         <Button label="Usage data and ads" icon="settings" onPress={onPrivacy} />
         <Text style={styles.note}>
@@ -112,6 +134,41 @@ export function SettingsScreen({ settings, onChange, onReset, onBack, onPrivacy,
         </Text>
       </ScrollView>
     </View>
+  );
+}
+
+/**
+ * Remove Ads, and the Restore button Apple requires beside anything bought
+ * once. The price is the store's own string, in the player's currency.
+ */
+function RemoveAdsRows({ purchase }: { purchase: PurchaseSetting }) {
+  const { status, message, onBuy, onRestore, platform } = purchase;
+  const action = status.owned ? 'Removed' : status.pending ? 'Pending' : status.busy ? '…' : (status.price ?? 'Remove');
+  const note =
+    message ?? (status.owned ? REMOVE_ADS_OWNED : status.pending ? REMOVE_ADS_PENDING : REMOVE_ADS_NOTE);
+  return (
+    <>
+      <Text style={styles.section}>ADS</Text>
+      <View style={styles.card}>
+        <ActionRow
+          label="Remove ads"
+          hint={note}
+          action={action}
+          actionLabel={status.owned ? 'Ads removed' : status.price ? `Remove ads for ${status.price}` : 'Remove ads'}
+          onPress={onBuy}
+          disabled={status.owned || status.pending || status.busy}
+        />
+        <View style={styles.divider} />
+        <ActionRow
+          label="Bought it already?"
+          hint={`Restores Remove Ads bought on this ${platform === 'ios' ? 'Apple ID' : 'Google account'}.`}
+          action="Restore"
+          actionLabel="Restore purchases"
+          onPress={onRestore}
+          disabled={status.owned || status.busy}
+        />
+      </View>
+    </>
   );
 }
 
@@ -209,6 +266,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepDisabled: { opacity: 0.35 },
+  divider: { height: 1, backgroundColor: colors.hairline },
   stepPressed: { backgroundColor: colors.hairline },
   note: { color: colors.textMuted, fontSize: 12.5, marginTop: spacing.md, textAlign: 'center', lineHeight: 18 },
 });

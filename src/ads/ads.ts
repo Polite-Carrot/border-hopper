@@ -42,8 +42,17 @@ const warn = (error: unknown) =>
 /**
  * The game's side of the studio's Unity Ads package: when ads may show and
  * the consent signals. The package owns the SDK, ATT and playback.
+ *
+ * `adsRemoved` is read on every call, so a Remove Ads purchase takes effect at
+ * once and a refund brings ads back, with no restart either way. Someone who
+ * owns it at launch never has Unity started at all.
  */
-export function createAds(client: Client, clock: () => number = Date.now, onShown?: () => void): Ads {
+export function createAds(
+  client: Client,
+  clock: () => number = Date.now,
+  onShown?: () => void,
+  adsRemoved: () => boolean = () => false
+): Ads {
   let pacing: AdPacing = startPacing(clock());
   let preparing: Promise<boolean> | null = null;
   let showing = false;
@@ -51,9 +60,11 @@ export function createAds(client: Client, clock: () => number = Date.now, onShow
 
   const platform = () => client.state().platform;
   const isNative = () => platform() === 'ios' || platform() === 'android';
+  /** Whether ads exist at all here: in the apps, for someone who has not bought them away. */
+  const live = () => isNative() && !adsRemoved();
 
   function prepare(): Promise<boolean> {
-    if (!isNative() || showing) return Promise.resolve(false);
+    if (!live() || showing) return Promise.resolve(false);
     if (preparing) return preparing;
     preparing = client
       .prepareInterstitial()
@@ -76,7 +87,7 @@ export function createAds(client: Client, clock: () => number = Date.now, onShow
     platform,
 
     async start(personalised) {
-      if (!isNative()) return;
+      if (!live()) return;
       try {
         await client.setPersonalized(personalised);
         await client.init();
@@ -86,7 +97,7 @@ export function createAds(client: Client, clock: () => number = Date.now, onShow
     },
 
     async setPersonalised(on) {
-      if (!isNative()) return;
+      if (!live()) return;
       try {
         if (client.state().personalized !== on) await client.setPersonalized(on);
         // A prepared ad was loaded under the old consent and is now void.
@@ -114,13 +125,13 @@ export function createAds(client: Client, clock: () => number = Date.now, onShow
     },
 
     noteGameFinished() {
-      if (!isNative()) return;
+      if (!live()) return;
       pacing = noteGameFinished(pacing);
       if (shouldPrepare(pacing) && !client.state().prepared.interstitial) void prepare();
     },
 
     async maybeShowInterstitial() {
-      if (!isNative() || showing || !adDue(pacing, clock())) return false;
+      if (!live() || showing || !adDue(pacing, clock())) return false;
       if (!client.state().prepared.interstitial) {
         void prepare();
         return false;

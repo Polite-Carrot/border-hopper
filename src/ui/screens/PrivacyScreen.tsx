@@ -12,6 +12,8 @@ export interface PrivacyScreenProps {
   onBack: () => void;
   /** The X: the main menu, where Back is Settings. */
   onClose: () => void;
+  /** Remove Ads is owned: there are no ads to personalise. */
+  adsRemoved?: boolean;
 }
 
 /**
@@ -22,7 +24,7 @@ export interface PrivacyScreenProps {
  * deliberately, perhaps months later and in a hurry, so it gets its own door
  * and room to explain itself instead of two switches in a list.
  */
-export function PrivacyScreen({ settings, onChange, onBack, onClose }: PrivacyScreenProps) {
+export function PrivacyScreen({ settings, onChange, onBack, onClose, adsRemoved = false }: PrivacyScreenProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -49,8 +51,13 @@ export function PrivacyScreen({ settings, onChange, onBack, onClose }: PrivacySc
           />
           <SettingRow
             label="Personalised ads"
-            hint="Ads matched to your interests. Left off, ads still appear but are generic. On iPhone this also needs tracking allowed."
-            value={settings.personalisedAds}
+            hint={
+              adsRemoved
+                ? 'You removed ads, so there are none to personalise.'
+                : 'Ads matched to your interests. Left off, ads still appear but are generic. On iPhone this also needs tracking allowed.'
+            }
+            value={settings.personalisedAds && !adsRemoved}
+            disabled={adsRemoved}
             onChange={(personalisedAds) => onChange({ ...settings, personalisedAds })}
           />
         </View>
@@ -60,6 +67,7 @@ export function PrivacyScreen({ settings, onChange, onBack, onClose }: PrivacySc
           <Note text="Ads come from Unity Ads, and only ever between games: never in the middle of a route, and not in your first few minutes." />
           <Note text="With personalised ads off, or tracking declined on iPhone, the ads are generic and nothing about you is used to choose them." />
           <Note text="Usage data goes to Firebase Analytics (Google) only while Send usage data is on. Turn it off and sending stops straight away." />
+          <Note text="Remove Ads is bought through the App Store or Google Play. The game only asks them whether you own it; your payment details stay with them." />
           <Note text="Your statistics, settings, campaign progress and passport are stored on this device. There is no account." />
         </View>
 

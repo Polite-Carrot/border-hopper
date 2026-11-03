@@ -55,6 +55,29 @@ describe('ads in the game', () => {
 
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+  it('never starts Unity for someone who has removed ads', async () => {
+    const client = fakeClient();
+    const ads = createAds(client, clock, undefined, () => true);
+    await ads.start(true);
+    for (let game = 0; game < 5; game++) ads.noteGameFinished();
+    now = 10 * MIN_MILLIS;
+    expect(await ads.maybeShowInterstitial()).toBe(false);
+    expect(client.calls).toEqual([]);
+  });
+
+  it('stops showing ads the moment they are bought, mid-session', async () => {
+    const client = fakeClient();
+    let removed = false;
+    const ads = createAds(client, clock, undefined, () => removed);
+    await ads.start(false);
+    for (let game = 0; game < 3; game++) ads.noteGameFinished();
+    await settle();
+    now = MIN_MILLIS;
+    removed = true;
+    expect(await ads.maybeShowInterstitial()).toBe(false);
+    expect(client.calls).not.toContain('show');
+  });
+
   it('shows nothing before three games and two minutes, then one ad', async () => {
     const client = fakeClient();
     let shown = 0;

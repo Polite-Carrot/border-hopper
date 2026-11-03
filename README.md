@@ -143,11 +143,22 @@ the vibrator; in a plain browser there is none.
 server, no Firebase Cloud Messaging and no APNs key, and nothing leaves the
 device. Same design as Color Sort:
 
-- Off until the player says yes. A one-time "Daily reminder?" card appears
-  after their first finished daily, or after ten finished games if that comes
-  first, and only on a calm screen (never mid-game or over a result card).
-  The system permission prompt appears only after "Remind me", never at
-  launch. Settings has the switch and the time (7am-10pm, default 6pm).
+- Asked once, never at launch: when a new player taps Continue on the
+  first-run consent card, right after Apple's tracking prompt (iOS shows one
+  system prompt at a time). Players who answered that card in an earlier
+  version get a one-time "Daily reminder?" card instead, after their first
+  finished daily or tenth finished game, and only on a calm screen (never
+  mid-game or over a result card). Settings has the switch and the time
+  (7am-10pm, default 6pm).
+- iOS shows the notification prompt once per install and Android at most
+  twice. After a refusal, the Settings switch opens the phone's own
+  notification settings for the game (iOS `app-settings:`, Android the app's
+  `NotificationSettingsPlugin.java`), and coming back with them allowed
+  finishes switching reminders on.
+- The wording quotes the player's daily streak on the next reminder due, when
+  it is two days or more and still alive: "Your daily challenge is ready.
+  Keep your 5-day streak alive! 🔥". Otherwise: "A new daily challenge is
+  ready."
 - The next seven days are scheduled one by one and rebuilt on launch, on
   return to the foreground and on every finished daily, so today's reminder
   is dropped once today is done, and the streak in the wording is always
@@ -156,6 +167,41 @@ device. Same design as Color Sort:
   manifest, and `res/drawable/ic_stat_daily.xml` is the white status-bar icon.
 - Tapping one opens today's daily (a game in progress is left alone).
 - "Reset all progress" keeps the reminder choice. The website has none of it.
+
+**Remove Ads** is one non-consumable in-app purchase (`@capgo/native-purchases`,
+`src/purchases/`), StoreKit 2 on iOS and Play Billing on Android, ported from
+Color Sort. Product ID **`remove_ads`**; the price shown always comes from
+the store, in the player's currency.
+
+- The store decides who owns it. It is asked at launch, on every return to
+  the foreground, and on iOS whenever a transaction changes (Ask to Buy,
+  another device, a refund). A saved copy covers offline launches: a failed
+  query keeps it, and only a successful one without the product clears it.
+  It sits outside the progress keys, so "Reset all progress" never takes
+  away a purchase.
+- Owning it means Unity is never started: no ads, no tracking prompt, and the
+  personalised-ads switch in Privacy & data is disabled. Buying it mid-session
+  stops ads at once; a refund brings them back.
+- On the main menu: "Remove ads · £1.99", "Thank you!" for a moment after
+  buying, then gone. A payment that is pending (Ask to Buy, a slow method)
+  or failed opens Settings, which explains it next to **Restore** ("Bought it
+  already?"), which Apple requires. The website shows none of it.
+
+Before it works in the stores:
+
+1. **App Store Connect:** create an In-App Purchase, type Non-Consumable,
+   product ID `remove_ads`, with a price, display name, description and
+   review screenshot. Attach it to the app version you submit (a first
+   in-app purchase is reviewed with the app). Sign the Paid Apps Agreement
+   and fill in banking and tax, or the store returns no products. Test from
+   TestFlight with a sandbox account.
+2. **Play Console:** upload a build with billing to a testing track first;
+   then Monetize → Products → In-app products, create `remove_ads` and make
+   it Active. Set up a payments profile, and test from an internal testing
+   build with your account as a license tester.
+
+If the price shows on the button and a test purchase removes the ads, the
+setup is right.
 
 ## Deploying to GitHub Pages
 

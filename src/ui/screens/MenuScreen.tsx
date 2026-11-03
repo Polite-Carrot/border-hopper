@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COUNTRIES, requireCountry } from '../../core/world';
 import { dateKey } from '../../core/daily';
@@ -25,6 +25,8 @@ export interface MenuScreenProps {
   campaignDone: number;
   dailyStreak: number;
   reduceMotion: boolean;
+  /** The Remove Ads button, or null once owned and on the website. */
+  removeAds?: { label: string; disabled: boolean; onPress: () => void } | null;
 }
 
 /** Regions the title-screen camera drifts between, so the map is the branding. */
@@ -32,7 +34,7 @@ const BACKDROP_TOUR = ['IT', 'ID', 'BR', 'KE', 'JP', 'NO'];
 
 export function MenuScreen({
   onCampaign, onRandom, onFlight, onDaily, onStats, onSettings, onPassport, stamps, dailyDone, dailyStreak,
-  campaignLevel, campaignDone, reduceMotion,
+  campaignLevel, campaignDone, reduceMotion, removeAds = null,
 }: MenuScreenProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -113,6 +115,21 @@ export function MenuScreen({
               <Button label="Statistics" icon="stats" onPress={onStats} style={styles.half} />
               <Button label="Settings" icon="settings" onPress={onSettings} style={styles.half} />
             </View>
+            {/* The same purchase as in Settings, one tap from the menu. Smaller
+                and quieter than the ways to play: it is an offer, not a mode. */}
+            {removeAds ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={removeAds.label}
+                accessibilityState={{ disabled: removeAds.disabled }}
+                aria-disabled={removeAds.disabled}
+                disabled={removeAds.disabled}
+                onPress={removeAds.onPress}
+                style={({ pressed }) => [styles.removeAds, pressed && styles.removeAdsPressed]}
+              >
+                <Text style={styles.removeAdsText}>{removeAds.label}</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           <View style={styles.footer}>
@@ -168,4 +185,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 206, 106, 0.14)',
   },
   streakText: { color: colors.gold, fontSize: 11.5, fontWeight: '700', letterSpacing: 0.6 },
+  removeAds: {
+    alignSelf: 'center',
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 206, 106, 0.45)',
+    backgroundColor: 'rgba(255, 206, 106, 0.08)',
+  },
+  removeAdsPressed: { opacity: 0.65 },
+  removeAdsText: { color: colors.gold, fontFamily: fonts.body, fontSize: 14, fontWeight: '700' },
 });

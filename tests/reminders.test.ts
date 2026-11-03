@@ -44,9 +44,11 @@ function setup({
       return { remove: async () => {} };
     },
   } as unknown as NotificationsPlugin;
+  let settingsOpened = 0;
   const reminders = createReminders({
     plugin,
     platform: () => platform,
+    openSettings: () => void settingsOpened++,
     storage: {
       getItem: async (key) => storage.get(key) ?? null,
       setItem: async (key, value) => void storage.set(key, value),
@@ -57,6 +59,9 @@ function setup({
     calls,
     storage,
     tap: (action: unknown) => tap?.(action),
+    settingsOpened: () => settingsOpened,
+    /** The player changes the setting in the phone's own Settings app. */
+    setPermission: (value: string) => void (display = value),
     scheduled: () =>
       (calls.filter((c) => c[0] === 'schedule').pop()?.[1] as LocalNotificationSchema[] | undefined) ?? [],
   };
@@ -147,6 +152,30 @@ describe('daily reminders', () => {
     expect(f.calls.some((c) => c[0] === 'schedule')).toBe(false);
   });
 
+  it('after an earlier refusal, says blocked so the switch can open the phone settings', async () => {
+    // iOS asks once per install and Android at most twice; after that no
+    // prompt can appear, and the phone's settings are the only way back.
+    const f = setup({ permission: 'denied' });
+    expect(await f.reminders.enable(NONE)).toBe('blocked');
+    expect(f.calls.some((c) => c[0] === 'requestPermissions')).toBe(false);
+    f.reminders.openSettings();
+    expect(f.settingsOpened()).toBe(1);
+    // Refusing the prompt just shown is "denied", not "blocked".
+    expect(await setup({ answer: 'denied' }).reminders.enable(NONE)).toBe('denied');
+  });
+
+  it('switches on once the phone settings allow it', async () => {
+    const f = setup({ permission: 'denied' });
+    expect(await f.reminders.enable(NONE)).toBe('blocked');
+    expect(f.reminders.state().on).toBe(false);
+    // The player allowed notifications in Settings and came back.
+    f.setPermission('granted');
+    expect(await f.reminders.permission()).toBe('granted');
+    expect(await f.reminders.enable(NONE)).toBe('on');
+    expect(f.scheduled().length).toBeGreaterThan(0);
+    expect(f.calls.some((c) => c[0] === 'requestPermissions')).toBe(false);
+  });
+
   it('offers once, and never where the system has already said no', async () => {
     const f = setup();
     expect(await f.reminders.shouldOffer()).toBe(true);
@@ -217,6 +246,8 @@ describe('daily reminders', () => {
     expect(await f.reminders.enable(NONE)).toBe('unavailable');
     await f.reminders.sync(NONE);
     f.reminders.onOpen(() => {});
+    f.reminders.openSettings();
+    expect(f.settingsOpened()).toBe(0);
     expect(await f.reminders.shouldOffer()).toBe(false);
     expect(f.calls).toHaveLength(0);
   });
