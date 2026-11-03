@@ -16,11 +16,13 @@ export interface Country {
   /** Nearby countries across open water, nearest first. */
   crossings: { iso2: string; km: number }[];
   /**
-   * Everywhere flight mode can reach from here: the nearest sea crossing plus
-   * a few long-haul routes. Only flight mode uses these; every other mode is
-   * land borders alone.
+   * Everywhere flight mode can reach from here: the nearest sea crossing,
+   * and every other hub if this is one. Only flight mode uses these; every
+   * other mode is land borders alone.
    */
   flights: { iso2: string; km: number }[];
+  /** A hub airport: in flight mode, it flies to every other hub. */
+  hub: boolean;
   population: number;
   /** Which page of the passport the country's stamp goes on. */
   continent: Continent;
@@ -77,6 +79,13 @@ export interface GameState {
   route: string[];
   /** Every rejected guess, in order. May contain repeats. */
   wrongGuesses: string[];
+  /** Hints taken so far. Any at all and the route cannot count as perfect. */
+  hints: number;
+  /**
+   * The hint showing for where the player stands, if any: the country to head
+   * for, and whether its name has been given away as well as its outline.
+   */
+  hint?: { iso2: string; named: boolean };
   status: 'playing' | 'won';
   startedAt: number;
   finishedAt?: number;
@@ -96,8 +105,10 @@ export interface GameResult {
   route: string[];
   moves: number;
   wrongGuesses: number;
+  /** Hints taken. Absent on results saved before hints existed. */
+  hints?: number;
   seconds: number;
   optimalMoves: number;
-  /** True when the player matched the shortest possible route length. */
+  /** True when the player matched the shortest possible route length, unaided. */
   optimal: boolean;
 }

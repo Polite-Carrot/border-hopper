@@ -13,6 +13,13 @@ France → Spain → Portugal
 From France, Spain is a legal move. So are Belgium, Germany and Italy.
 Portugal is not — it does not border France. Work out the route yourself.
 
+Stuck? **Hint** outlines the country to head for on the map; a second press
+names it. Either one costs the perfect route, and nothing else. When a route
+was longer than it needed to be, the result card shows a best route
+underneath, and sharing the daily or a campaign level shows squares rather
+than countries (🟩 a move that got closer, 🟨 one that did not), so a friend
+who has not played yet does not read the answer.
+
 Built with Expo, so iOS, Android and the web all run the same code.
 
 ## Quick start
@@ -426,6 +433,9 @@ the switch is on:
 | `consent_changed` | a privacy switch moves | whether the asking is reasonable |
 | `skin_changed` | a flag is put on the explorer (or taken off) | which countries people are proud of |
 | `ad_shown` | an interstitial actually played | real ads per game, to keep the pacing honest |
+| `reminder_offer` | the one-time "Daily reminder?" card appears | whether the offer is worth its interruption |
+| `reminder_changed` | the daily reminder is turned on or off | how many keep it |
+| `hint_used` | a hint is taken, and whether it was the name | where the game expects too much |
 
 `wrong_guess` is the one the privacy screen promises by name: enough of them
 together say which countries people get stuck on.
@@ -515,18 +525,25 @@ never shifts under a player mid-climb.
 which mode it starts on: they are the same game with a different rule, and two
 sheets that drifted apart would be worse than one. Pick how you travel, pick
 how far, and go. The difficulty bands shown change with the mode, because they
-genuinely differ — a hard walk is 5–7 moves and a hard flight is 4–5.
+genuinely differ — a hard walk is 5–7 moves and a hard flight is 6–8.
 
 The sheet is the only place difficulty is chosen -- Settings does not have
 it -- and it opens on whatever you picked last. "New game" after a finished
 game keeps the same mode and difficulty rather than asking again.
 
-**How flight mode works** — a flight network on top of the land borders, which
-opens up every island the land rules shut out. The rule is not guessable, so
-the sheet explains it before you start: every country has a departures board
-showing exactly where you can fly, and it is neither "anywhere" nor "only the
-nearest place". The network is in two
-parts, because either one alone is wrong.
+**How flight mode works** — hub airports on top of the land borders, which
+opens up every island the land rules shut out. The rule fits in one line and
+the sheet says it before you start:
+
+- cross borders on foot as usual;
+- the nearest sea crossing counts too (Dover to Calais, Alaska to Russia);
+- from any **hub** you can fly to any other hub.
+
+The 18 hubs are well-known countries with a big international airport, spread
+so every region has one in reach: the United States, Canada, Mexico, Brazil,
+Argentina, the UK, France, Germany, Türkiye, Egypt, South Africa, Kenya, the
+UAE, India, China, Japan, Singapore and Australia. They are marked with a plane
+on the map. The list lives in `scripts/build-country-data.ts`.
 
 *Sea crossings* are measured between real coastlines, not invented: the United
 States reaches Russia because the Bering Strait is 113km wide, Britain reaches
@@ -535,25 +552,26 @@ country gets its three nearest crossings under 2000km, and the pairing is
 always two-way. A segment only counts if it is open water the whole way,
 anchored at sea on both ends. Without that last part France's nearest
 non-neighbour is Austria — 143km away with Switzerland in between — and
-landlocked Andorra ends up with a route to Malta.
+landlocked Andorra ends up with a route to Malta. Only the nearest crossing
+carries over into flight mode, so a country on a busy sea does not get a dozen
+short hops.
 
-*Long hauls* are what stop it feeling like a ferry timetable. Crossings alone
-mean you can only ever hop to whatever happens to be nearest, which is not what
-flying is. So each country also gets three routes of at least 1200km, weighted
-towards places that are far away and widely known — roughly how a real route
-map looks. They are drawn with a fixed seed, so the network is the same for
-everyone and can be learned. Only the nearest sea crossing carries over into
-the flight network, so a country that borders a busy sea does not get a dozen
-short hops instead of anywhere interesting. The result averages seven routes
-per country, spread across every distance band from a 47km Channel hop to
-Australia–Mauritania at 16,400km.
+A few island groups can reach neither a hub nor a crossing to one, so one of
+them flies to the hub a player would expect, chosen by hand: Barbados and
+Antigua to the United States, Micronesia to Japan, Fiji and Kiribati to
+Australia. The build fails if a new stranded group appears without an entry.
 
-The available flights are shown during play, because nobody knows off-hand
-that the United States can reach Russia. Land borders stay hidden; working
-those out is still the game. This turns the world into one piece — every
-country is reachable from every other — and shrinks it hard: nowhere is more
-than four flights from anywhere, which is why flight mode has its own
-difficulty bands rather than the land ones.
+Hubs replaced an earlier network of random long-haul routes. Those could not
+be guessed (the UK flew to Grenada and Laos, Australia to Luxembourg) and they
+shrank the world so far that 96% of games were two or three moves, won by
+spotting a lucky flight rather than by knowing the map. With hubs most
+journeys are three to five moves, and the skill is walking to the right hub.
+Flight games are also only handed out where every best route takes a flight,
+so the mode is never a land game in disguise.
+
+The departures board shows where you can fly from where you stand: the sea
+crossing, and every hub when you are in one. Land borders stay hidden; working
+those out is still the game.
 
 **Daily challenge** — the same start and destination for every player, once a
 day.
@@ -568,17 +586,17 @@ day.
 
 | Difficulty | Moves (land) | Moves (flight) |
 | --- | --- | --- |
-| Easy | 2 | 2 |
-| Medium | 3–4 | 3 |
-| Hard | 5–7 | 4–5 |
+| Easy | 2 | 2–3 |
+| Medium | 3–4 | 4–5 |
+| Hard | 5–7 | 6–8 |
 
 Every generated game is solvable by construction, because the destination is
 chosen from countries already known to be reachable. Easy is pinned to exactly
 two moves so a game never opens with the destination already next door.
 
-Flight mode gets its own bands because long-haul routes shrink the world: the
-flight graph's diameter is four, so asking for a seven-move route would be
-asking for one that does not exist.
+Flight mode gets its own bands because hub flights reshape the distances:
+most flight journeys are three to five moves, and a hard one walks a long way
+to or from a hub.
 
 The **daily challenge** is a pure function of the calendar date: the same date
 produces the same start and destination for every player on every device, with

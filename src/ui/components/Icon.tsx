@@ -3,7 +3,8 @@ import { colors } from '../../theme';
 
 export type IconName =
   | 'search' | 'close' | 'back' | 'target' | 'play' | 'calendar'
-  | 'stats' | 'settings' | 'share' | 'again' | 'check' | 'chevron' | 'plane' | 'passport' | 'plus' | 'minus';
+  | 'stats' | 'settings' | 'share' | 'again' | 'check' | 'chevron' | 'plane' | 'passport' | 'plus' | 'minus'
+  | 'bulb';
 
 const PATHS: Record<IconName, string> = {
   search: 'M10.5 3a7.5 7.5 0 1 0 4.55 13.46l4.24 4.25 1.42-1.42-4.25-4.24A7.5 7.5 0 0 0 10.5 3Zm0 2a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Z',
@@ -21,10 +22,14 @@ const PATHS: Record<IconName, string> = {
   plane: 'M21 16.5v-2l-8-4.5V4.2a1.7 1.7 0 0 0-3.4 0V10l-8 4.5v2l8-2.4v4.6l-2.3 1.5V22l3.9-1.1L15 22v-1.8l-2.3-1.5v-4.6l8.3 2.4Z',
   plus: 'M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z',
   minus: 'M5 11h14v2H5v-2Z',
+  bulb: 'M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2Zm-3 18h6v1.5a.5.5 0 0 1-.5.5h-5a.5.5 0 0 1-.5-.5V20Z',
   // A booklet with a globe and a name line cut out of the cover.
   passport:
     'M6.5 2h11A1.5 1.5 0 0 1 19 3.5v17a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 20.5v-17A1.5 1.5 0 0 1 6.5 2ZM12 6a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0 1.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM9 16.5h6V18H9Z',
 };
+
+/** The raw 24x24 paths, for drawing an icon inside an SVG that is already open. */
+export const ICON_PATHS: Readonly<Record<IconName, string>> = PATHS;
 
 /** Icons drawn as a solid shape with holes cut out, which needs the even-odd rule. */
 const EVEN_ODD: ReadonlySet<IconName> = new Set(['passport']);

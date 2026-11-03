@@ -129,6 +129,13 @@ export interface AnalyticsEvents {
 
   /** The one-time "Daily reminder?" card appeared, and what earned it. */
   reminder_offer: { from: string };
+
+  /**
+   * A hint was taken: `named` is false for the outline on the map, true for
+   * the name. Where people need them, against wrong_guess, says which
+   * borders the game expects too much of.
+   */
+  hint_used: { mode: string; level?: number; at: string; named: boolean; moves_in: number };
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvents;

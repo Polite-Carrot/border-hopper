@@ -26,7 +26,6 @@ import topology from 'world-atlas/countries-50m.json' with { type: 'json' };
 import { NON_SOVEREIGN_ISO2, MERGE_INTO, DISPLAY_NAME, ALIASES, EXCLUDED_BORDERS } from './sovereign.ts';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson';
-import { seededRandom, weightedPick } from '../src/core/random.ts';
 import polylabel from 'polylabel';
 
 countries.registerLocale(enLocale as never);
@@ -53,10 +52,6 @@ const MIN_POLYGON_SHARE = 0.002;
 const MIN_CROSSING_KM = 5;
 /** Furthest a sea crossing may span, in kilometres. */
 const MAX_CROSSING_KM = 2000;
-/** Flight routes offered from each country, on top of its nearest sea crossing. */
-const LONG_HAUL_PER_COUNTRY = 3;
-/** Below this, a flight is just a short hop and the crossing already covers it. */
-const LONG_HAUL_MIN_KM = 1200;
 /** How many nearby countries across water each country can fly to. */
 const CROSSINGS_PER_COUNTRY = 3;
 /** Coastline points kept per country when measuring water gaps. */
@@ -438,7 +433,7 @@ const MAP_HEIGHT = Math.ceil(maxY - minY);
 const round = (d: string): string => d.replace(/-?\d+\.\d+/g, (n) => String(Number(Number(n).toFixed(PRECISION))));
 
 // ---------------------------------------------------------------------------
-// 3b. Population, and the flight network built from it.
+// 3b. Population and continents, then the flight network.
 // ---------------------------------------------------------------------------
 const fold = (value: string) =>
   value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().replace(/^the /, '');
@@ -491,54 +486,45 @@ if (withoutPopulation.length > 3) {
 }
 
 /**
- * The flight network.
+ * The flight network: hub airports.
  *
- * Sea crossings alone make flight mode feel like a ferry timetable -- you can
- * only ever hop to whatever is nearest. Real air travel goes a long way, so
- * each country also gets a handful of long-haul routes: far away, and to
- * places people have heard of, picked with a fixed seed so the network is the
- * same for everyone and stays learnable.
+ * An earlier network gave every country a few long-haul routes picked at
+ * random. Nobody could guess them -- the UK flew to Grenada and Laos, Australia
+ * to Luxembourg -- and they shrank the world so far that nearly every game was
+ * two or three moves, won by spotting a lucky flight rather than by knowing
+ * the map. Hubs are a rule a player can hold in their head:
+ *
+ *   - walk across borders as usual;
+ *   - the nearest sea crossing counts (Dover to Calais, Alaska to Russia);
+ *   - from any hub you can fly to any other hub.
+ *
+ * So flying means walking to the right hub first, which keeps the geography
+ * in the game. Hubs are well-known countries with a big international
+ * airport, spread so that every inhabited region has one within reach.
  */
+const HUBS = [
+  'US', 'CA', 'MX', 'BR', 'AR',
+  'GB', 'FR', 'DE', 'TR',
+  'EG', 'ZA', 'KE',
+  'AE', 'IN', 'CN', 'JP', 'SG',
+  'AU',
+] as const;
+const hubSet = new Set<string>(HUBS);
+const missingHubs = HUBS.filter((iso) => !playableOwners.some((o) => o.iso2 === iso));
+if (missingHubs.length) throw new Error(`hubs not playable: ${missingHubs.join(', ')}`);
+
 const geoCentres = new Map<string, [number, number]>();
 for (const owner of playableOwners) {
   const shape = shapes.get(owner.key);
   if (shape) geoCentres.set(owner.iso2!, geoCentroid(shape) as [number, number]);
 }
-
-const outAreaByIso = new Map<string, number>(
-  playableOwners.map((owner) => {
-    const shape = shapes.get(owner.key);
-    return [owner.iso2!, shape ? Number((geoArea(shape) * 1e4).toFixed(2)) : 0.01];
-  })
-);
-
-/**
- * How likely a country is to be somewhere a player has heard of, 0..1.
- *
- * Scored by rank rather than by the raw figures. In log space a population of
- * 12 million and one of 83 million come out at 7.1 against 7.9 -- close enough
- * that no exponent separates Guinea from Germany. Ranking spreads them evenly
- * and makes the weighting behave.
- */
-const scored = playableOwners
-  .map((owner) => {
-    const iso2 = owner.iso2!;
-    return {
-      iso2,
-      score:
-        0.7 * Math.log10(populationByIso.get(iso2) ?? 1e5) +
-        0.3 * Math.log10(Math.max(1, outAreaByIso.get(iso2) ?? 0.01)) * 2,
-    };
-  })
-  .sort((a, b) => b.score - a.score);
-
-const reach = new Map<string, number>(
-  scored.map((entry, rank) => [entry.iso2, 1 - rank / scored.length])
-);
+const centreKm = (a: string, b: string) => Math.round(haversineKm(geoCentres.get(a)!, geoCentres.get(b)!));
 
 const flights = new Map<string, Map<string, number>>(playableOwners.map((o) => [o.iso2!, new Map()]));
 
 function addFlight(from: string, to: string, km: number) {
+  // A sea crossing between two hubs keeps its real, short distance.
+  if (flights.get(from)?.has(to)) return;
   flights.get(from)?.set(to, km);
   flights.get(to)?.set(from, km);
 }
@@ -549,34 +535,55 @@ for (const owner of playableOwners) {
   if (nearest) addFlight(owner.iso2!, nearest.iso2, nearest.km);
 }
 
+// Hubs that share a land border (the US and Canada, France and Germany) are
+// a walk apart already; a flight between them would duplicate the border.
+const keyOfIso = (iso: string) => playableOwners.find((o) => o.iso2 === iso)!.key;
+for (const a of HUBS) {
+  for (const b of HUBS) {
+    if (a < b && !neighbours.get(keyOfIso(a))!.has(keyOfIso(b))) addFlight(a, b, centreKm(a, b));
+  }
+}
+
+/**
+ * Islands that neither walking nor a sea crossing can bring to a hub get one
+ * flight to the hub a player would expect, chosen by hand: measured by
+ * distance alone, the Windward Islands would fly to Brazil. Each group is
+ * named by the member that flies; the build fails if a new group appears
+ * without an entry here.
+ */
+const STRANDED_LINKS: Record<string, string> = {
+  BB: 'US', // Barbados, for the Windward Islands and Dominica
+  AG: 'US', // Antigua and Barbuda, with St Kitts and Nevis
+  FM: 'JP', // Micronesia, with the Marshall Islands and Nauru
+  FJ: 'AU', // Fiji, with Samoa and Tonga
+  KI: 'AU', // Kiribati
+};
+const isoToKey = new Map(playableOwners.map((o) => [o.iso2!, o.key]));
+const keyToIso = new Map(playableOwners.map((o) => [o.key, o.iso2!]));
+function groupOf(start: string): Set<string> {
+  const seen = new Set([start]);
+  const queue = [start];
+  for (let i = 0; i < queue.length; i++) {
+    const here = queue[i];
+    const walk = [...neighbours.get(isoToKey.get(here)!)!].map((k) => keyToIso.get(k)).filter(Boolean) as string[];
+    for (const next of [...walk, ...flights.get(here)!.keys()]) {
+      if (!seen.has(next)) {
+        seen.add(next);
+        queue.push(next);
+      }
+    }
+  }
+  return seen;
+}
+const linked = new Set<string>();
 for (const owner of playableOwners) {
-  const from = owner.iso2!;
-  const origin = geoCentres.get(from);
-  if (!origin) continue;
-  const landNeighbours = neighbours.get(owner.key)!;
-  const rand = seededRandom(`borderhopper-flights:${from}`);
-
-  const options: { iso2: string; km: number }[] = [];
-  const weights: number[] = [];
-  for (const other of playableOwners) {
-    const to = other.iso2!;
-    const target = geoCentres.get(to);
-    if (to === from || landNeighbours.has(other.key) || !target) continue;
-    const km = Math.round(haversineKm(origin, target));
-    if (km < LONG_HAUL_MIN_KM) continue;
-    options.push({ iso2: to, km });
-    // Far and well-known beats near and obscure, which is roughly how route
-    // maps actually look.
-    weights.push((reach.get(to) ?? 0.2) ** 4 * Math.min(1, km / 6000));
-  }
-
-  const taken = new Set<string>();
-  for (let i = 0; i < LONG_HAUL_PER_COUNTRY && options.length > 0; i++) {
-    const pick = weightedPick(options, weights, rand);
-    if (taken.has(pick.iso2) || flights.get(from)!.has(pick.iso2)) continue;
-    taken.add(pick.iso2);
-    addFlight(from, pick.iso2, pick.km);
-  }
+  if (linked.has(owner.iso2!)) continue;
+  const group = groupOf(owner.iso2!);
+  group.forEach((member) => linked.add(member));
+  if ([...group].some((member) => hubSet.has(member))) continue;
+  const from = [...group].find((member) => STRANDED_LINKS[member]);
+  if (!from) throw new Error(`no hub reachable from ${[...group].join(', ')}: add it to STRANDED_LINKS`);
+  addFlight(from, STRANDED_LINKS[from], centreKm(from, STRANDED_LINKS[from]));
 }
 
 // ---------------------------------------------------------------------------
@@ -592,8 +599,10 @@ interface OutCountry {
   neighbours: string[];
   /** Nearby countries across water, nearest first. */
   crossings: { iso2: string; km: number }[];
-  /** Everywhere flight mode can reach from here: the short hop plus long haul. */
+  /** Everywhere flight mode can reach from here: the nearest sea crossing, plus every other hub from a hub. */
   flights: { iso2: string; km: number }[];
+  /** A hub airport: in flight mode, flies to every other hub. */
+  hub: boolean;
   population: number;
   continent: Continent;
   /** Centre of the main landmass, in projected map units. */
@@ -688,6 +697,7 @@ for (const owner of [...owners.values()].sort((a, b) => a.name.localeCompare(b.n
     flights: [...(flights.get(iso2) ?? new Map())]
       .map(([to, km]) => ({ iso2: to, km }))
       .sort((a, b) => a.km - b.km),
+    hub: hubSet.has(iso2),
     population: populationByIso.get(iso2) ?? 0,
     continent: continentByIso.get(iso2)!,
     centroid: projected

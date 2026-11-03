@@ -6,6 +6,8 @@ import { formatDuration, pluralise } from '../../core/format';
 import { shareText } from '../../core/share';
 import { track } from '../../core/analytics';
 import { CAMPAIGN_LENGTH } from '../../core/campaign';
+import { bestRoute } from '../../core/game';
+import { areNeighbours } from '../../core/graph';
 import type { GameResult } from '../../core/types';
 import { colors, fonts, radius, spacing } from '../../theme';
 import { Button } from '../components/Button';
@@ -37,6 +39,12 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit }: Res
       useNativeDriver: true,
     }).start();
   }, [entry]);
+
+  const hints = result.hints ?? 0;
+  // One shortest way there, when the player's was longer: the geography the
+  // game is really about. A hinted route that was already shortest is shown
+  // as the player's own.
+  const best = result.moves > result.optimalMoves ? bestRoute(result) : null;
 
   const onShare = async () => {
     const message = shareText(result);
@@ -84,21 +92,20 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit }: Res
           </View>
         ) : (
           <Text style={styles.subtitle}>
-            The shortest way there was {pluralise(result.optimalMoves, 'move')}
+            {result.moves <= result.optimalMoves
+              ? `Shortest route, with ${pluralise(hints, 'hint')}`
+              : `The shortest way there was ${pluralise(result.optimalMoves, 'move')}`}
           </Text>
         )}
 
-        <View style={styles.route}>
-          {result.route.map((iso, index) => (
-            <View key={`${iso}-${index}`} style={styles.routeStep}>
-              <View style={styles.routeChip}>
-                <Text style={styles.routeFlag}>{countryFlag(iso)}</Text>
-                <Text style={styles.routeName}>{countryName(iso)}</Text>
-              </View>
-              {index < result.route.length - 1 ? <Text style={styles.routeArrow}>→</Text> : null}
-            </View>
-          ))}
-        </View>
+        <RouteChips route={result.route} flights={result.mode === 'flight'} />
+
+        {best ? (
+          <View style={styles.best} accessibilityLabel={`A best route: ${best.map(countryName).join(', ')}`}>
+            <Text style={styles.bestTitle}>A BEST ROUTE · {pluralise(result.optimalMoves, 'MOVE', 'MOVES')}</Text>
+            <RouteChips route={best} flights={result.mode === 'flight'} tone="best" />
+          </View>
+        ) : null}
 
         <View style={styles.tiles}>
           <StatTile label="MOVES" value={String(result.moves)} accent={result.optimal} />
@@ -109,6 +116,7 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit }: Res
         <Text style={styles.footnote}>
           {pluralise(result.route.length, 'country', 'countries')} visited · best possible{' '}
           {pluralise(result.optimalMoves, 'move')}
+          {hints > 0 ? ` · 💡 ${pluralise(hints, 'hint')}` : ''}
         </Text>
 
         {newStamps.length > 0 ? (
@@ -157,6 +165,37 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit }: Res
   );
 }
 
+/** A route as flag chips, with a plane between two countries that were flown. */
+function RouteChips({
+  route, flights, tone = 'own',
+}: { route: readonly string[]; flights: boolean; tone?: 'own' | 'best' }) {
+  return (
+    <View style={styles.route}>
+      {route.map((iso, index) => {
+        const next = route[index + 1];
+        const flown = flights && next !== undefined && !areNeighbours(iso, next);
+        return (
+          <View key={`${iso}-${index}`} style={styles.routeStep}>
+            <View style={[styles.routeChip, tone === 'best' && styles.bestChip]}>
+              <Text style={styles.routeFlag}>{countryFlag(iso)}</Text>
+              <Text style={styles.routeName}>{countryName(iso)}</Text>
+            </View>
+            {next !== undefined ? (
+              flown ? (
+                <View style={styles.routeArrow}>
+                  <Icon name="plane" size={13} color={colors.destination} />
+                </View>
+              ) : (
+                <Text style={styles.routeArrow}>→</Text>
+              )
+            ) : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(5, 10, 18, 0.95)' },
   content: { paddingHorizontal: spacing.xl, alignItems: 'center', gap: spacing.md, flexGrow: 1, justifyContent: 'center' },
@@ -202,6 +241,9 @@ const styles = StyleSheet.create({
     borderColor: colors.hairline,
   },
   routeFlag: { fontSize: 15 },
+  bestChip: { borderColor: 'rgba(255, 206, 106, 0.4)', backgroundColor: 'rgba(255, 206, 106, 0.08)' },
+  best: { alignSelf: 'stretch', alignItems: 'center', marginTop: -spacing.sm },
+  bestTitle: { color: colors.gold, fontSize: 11, letterSpacing: 1.6, fontWeight: '700' },
   routeName: { color: colors.text, fontFamily: fonts.body, fontSize: 13.5, fontWeight: '600' },
   tiles: { flexDirection: 'row', gap: spacing.sm, alignSelf: 'stretch', marginTop: spacing.xs },
   footnote: { color: colors.textMuted, fontSize: 12.5, marginTop: spacing.xs, textAlign: 'center' },

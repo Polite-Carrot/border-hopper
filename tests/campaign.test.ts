@@ -174,6 +174,12 @@ describe('campaign progress', () => {
     expect(progress[5].seconds).toBe(40);
   });
 
+  it('keeps a star when a faster replay used a hint', () => {
+    let progress = recordLevel({}, result({ level: 5, moves: 4, seconds: 120, optimal: true }));
+    progress = recordLevel(progress, result({ level: 5, moves: 4, seconds: 30, hints: 1, optimal: false }));
+    expect(progress[5]).toEqual({ moves: 4, seconds: 30, optimal: true });
+  });
+
   it('ignores results from other modes', () => {
     expect(recordLevel({}, result({ mode: 'classic', level: undefined }))).toEqual({});
     expect(recordLevel({}, result({ mode: 'daily', level: undefined, dailyKey: '2026-09-21' }))).toEqual({});

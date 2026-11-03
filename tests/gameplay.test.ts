@@ -133,6 +133,7 @@ describe('gameplay', () => {
       route: ['FR', 'ES', 'PT'],
       moves: 2,
       wrongGuesses: 1,
+      hints: 0,
       seconds: 30,
       optimalMoves: 2,
       optimal: true,

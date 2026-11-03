@@ -48,7 +48,7 @@ WAYS TO PLAY
 • Campaign: 1,000 levels, from quick two-step trips to routes that cross whole continents.
 • Daily challenge: one new route every day, the same for everyone. Keep your streak going.
 • Random: pick Easy, Medium or Hard and play as many as you like.
-• Flight mode: every country has a departures board. Hop across real sea crossings like Dover to Calais, or take a long-haul flight to the other side of the world. Island nations like Japan and Australia join the game here.
+• Flight mode: walk to a hub airport and fly to any other hub, or hop across real sea crossings like Dover to Calais. Island nations like Japan and Australia join the game here.
 
 FILL YOUR PASSPORT
 Every country you travel through earns a stamp in your passport. Collect stamps across six continents, and dress your explorer in the flag of any country you've visited.

@@ -20,11 +20,19 @@ export function neighboursOf(iso2: string): readonly string[] {
 /**
  * Everywhere flight mode can fly from here, nearest first.
  *
- * A short sea crossing where there is one -- Dover to Calais -- plus a few
- * long-haul routes, so the mode is air travel rather than a ferry timetable.
+ * The nearest sea crossing -- Dover to Calais -- and, from a hub airport,
+ * every other hub. A handful of remote islands also fly to one hub, since
+ * nothing else reaches them.
  */
 export function flightsOf(iso2: string): readonly { iso2: string; km: number }[] {
   return requireCountry(iso2).flights;
+}
+
+/** The hub airports, in the order they are listed. */
+export const HUBS: readonly string[] = COUNTRIES.filter((c) => c.hub).map((c) => c.iso2);
+
+export function isHub(iso2: string): boolean {
+  return requireCountry(iso2).hub;
 }
 
 export function isFlightRoute(a: string, b: string): boolean {

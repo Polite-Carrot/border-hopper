@@ -1,4 +1,4 @@
-import { areNeighbours, canTravel, isFlightRoute, shortestMoveCount } from './graph';
+import { areNeighbours, canTravel, distancesFrom, isFlightRoute, isHub, shortestMoveCount, shortestRoute, travelOptions } from './graph';
 import { getCountry, countryName } from './world';
 import type { GameConfig, GameResult, GameState, MoveResult } from './types';
 
@@ -17,6 +17,7 @@ export function createGame(config: GameConfig, now: number = Date.now()): GameSt
     config,
     route: [config.start],
     wrongGuesses: [],
+    hints: 0,
     status: 'playing',
     startedAt: now,
   };
@@ -54,9 +55,13 @@ export function applyMove(state: GameState, iso2: string, now: number = Date.now
     return {
       ok: false,
       reason: 'not-adjacent',
-      message: flights
-        ? `You can't reach ${target.name} from ${countryName(from)}.`
-        : `${target.name} doesn't border ${countryName(from)}.`,
+      message: !flights
+        ? `${target.name} doesn't border ${countryName(from)}.`
+        : // The one mistake the hub rule invites: trying to fly from a country
+          // without an airport. Say what the rule is rather than just "no".
+          target.hub && !isHub(from)
+          ? `${countryName(from)} has no hub airport. Walk to a ✈ hub to fly to ${target.name}.`
+          : `You can't reach ${target.name} from ${countryName(from)}.`,
     };
   }
 
@@ -67,6 +72,8 @@ export function applyMove(state: GameState, iso2: string, now: number = Date.now
     state: {
       ...state,
       route: [...state.route, iso2],
+      // A hint is about where the player stood; moving on leaves it behind.
+      hint: undefined,
       status: won ? 'won' : 'playing',
       finishedAt: won ? now : undefined,
     },
@@ -92,16 +99,54 @@ export function toResult(state: GameState, now: number = Date.now()): GameResult
     route: state.route,
     moves,
     wrongGuesses: state.wrongGuesses.length,
+    hints: state.hints,
     seconds: elapsedSeconds(state, now),
     optimalMoves: state.config.optimalMoves,
-    optimal: moves <= state.config.optimalMoves,
+    optimal: moves <= state.config.optimalMoves && state.hints === 0,
   };
 }
 
 /**
- * Fewest further moves from where the player stands. Reserved for the hint
- * system; never surfaced during normal play.
+ * A next step on one of the shortest routes from where the player stands.
+ * Deterministic -- the same position always gives the same answer -- and
+ * alphabetical among equals, so a hint never flickers between two countries.
  */
+export function nextStep(state: GameState): string | null {
+  const flights = allowsFlights(state.config);
+  const here = currentCountry(state);
+  // Distances are symmetric, so one search from the destination answers
+  // "how far is each neighbour from the end" for all of them at once.
+  const toGo = distancesFrom(state.config.destination, flights);
+  const remaining = toGo.get(here);
+  if (remaining === undefined || remaining === 0) return null;
+  const steps = travelOptions(here, flights)
+    .filter((iso) => toGo.get(iso) === remaining - 1)
+    .sort((a, b) => countryName(a).localeCompare(countryName(b)));
+  return steps[0] ?? null;
+}
+
+/**
+ * Takes the next hint for where the player stands. The first shows where to
+ * head (an outline on the map); the second gives its name. Each counts once,
+ * and asking again after both changes nothing.
+ */
+export function takeHint(state: GameState): GameState {
+  if (state.status !== 'playing') return state;
+  if (state.hint?.named) return state;
+  if (state.hint) return { ...state, hints: state.hints + 1, hint: { ...state.hint, named: true } };
+  const step = nextStep(state);
+  if (!step) return state;
+  return { ...state, hints: state.hints + 1, hint: { iso2: step, named: false } };
+}
+
+/** One shortest route from a result's start to its destination, both included. */
+export function bestRoute(result: Pick<GameResult, 'mode' | 'route'>): string[] | null {
+  const start = result.route[0];
+  const end = result.route[result.route.length - 1];
+  return shortestRoute(start, end, result.mode === 'flight');
+}
+
+/** Fewest further moves from where the player stands. Never shown during play. */
 export function movesRemaining(state: GameState): number | null {
   return shortestMoveCount(currentCountry(state), state.config.destination, allowsFlights(state.config));
 }

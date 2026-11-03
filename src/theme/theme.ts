@@ -40,6 +40,11 @@ export const mapColors = {
   currentStroke: '#9FE2FF',
   destination: '#FF7BA8',
   invalid: '#FF6B81',
+  /** Hub airports in flight mode: visible, but quieter than the destination. */
+  hub: '#B9CCE2',
+  hubFill: 'rgba(7, 16, 29, 0.85)',
+  /** A hinted country. */
+  hint: '#FFCE6A',
 } as const;
 
 export const radius = { sm: 8, md: 12, lg: 18, xl: 26, pill: 999 } as const;

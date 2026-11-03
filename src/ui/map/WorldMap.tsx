@@ -3,6 +3,7 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop, Use } from 'react-native-svg';
 import { MAP_HEIGHT, MAP_WIDTH, getCountry } from '../../core/world';
 import { mapColors } from '../../theme';
+import { ICON_PATHS } from '../components/Icon';
 import { nearestTurn, recentre, type Camera, type Stage } from './camera';
 import { BaseLayer } from './BaseLayer';
 import { PATH_BY_KEY } from './shapes';
@@ -60,6 +61,10 @@ export interface WorldMapProps {
   showTraveller?: boolean;
   /** Bumped to replay the arrival ping. */
   arrivalToken?: number;
+  /** Hub airports to mark with a plane: flight mode only. */
+  hubs?: readonly string[];
+  /** A country to outline as a hint. */
+  hintIso?: string | null;
   /** Pinch/drag transform layered on top of the camera, if the map is interactive. */
   userTransform?: {
     scale: Animated.Value;
@@ -90,6 +95,8 @@ export function WorldMap({
   skin = null,
   showTraveller = true,
   arrivalToken = 0,
+  hubs,
+  hintIso = null,
   userTransform,
   panHandlers,
   containerRef,
@@ -223,6 +230,7 @@ export function WorldMap({
   const currentPath = PATH_BY_KEY[currentIso];
   const destinationPath = PATH_BY_KEY[destinationIso];
   const invalidPath = invalidIso ? PATH_BY_KEY[invalidIso] : undefined;
+  const hintPath = hintIso ? PATH_BY_KEY[hintIso] : undefined;
   const destination = getCountry(destinationIso);
   const current = getCountry(currentIso);
 
@@ -295,11 +303,25 @@ export function WorldMap({
                 destinationPath={destinationPath}
                 currentPath={currentPath}
                 invalidPath={invalidPath}
+                hintPath={hintPath}
               />
             ))}
           </AnimatedG>
 
           {/* Markers sit outside the camera group so they keep a constant size. */}
+          {hubs
+            ? COPIES.map((copy) =>
+                hubs.map((iso) => (
+                  <HubMarker
+                    key={`hub-${copy}-${iso}`}
+                    country={getCountry(iso)}
+                    copy={copy}
+                    camera={transform}
+                    counterScale={counterScale}
+                  />
+                ))
+              )
+            : null}
           {COPIES.map((copy) => (
             <DestinationMarker
               key={copy}
@@ -377,15 +399,17 @@ interface HighlightsProps {
   destinationPath?: string;
   currentPath?: string;
   invalidPath?: string;
+  hintPath?: string;
 }
 
-/** Current, visited, destination and rejected countries, drawn over one copy of the world. */
+/** Current, visited, destination, hinted and rejected countries, drawn over one copy of the world. */
 const Highlights = memo(function Highlights({
   offset,
   visited,
   destinationPath,
   currentPath,
   invalidPath,
+  hintPath,
 }: HighlightsProps) {
   return (
     <G translateX={offset}>
@@ -436,6 +460,18 @@ const Highlights = memo(function Highlights({
         </>
       ) : null}
 
+      {hintPath ? (
+        <Path
+          d={hintPath}
+          fill={mapColors.hint}
+          fillOpacity={0.18}
+          stroke={mapColors.hint}
+          strokeWidth={2}
+          strokeDasharray="5 4"
+          vectorEffect="non-scaling-stroke"
+        />
+      ) : null}
+
       {invalidPath ? (
         <Path
           d={invalidPath}
@@ -476,6 +512,34 @@ function DestinationMarker({ destination, camera, copy, counterScale }: MarkerPr
         <Circle r={17} fill="none" stroke={mapColors.destination} strokeWidth={1.4} strokeOpacity={0.5} />
         <Circle r={8} fill="none" stroke={mapColors.destination} strokeWidth={2} />
         <Circle r={2.6} fill={mapColors.destination} />
+      </AnimatedG>
+    </AnimatedG>
+  );
+}
+
+interface HubMarkerProps {
+  country: ReturnType<typeof getCountry>;
+  camera: MarkerProps['camera'];
+  copy: number;
+  counterScale: Animated.AnimatedNode | number;
+}
+
+/**
+ * A plane on a hub airport, so the flight rule can be seen rather than
+ * remembered. Small and quiet: it marks where flying is possible without
+ * competing with the destination or the explorer.
+ */
+function HubMarker({ country, camera, copy, counterScale }: HubMarkerProps) {
+  if (!country) return null;
+  const cx = Animated.add(Animated.multiply(country.anchor[0] + copy * MAP_WIDTH, camera.scale), camera.x);
+  const cy = Animated.add(Animated.multiply(country.anchor[1], camera.scale), camera.y);
+  return (
+    <AnimatedG translateX={cx as unknown as number} translateY={cy as unknown as number}>
+      <AnimatedG scale={counterScale as unknown as number}>
+        <Circle r={8.5} fill={mapColors.hubFill} stroke={mapColors.hub} strokeWidth={1.2} />
+        <G transform="translate(-6 -6) scale(0.5)">
+          <Path d={ICON_PATHS.plane} fill={mapColors.hub} />
+        </G>
       </AnimatedG>
     </AnimatedG>
   );

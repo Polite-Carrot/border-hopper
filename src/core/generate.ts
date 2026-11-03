@@ -16,14 +16,14 @@ export const DIFFICULTY_MOVES: Record<Difficulty, [number, number]> = {
 };
 
 /**
- * Flight mode's own bands. Long-haul routes shrink the world hard -- the flight
- * graph's diameter is four moves, so the land bands would ask for routes that
- * do not exist. Four flights across the planet is this mode's "hard".
+ * Flight mode's own bands. Hub flights shorten long journeys, so the bands
+ * sit a little below the land ones at the top; most hub routes are three to
+ * five moves -- walk to a hub, fly, walk on.
  */
 export const FLIGHT_DIFFICULTY_MOVES: Record<Difficulty, [number, number]> = {
-  easy: [2, 2],
-  medium: [3, 3],
-  hard: [4, 5],
+  easy: [2, 3],
+  medium: [4, 5],
+  hard: [6, 8],
 };
 
 /** Classifies a route length into a difficulty band. */
@@ -86,8 +86,8 @@ function pickDifficulty(rand: () => number): Difficulty {
 
 /**
  * Builds a game that is guaranteed to be solvable: the destination is chosen
- * from countries actually reachable from the start over land, at a distance
- * inside the requested difficulty band.
+ * from countries actually reachable from the start (over land, or by land and
+ * air in flight mode), at a distance inside the requested difficulty band.
  */
 export function generateGame(options: GenerateOptions = {}): GameConfig {
   const seed = options.seed ?? `${Date.now()}:${Math.random()}`;
@@ -103,10 +103,15 @@ export function generateGame(options: GenerateOptions = {}): GameConfig {
   for (let attempt = 0; attempt < 200; attempt++) {
     const start = weightedPick(pool, poolWeights, rand);
     const distances = distancesFrom(start.iso2, flights);
+    // Flight mode only hands out journeys where every best route takes a
+    // flight -- otherwise it is a land game with a departures board nobody
+    // needs.
+    const onFoot = flights ? distancesFrom(start.iso2, false) : null;
     const reachable: string[] = [];
     const weights: number[] = [];
     for (const [iso, distance] of distances) {
       if (distance < minMoves || distance > maxMoves) continue;
+      if (onFoot && (onFoot.get(iso) ?? Infinity) <= distance) continue;
       const weight = weightByCode.get(iso);
       if (weight === undefined) continue;
       reachable.push(iso);

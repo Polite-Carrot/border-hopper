@@ -76,6 +76,8 @@ export function recordLevel(progress: CampaignProgress, result: GameResult): Cam
   if (!better) return progress;
   return {
     ...progress,
-    [result.level]: { moves: result.moves, seconds: result.seconds, optimal: result.optimal },
+    // A star once earned stays: a faster replay with a hint is a better time,
+    // not a reason to take the unaided perfect route away.
+    [result.level]: { moves: result.moves, seconds: result.seconds, optimal: result.optimal || Boolean(previous?.optimal) },
   };
 }

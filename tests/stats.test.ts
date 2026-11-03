@@ -106,7 +106,7 @@ describe('formatting and sharing', () => {
     expect(formatDuration(3675)).toBe('1:01:15');
   });
 
-  it('builds a share card without naming the countries', () => {
+  it('shows a random game\'s route as flags, without naming the countries', () => {
     const text = shareText(result());
     expect(text).toContain('BORDER HOPPER');
     expect(text).toContain('🇫🇷 → 🇪🇸 → 🇵🇹');
@@ -118,6 +118,27 @@ describe('formatting and sharing', () => {
 
   it('names the day for a daily result', () => {
     expect(shareText(result({ mode: 'daily', dailyKey: '2026-09-21' }))).toContain('2026-09-21');
+  });
+
+  it('never gives away the route of a puzzle everyone plays', () => {
+    // Andorra is a detour: it is no closer to Portugal than France was.
+    for (const over of [
+      { mode: 'daily' as const, dailyKey: '2026-09-21' },
+      { mode: 'campaign' as const, level: 7 },
+    ]) {
+      const text = shareText(result({ ...over, route: ['FR', 'AD', 'ES', 'PT'], moves: 3, optimal: false }));
+      expect(text).toContain('🇫🇷 ➜ 🇵🇹');
+      expect(text).toContain('🟨🟩🟩');
+      expect(text).not.toContain('🇦🇩');
+      expect(text).not.toContain('🇪🇸');
+    }
+  });
+
+  it('says how many hints were taken', () => {
+    const text = shareText(result({ hints: 2, optimal: false, wrongGuesses: 0 }));
+    expect(text).toContain('💡 2 hints');
+    expect(text).not.toContain('Perfect route');
+    expect(shareText(result())).not.toContain('💡');
   });
 
   it('shows the target when the route was not optimal', () => {

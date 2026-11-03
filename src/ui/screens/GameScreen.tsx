@@ -3,13 +3,13 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   allowsFlights, applyMove, createGame, currentCountry, elapsedSeconds, moveCount,
-  recordWrongGuess, toResult, wasFlown,
+  recordWrongGuess, takeHint, toResult, wasFlown,
 } from '../../core/game';
-import { flightsOf } from '../../core/graph';
+import { HUBS, flightsOf, isHub } from '../../core/graph';
 import { bestMatch, searchCountries } from '../../core/search';
 import { track } from '../../core/analytics';
 import { newStamps, type Passport } from '../../core/passport';
-import { MAP_HEIGHT, MAP_WIDTH, requireCountry } from '../../core/world';
+import { MAP_HEIGHT, MAP_WIDTH, countryName, requireCountry } from '../../core/world';
 import type { GameConfig, GameResult, GameState } from '../../core/types';
 import { colors, timing } from '../../theme';
 import { play } from '../../audio/sounds';
@@ -22,6 +22,7 @@ import { OffscreenTarget } from '../components/OffscreenTarget';
 import { RouteTrail } from '../components/RouteTrail';
 import { Toast } from '../components/Toast';
 import { MAP_CONTROLS_SIZE, MapControls } from '../components/MapControls';
+import { HINT_BUTTON_SIZE, HintButton } from '../components/HintButton';
 import { COUNTRY_ROW_HEIGHT } from '../components/CountryRow';
 import { onScreenKeyboardHeight } from '../components/OnScreenKeyboard';
 import { ResultOverlay } from './ResultOverlay';
@@ -65,7 +66,7 @@ export function GameScreen({
 
   const [state, setState] = useState<GameState>(() => createGame(config));
   const [query, setQuery] = useState('');
-  const [toast, setToast] = useState<{ message: string; token: number } | null>(null);
+  const [toast, setToast] = useState<{ message: string; token: number; tone?: 'hint' } | null>(null);
   const [invalidIso, setInvalidIso] = useState<string | null>(null);
   const [arrivalToken, setArrivalToken] = useState(0);
   const [phase, setPhase] = useState<'establishing' | 'playing'>('establishing');
@@ -164,6 +165,13 @@ export function GameScreen({
     y: stage.visible.y + stage.visible.height - MAP_CONTROLS_SIZE.height - 14,
     width: MAP_CONTROLS_SIZE.width,
     height: MAP_CONTROLS_SIZE.height,
+  };
+  // Bottom left of the clear map, opposite the zoom controls.
+  const hintSpot = {
+    x: stage.visible.x + 14,
+    y: stage.visible.y + stage.visible.height - HINT_BUTTON_SIZE.height - 14,
+    width: HINT_BUTTON_SIZE.width,
+    height: HINT_BUTTON_SIZE.height,
   };
 
   // Travelling to a new country earns the full camera move. Everything else
@@ -277,6 +285,35 @@ export function GameScreen({
     onExit(unfinished);
   }, [state, config, onExit]);
 
+  /**
+   * A hint for where the player stands: first the country to head for,
+   * outlined on the map, then its name. A flight gets said in words straight
+   * away, since its destination is usually off the screen.
+   */
+  const handleHint = useCallback(() => {
+    const next = takeHint(state);
+    if (next === state || !next.hint) return;
+    setState(next);
+    const target = next.hint.iso2;
+    const flying = wasFlown(config, iso, target);
+    const message = next.hint.named
+      ? flying
+        ? `Fly to ${countryName(target)}.`
+        : `Next stop: ${countryName(target)}.`
+      : flying
+        ? 'Take a flight from here.'
+        : 'Head for the country outlined in gold.';
+    setToast({ message, token: Date.now(), tone: 'hint' });
+    haptic('light');
+    track('hint_used', {
+      mode: config.mode,
+      level: config.level,
+      at: iso,
+      named: next.hint.named,
+      moves_in: state.route.length - 1,
+    });
+  }, [state, config, iso]);
+
   const handleSubmit = useCallback(() => {
     const match = bestMatch(query);
     if (match) handleSelect(match.iso2);
@@ -319,6 +356,8 @@ export function GameScreen({
         flown={lastMoveFlown}
         skin={passport.skin}
         arrivalToken={arrivalToken}
+        hintIso={state.hint?.iso2 ?? null}
+        hubs={allowsFlights(config) ? HUBS : undefined}
         userTransform={gestures.transform}
         panHandlers={gestures.panHandlers}
         containerRef={gestures.containerRef}
@@ -332,7 +371,7 @@ export function GameScreen({
           destinationCentroid={requireCountry(config.destination).centroid}
           camera={camera}
           stage={stage}
-          keepClear={controls}
+          keepClear={[controls, hintSpot]}
         />
       ) : null}
 
@@ -345,6 +384,14 @@ export function GameScreen({
         canZoomOut={gestures.canZoomOut}
         canRecentre={gestures.adjusted}
       />
+
+      {state.status === 'playing' && phase === 'playing' ? (
+        <HintButton
+          next={!state.hint ? 'outline' : state.hint.named ? 'done' : 'name'}
+          onPress={handleHint}
+          style={{ left: hintSpot.x, top: hintSpot.y }}
+        />
+      ) : null}
 
       <View
         style={[styles.top, { paddingTop: insets.top + 6, right: docked ? layout.panelWidth : 0 }]}
@@ -371,10 +418,18 @@ export function GameScreen({
       </View>
 
       <View
-        style={[styles.toastSlot, { bottom: (docked ? 0 : panelHeight) + 16 }]}
+        // Mistakes come up by the search field they were typed into, above
+        // the hint button's row; hints at the top, clear of the outline they
+        // point at, which is usually near the middle.
+        style={[
+          styles.toastSlot,
+          toast?.tone === 'hint'
+            ? { top: stage.visible.y + 6 }
+            : { bottom: (docked ? 0 : panelHeight) + 16 + HINT_BUTTON_SIZE.height + 10 },
+        ]}
         pointerEvents="none"
       >
-        <Toast message={toast?.message ?? null} token={toast?.token ?? 0} />
+        <Toast message={toast?.message ?? null} token={toast?.token ?? 0} tone={toast?.tone} />
       </View>
 
       <View
@@ -408,6 +463,7 @@ export function GameScreen({
           keyboardUp={keyboardUp}
           keyboardWidth={panelInnerWidth}
           flights={allowsFlights(config) ? flightsOf(iso) : null}
+          hub={allowsFlights(config) && isHub(iso)}
           docked={docked}
           bottomInset={safeBottom}
         />

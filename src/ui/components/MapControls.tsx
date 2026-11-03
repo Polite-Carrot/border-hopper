@@ -50,7 +50,7 @@ export function MapControls({
  * from the keyboard keeps it, so someone driving the controls by keyboard can
  * press again.
  */
-function releaseFocus(event: GestureResponderEvent) {
+export function releaseFocus(event: GestureResponderEvent) {
   if (Platform.OS !== 'web') return;
   const type = (event?.nativeEvent as unknown as { type?: string } | undefined)?.type ?? '';
   if (type.startsWith('key')) return;

@@ -32,6 +32,8 @@ export interface ControlPanelProps {
   keyboardWidth: number;
   /** Flights from the current country, in flight mode only. */
   flights?: readonly { iso2: string; km: number }[] | null;
+  /** Whether the current country is a hub airport. */
+  hub?: boolean;
   /** Docks to the side instead of the bottom on wide screens. */
   docked: boolean;
   bottomInset: number;
@@ -52,7 +54,7 @@ export interface ControlPanelProps {
 export function ControlPanel({
   query, results, onSelect, onFocusSearch, onClearSearch, onKey, onBackspace, onSubmit,
   onHideKeyboard, currentIso, visited, listHeight, reservedHeight, keyboardUp,
-  keyboardWidth, flights, docked, bottomInset,
+  keyboardWidth, flights, hub = false, docked, bottomInset,
 }: ControlPanelProps) {
   const visitedSet = new Set(visited);
 
@@ -97,7 +99,7 @@ export function ControlPanel({
         <SearchField value={query} focused={keyboardUp} onPress={onFocusSearch} onClear={onClearSearch} />
       </View>
 
-      {flights && !keyboardUp ? <FlightStrip flights={flights} onSelect={onSelect} /> : null}
+      {flights && !keyboardUp ? <FlightStrip flights={flights} hub={hub} onSelect={onSelect} /> : null}
 
       <View style={{ height: reservedHeight }}>
         {keyboardUp ? (

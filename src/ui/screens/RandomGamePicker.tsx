@@ -23,16 +23,14 @@ const MODES: { value: RandomMode; label: string; icon: IconName }[] = [
 ];
 
 /**
- * How flight mode actually works, in three lines.
- *
- * Worth spelling out, because the rule is not guessable: the network is part
- * short sea crossing and part long haul, and a player who assumes "anywhere"
- * or "only the nearest place" is wrong both times.
+ * How flight mode works, in three lines. The rule fits in one sentence --
+ * walk, take a short sea crossing, or fly between hubs -- and the planes on
+ * the map show where the hubs are, so nobody has to memorise anything.
  */
 const FLIGHT_NOTES = [
-  { icon: '🛫', text: 'Every country has a departures board. It shows exactly where you can fly to from where you are standing.' },
-  { icon: '🌊', text: 'The short hops are real straits: Dover to Calais is 47km, Alaska to Russia 113km.' },
-  { icon: '🌍', text: 'Plus a few long-haul routes to places you will have heard of, so nowhere is more than four flights away.' },
+  { icon: '✈️', text: 'Hub airports are marked with a plane. From any hub you can fly to any other hub.' },
+  { icon: '🌊', text: 'Short hops across water count too: Dover to Calais is 47km, Alaska to Russia 113km.' },
+  { icon: '🚶', text: 'Everywhere else you cross borders on foot, so the trick is walking to the right hub.' },
 ];
 
 /**

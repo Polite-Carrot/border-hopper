@@ -16,8 +16,9 @@ export interface DifficultyOption {
  * The move counts are read off the generator's own bands rather than typed out
  * again, so a hint cannot quietly start lying about what the game will hand
  * you -- which is exactly what happened when flight mode got bands of its own.
- * Those bands are also why this takes the mode: long-haul routes shrink the
- * world, so a hard flight is four or five moves where a hard walk is seven.
+ * Those bands are also why this takes the mode: hub flights reshape the
+ * distances, so a hard flight is six to eight moves where a hard walk is five
+ * to seven.
  */
 export function difficultyOptions(flights = false): DifficultyOption[] {
   const moves = flights ? FLIGHT_DIFFICULTY_MOVES : DIFFICULTY_MOVES;
