@@ -34,7 +34,7 @@ already searched, plurals included, so they are not repeated here.
 geography,countries,map,quiz,flags,world,puzzle,travel,trivia,learn,atlas,education,daily,explorer
 ```
 
-## Description (1,804 of 4,000)
+## Description (1,932 of 4,000)
 
 ```
 You're in Portugal. Get to Poland. Which countries are in the way?
@@ -49,6 +49,7 @@ WAYS TO PLAY
 • Daily challenge: one new route every day, the same for everyone. Keep your streak going.
 • Random: pick Easy, Medium or Hard and play as many as you like.
 • Flight mode: walk to a hub airport and fly to any other hub, or hop across real sea crossings like Dover to Calais. Island nations like Japan and Australia join the game here.
+• Visa Denied: some borders on your way are closed, and the border police will send you straight back. Find the long way round.
 
 FILL YOUR PASSPORT
 Every country you travel through earns a stamp in your passport. Collect stamps across six continents, and dress your explorer in the flag of any country you've visited.

@@ -1,4 +1,5 @@
-import { DIFFICULTY_MOVES, FLIGHT_DIFFICULTY_MOVES } from '../../core/generate';
+import { DIFFICULTY_MOVES, FLIGHT_DIFFICULTY_MOVES, VISA_RULES } from '../../core/generate';
+import type { GameMode } from '../../core/types';
 import type { Settings } from '../../storage/storage';
 
 const band = ([min, max]: readonly [number, number]) =>
@@ -20,8 +21,18 @@ export interface DifficultyOption {
  * distances, so a hard flight is six to eight moves where a hard walk is five
  * to seven.
  */
-export function difficultyOptions(flights = false): DifficultyOption[] {
-  const moves = flights ? FLIGHT_DIFFICULTY_MOVES : DIFFICULTY_MOVES;
+export function difficultyOptions(mode: GameMode = 'classic'): DifficultyOption[] {
+  // Visa Denied is measured in closed borders: the detours set the moves.
+  if (mode === 'visa') {
+    const closed = (n: number) => (n === 1 ? '1 closed border' : `${n} closed borders`);
+    return [
+      { value: 'mixed', label: 'Mixed', hint: 'A bit of everything' },
+      { value: 'easy', label: 'Easy', hint: closed(VISA_RULES.easy.closed) },
+      { value: 'medium', label: 'Medium', hint: closed(VISA_RULES.medium.closed) },
+      { value: 'hard', label: 'Hard', hint: closed(VISA_RULES.hard.closed) },
+    ];
+  }
+  const moves = mode === 'flight' ? FLIGHT_DIFFICULTY_MOVES : DIFFICULTY_MOVES;
   return [
     { value: 'mixed', label: 'Mixed', hint: 'A bit of everything' },
     { value: 'easy', label: 'Easy', hint: band(moves.easy) },

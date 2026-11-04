@@ -19,6 +19,8 @@ export interface ControlPanelProps {
   onHideKeyboard: () => void;
   currentIso: string;
   visited: readonly string[];
+  /** Visa Denied: closed countries, labelled in the list. */
+  closed?: readonly string[];
   /** Height of the results list while it is showing. */
   listHeight: number;
   /**
@@ -53,10 +55,11 @@ export interface ControlPanelProps {
  */
 export function ControlPanel({
   query, results, onSelect, onFocusSearch, onClearSearch, onKey, onBackspace, onSubmit,
-  onHideKeyboard, currentIso, visited, listHeight, reservedHeight, keyboardUp,
+  onHideKeyboard, currentIso, visited, closed = [], listHeight, reservedHeight, keyboardUp,
   keyboardWidth, flights, hub = false, docked, bottomInset,
 }: ControlPanelProps) {
   const visitedSet = new Set(visited);
+  const closedSet = new Set(closed);
 
   const list = (
     <View style={{ height: listHeight }}>
@@ -84,6 +87,7 @@ export function ControlPanel({
               onPress={onSelect}
               isCurrent={item.iso2 === currentIso}
               isVisited={visitedSet.has(item.iso2)}
+              isClosed={closedSet.has(item.iso2)}
             />
           )}
         />

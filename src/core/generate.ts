@@ -93,6 +93,7 @@ function pickDifficulty(rand: () => number): Difficulty {
  * air in flight mode), at a distance inside the requested difficulty band.
  */
 export function generateGame(options: GenerateOptions = {}): GameConfig {
+  if (options.mode === 'visa') return generateVisaGame(options);
   const seed = options.seed ?? `${Date.now()}:${Math.random()}`;
   const rand = seededRandom(seed);
   const difficulty = options.difficulty ?? pickDifficulty(rand);
@@ -150,9 +151,89 @@ export function generateGame(options: GenerateOptions = {}): GameConfig {
   };
 }
 
+/**
+ * Visa Denied: how many borders are closed, and how far apart start and
+ * destination are before they close. The detours add the rest, so the moves
+ * a player sees are a few more than the band.
+ */
+export const VISA_RULES: Record<Difficulty, { closed: number; moves: [number, number] }> = {
+  easy: { closed: 1, moves: [3, 4] },
+  medium: { closed: 2, moves: [4, 6] },
+  hard: { closed: 3, moves: [5, 7] },
+};
+/** The longest a Visa Denied route may grow to once its borders are closed. */
+const VISA_MAX_MOVES = 14;
+
+/**
+ * A Visa Denied game: a land journey with some borders on the way closed.
+ *
+ * Each closed country lies on a shortest route that is still open, and
+ * closing it must make the journey longer -- a closure nobody would have
+ * walked through is no obstacle. Countries with many borders are likelier to
+ * be closed, because they are the shortcuts: from Europe to Asia nearly
+ * everything runs through Russia or China. A closure that leaves no way
+ * through at all (Mongolia and both Koreas, with those two closed) is never
+ * chosen, and the start, the destination and territories are never closed.
+ */
+function generateVisaGame(options: GenerateOptions): GameConfig {
+  const seed = options.seed ?? `${Date.now()}:${Math.random()}`;
+  const rand = seededRandom(`visa:${seed}`);
+  const difficulty = options.difficulty ?? pickDifficulty(rand);
+  const { closed: wanted, moves: [minMoves, maxMoves] } = VISA_RULES[difficulty];
+
+  for (let attempt = 0; attempt < 300; attempt++) {
+    const start = weightedPick(ENDPOINT_CANDIDATES, ENDPOINT_WEIGHTS, rand);
+    const reachable = [...distancesFrom(start.iso2)].filter(
+      ([iso, d]) => d >= minMoves && d <= maxMoves && WEIGHT_BY_CODE.has(iso)
+    );
+    if (reachable.length === 0) continue;
+    const destination = weightedPick(
+      reachable.map(([iso]) => iso),
+      reachable.map(([iso]) => WEIGHT_BY_CODE.get(iso)!),
+      rand
+    );
+
+    const closed = new Set<string>();
+    while (closed.size < wanted) {
+      const fromStart = distancesFrom(start.iso2, false, closed);
+      const fromEnd = distancesFrom(destination, false, closed);
+      const now = fromStart.get(destination)!;
+      // Everywhere on some shortest route that is still open.
+      const options: { iso: string; detour: number }[] = [];
+      for (const [iso, d] of fromStart) {
+        if (iso === start.iso2 || iso === destination || d + (fromEnd.get(iso) ?? Infinity) !== now) continue;
+        if (COUNTRIES_BY_CODE.get(iso)?.territory) continue;
+        const after = shortestMoveCount(start.iso2, destination, false, new Set([...closed, iso]));
+        if (after !== null && after > now && after <= VISA_MAX_MOVES) options.push({ iso, detour: after });
+      }
+      if (options.length === 0) break;
+      const pick = weightedPick(
+        options,
+        options.map(({ iso }) => COUNTRIES_BY_CODE.get(iso)!.neighbours.length ** 1.5),
+        rand
+      );
+      closed.add(pick.iso);
+    }
+    if (closed.size < wanted) continue;
+
+    return {
+      mode: 'visa',
+      start: start.iso2,
+      destination,
+      optimalMoves: shortestMoveCount(start.iso2, destination, false, closed)!,
+      difficulty,
+      closed: [...closed],
+    };
+  }
+  throw new Error('No Visa Denied game could be generated');
+}
+
+const COUNTRIES_BY_CODE = new Map(COUNTRIES.map((c) => [c.iso2, c]));
+
 /** Rebuilds a config's optimal move count from the graph. Used by tests. */
 export function verifyConfig(config: GameConfig): boolean {
   return (
-    shortestMoveCount(config.start, config.destination, config.mode === 'flight') === config.optimalMoves
+    shortestMoveCount(config.start, config.destination, config.mode === 'flight', new Set(config.closed ?? [])) ===
+    config.optimalMoves
   );
 }

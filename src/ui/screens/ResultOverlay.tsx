@@ -81,7 +81,9 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit }: Res
             ? `LEVEL ${result.level} OF ${CAMPAIGN_LENGTH}`
             : result.mode === 'daily'
               ? `DAILY · ${result.dailyKey}`
-              : 'ROUTE COMPLETE'}
+              : result.mode === 'visa'
+                ? 'VISA DENIED · ROUTE COMPLETE'
+                : 'ROUTE COMPLETE'}
         </Text>
         <Text style={styles.title}>MADE IT</Text>
 
@@ -99,6 +101,12 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit }: Res
         )}
 
         <RouteChips route={result.route} flights={result.mode === 'flight'} />
+
+        {result.closed?.length ? (
+          <Text style={styles.closedLine}>
+            ⛔ Got round {result.closed.map((iso) => `${countryFlag(iso)} ${countryName(iso)}`).join(', ')}
+          </Text>
+        ) : null}
 
         {best ? (
           <View style={styles.best} accessibilityLabel={`A best route: ${best.map(countryName).join(', ')}`}>
@@ -243,6 +251,7 @@ const styles = StyleSheet.create({
   routeFlag: { fontSize: 15 },
   bestChip: { borderColor: 'rgba(255, 206, 106, 0.4)', backgroundColor: 'rgba(255, 206, 106, 0.08)' },
   best: { alignSelf: 'stretch', alignItems: 'center', marginTop: -spacing.sm },
+  closedLine: { color: '#FFB3B5', fontFamily: fonts.body, fontSize: 13, textAlign: 'center', marginTop: -spacing.sm },
   bestTitle: { color: colors.gold, fontSize: 11, letterSpacing: 1.6, fontWeight: '700' },
   routeName: { color: colors.text, fontFamily: fonts.body, fontSize: 13.5, fontWeight: '600' },
   tiles: { flexDirection: 'row', gap: spacing.sm, alignSelf: 'stretch', marginTop: spacing.xs },

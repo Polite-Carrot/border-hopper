@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop, Use } from 'react-native-svg';
 import { MAP_HEIGHT, MAP_WIDTH, getCountry } from '../../core/world';
@@ -6,9 +6,10 @@ import { mapColors } from '../../theme';
 import { ICON_PATHS } from '../components/Icon';
 import { nearestTurn, recentre, type Camera, type Stage } from './camera';
 import { BaseLayer } from './BaseLayer';
-import { PATH_BY_KEY } from './shapes';
+import { PATH_BY_KEY, nearestOutlinePoint } from './shapes';
 import { Traveller, tripLength } from './Traveller';
-import { planTrip, type Trip } from './trip';
+import { nearestCopy, planTrip, type Trip } from './trip';
+import { REFUSAL_TIME, Refusal } from './Refusal';
 
 const AnimatedG = Animated.createAnimatedComponent(G);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -65,6 +66,13 @@ export interface WorldMapProps {
   hubs?: readonly string[];
   /** A country to outline as a hint. */
   hintIso?: string | null;
+  /** Visa Denied: countries whose border is closed, shaded and signed. */
+  closed?: readonly string[];
+  /**
+   * A closed border the explorer just tried: he is sent back from it. A new
+   * token replays it. Leave unset to skip the animation (reduce motion).
+   */
+  refusal?: { iso: string; token: number } | null;
   /** Pinch/drag transform layered on top of the camera, if the map is interactive. */
   userTransform?: {
     scale: Animated.Value;
@@ -97,6 +105,8 @@ export function WorldMap({
   arrivalToken = 0,
   hubs,
   hintIso = null,
+  closed,
+  refusal = null,
   userTransform,
   panHandlers,
   containerRef,
@@ -152,6 +162,42 @@ export function WorldMap({
     trip.current = after ? planTrip(before, after, { from: from.current.x, to: to.current.x, duration }, flown) : null;
   }
   const currentTrip = trip.current;
+
+  // Visa Denied: out to the closed border and thrown back. Planned when a
+  // refusal arrives, in step with where the camera is aimed.
+  const refusalClock = useRef(new Animated.Value(0)).current;
+  const [refused, setRefused] = useState<{ from: [number, number]; turn: [number, number]; token: number } | null>(null);
+  useEffect(() => {
+    if (!refusal) return;
+    const here = getCountry(currentIso)?.anchor;
+    if (!here) return;
+    const from: [number, number] = [nearestCopy(here[0], to.current.x), here[1]];
+    // Aimed at the border he is trying to cross, not the closed country's
+    // middle: from North Korea, Russia is a short hop north-east.
+    const target = nearestOutlinePoint(refusal.iso, from, MAP_WIDTH);
+    if (!target) return;
+    const dx = target[0] - from[0];
+    const dy = target[1] - from[1];
+    const length = Math.hypot(dx, dy) || 1;
+    // Right up to the border, but never so far he leaves the screen: at
+    // most about 70 pixels at this zoom, and at least a visible hop.
+    const k = Math.max(to.current.k, 0.0001);
+    const step = Math.max(Math.min(length, 70 / k), 24 / k);
+    const turn: [number, number] = [from[0] + (dx / length) * step, from[1] + (dy / length) * step];
+    setRefused({ from, turn, token: refusal.token });
+    refusalClock.setValue(0);
+    const animation = Animated.timing(refusalClock, {
+      toValue: REFUSAL_TIME,
+      duration: REFUSAL_TIME,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    });
+    animation.start(({ finished }) => {
+      if (finished) setRefused((current) => (current?.token === refusal.token ? null : current));
+    });
+    return () => animation.stop();
+    // Keyed on the token: each attempt is one throw.
+  }, [refusal?.token]);
 
   useEffect(() => {
     const length = durationRef.current;
@@ -304,11 +350,26 @@ export function WorldMap({
                 currentPath={currentPath}
                 invalidPath={invalidPath}
                 hintPath={hintPath}
+                closed={closed}
               />
             ))}
           </AnimatedG>
 
           {/* Markers sit outside the camera group so they keep a constant size. */}
+          {closed
+            ? COPIES.map((copy) =>
+                closed.map((iso) => (
+                  <ClosedMarker
+                    key={`closed-${copy}-${iso}`}
+                    country={getCountry(iso)}
+                    copy={copy}
+                    camera={transform}
+                    counterScale={counterScale}
+                  />
+                ))
+              )
+            : null}
+
           {hubs
             ? COPIES.map((copy) =>
                 hubs.map((iso) => (
@@ -332,7 +393,22 @@ export function WorldMap({
             />
           ))}
 
-          {currentTrip && showTraveller
+          {refused && showTraveller
+            ? COPIES.map((copy) => (
+                <Refusal
+                  key={`refusal-${copy}`}
+                  from={refused.from}
+                  turn={refused.turn}
+                  clock={refusalClock}
+                  camera={transform}
+                  copy={copy}
+                  skin={skin}
+                  counterScale={counterScale}
+                />
+              ))
+            : null}
+
+          {currentTrip && showTraveller && !refused
             ? COPIES.map((copy) => (
                 <Traveller
                   key={`traveller-${copy}`}
@@ -400,6 +476,7 @@ interface HighlightsProps {
   currentPath?: string;
   invalidPath?: string;
   hintPath?: string;
+  closed?: readonly string[];
 }
 
 /** Current, visited, destination, hinted and rejected countries, drawn over one copy of the world. */
@@ -410,6 +487,7 @@ const Highlights = memo(function Highlights({
   currentPath,
   invalidPath,
   hintPath,
+  closed,
 }: HighlightsProps) {
   return (
     <G translateX={offset}>
@@ -459,6 +537,23 @@ const Highlights = memo(function Highlights({
           />
         </>
       ) : null}
+
+      {/* Closed borders: red, and hatched with a dashed edge so they read as
+          shut even to someone who cannot tell red from the land around it. */}
+      {closed?.map((iso) =>
+        PATH_BY_KEY[iso] ? (
+          <Path
+            key={`closed-${iso}`}
+            d={PATH_BY_KEY[iso]}
+            fill={mapColors.closed}
+            fillOpacity={0.3}
+            stroke={mapColors.closed}
+            strokeWidth={1.8}
+            strokeDasharray="3 3"
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : null
+      )}
 
       {hintPath ? (
         <Path
@@ -540,6 +635,21 @@ function HubMarker({ country, camera, copy, counterScale }: HubMarkerProps) {
         <G transform="translate(-6 -6) scale(0.5)">
           <Path d={ICON_PATHS.plane} fill={mapColors.hub} />
         </G>
+      </AnimatedG>
+    </AnimatedG>
+  );
+}
+
+/** A no-entry sign on a closed country, the same size at every zoom. */
+function ClosedMarker({ country, camera, copy, counterScale }: HubMarkerProps) {
+  if (!country) return null;
+  const cx = Animated.add(Animated.multiply(country.anchor[0] + copy * MAP_WIDTH, camera.scale), camera.x);
+  const cy = Animated.add(Animated.multiply(country.anchor[1], camera.scale), camera.y);
+  return (
+    <AnimatedG translateX={cx as unknown as number} translateY={cy as unknown as number}>
+      <AnimatedG scale={counterScale as unknown as number}>
+        <Circle r={9} fill={mapColors.closed} stroke="#FFFFFF" strokeWidth={1.6} />
+        <Rect x={-5.5} y={-1.6} width={11} height={3.2} rx={1} fill="#FFFFFF" />
       </AnimatedG>
     </AnimatedG>
   );

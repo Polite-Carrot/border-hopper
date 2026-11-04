@@ -17,10 +17,10 @@ export const GAME_URL = 'https://borderhopper.politecarrot.com';
  * One square per move: 🟩 where it brought the destination a move closer,
  * 🟨 where it did not. Says how a route went without saying where it went.
  */
-export function moveSquares(result: Pick<GameResult, 'mode' | 'route'>): string {
+export function moveSquares(result: Pick<GameResult, 'mode' | 'route' | 'closed'>): string {
   const end = result.route[result.route.length - 1];
   // Distances are symmetric, so one search from the end measures every step.
-  const toGo = distancesFrom(end, result.mode === 'flight');
+  const toGo = distancesFrom(end, result.mode === 'flight', new Set(result.closed ?? []));
   let squares = '';
   for (let i = 1; i < result.route.length; i++) {
     const before = toGo.get(result.route[i - 1]);
@@ -47,13 +47,16 @@ export function shareText(result: GameResult): string {
     ? `🌍 BORDER HOPPER — ${result.dailyKey}`
     : result.mode === 'campaign' && result.level !== undefined
       ? `🌍 BORDER HOPPER — Level ${result.level}`
-      : '🌍 BORDER HOPPER';
+      : result.mode === 'visa'
+        ? '🌍 BORDER HOPPER — Visa Denied'
+        : '🌍 BORDER HOPPER';
   const shared = result.mode === 'daily' || result.mode === 'campaign';
   const start = result.route[0];
   const end = result.route[result.route.length - 1];
   const lines = shared
     ? [header, `${countryFlag(start)} ➜ ${countryFlag(end)}`, moveSquares(result)]
     : [header, result.route.map(countryFlag).join(' → ')];
+  if (result.closed?.length) lines.push(`⛔ ${result.closed.map(countryFlag).join(' ')} closed`);
   lines.push('', `${pluralise(result.moves, 'move')} · ${formatDuration(result.seconds)}`);
   const extras: string[] = [];
   if (result.wrongGuesses > 0) extras.push(pluralise(result.wrongGuesses, 'wrong turn'));

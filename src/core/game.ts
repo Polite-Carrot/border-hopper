@@ -7,6 +7,11 @@ export function allowsFlights(config: GameConfig): boolean {
   return config.mode === 'flight';
 }
 
+/** Visa Denied's closed countries, or none in every other mode. */
+export function closedSet(config: Pick<GameConfig, 'closed'>): ReadonlySet<string> {
+  return new Set(config.closed ?? []);
+}
+
 /** True when this step of a route was flown rather than walked over a border. */
 export function wasFlown(config: GameConfig, from: string, to: string): boolean {
   return allowsFlights(config) && !areNeighbours(from, to) && isFlightRoute(from, to);
@@ -64,6 +69,11 @@ export function applyMove(state: GameState, iso2: string, now: number = Date.now
           : `You can't reach ${target.name} from ${countryName(from)}.`,
     };
   }
+  // A real border, but closed for this game. Counted as a wrong turn, like any
+  // other refused move.
+  if (closedSet(state.config).has(iso2)) {
+    return { ok: false, reason: 'closed', message: `Visa denied! ${target.name} won't let you in.` };
+  }
 
   const won = iso2 === state.config.destination;
   return {
@@ -100,6 +110,7 @@ export function toResult(state: GameState, now: number = Date.now()): GameResult
     moves,
     wrongGuesses: state.wrongGuesses.length,
     hints: state.hints,
+    ...(state.config.closed ? { closed: state.config.closed } : {}),
     seconds: elapsedSeconds(state, now),
     optimalMoves: state.config.optimalMoves,
     optimal: moves <= state.config.optimalMoves && state.hints === 0,
@@ -116,11 +127,12 @@ export function nextStep(state: GameState): string | null {
   const here = currentCountry(state);
   // Distances are symmetric, so one search from the destination answers
   // "how far is each neighbour from the end" for all of them at once.
-  const toGo = distancesFrom(state.config.destination, flights);
+  const closed = closedSet(state.config);
+  const toGo = distancesFrom(state.config.destination, flights, closed);
   const remaining = toGo.get(here);
   if (remaining === undefined || remaining === 0) return null;
   const steps = travelOptions(here, flights)
-    .filter((iso) => toGo.get(iso) === remaining - 1)
+    .filter((iso) => !closed.has(iso) && toGo.get(iso) === remaining - 1)
     .sort((a, b) => countryName(a).localeCompare(countryName(b)));
   return steps[0] ?? null;
 }
@@ -140,13 +152,18 @@ export function takeHint(state: GameState): GameState {
 }
 
 /** One shortest route from a result's start to its destination, both included. */
-export function bestRoute(result: Pick<GameResult, 'mode' | 'route'>): string[] | null {
+export function bestRoute(result: Pick<GameResult, 'mode' | 'route' | 'closed'>): string[] | null {
   const start = result.route[0];
   const end = result.route[result.route.length - 1];
-  return shortestRoute(start, end, result.mode === 'flight');
+  return shortestRoute(start, end, result.mode === 'flight', closedSet(result));
 }
 
 /** Fewest further moves from where the player stands. Never shown during play. */
 export function movesRemaining(state: GameState): number | null {
-  return shortestMoveCount(currentCountry(state), state.config.destination, allowsFlights(state.config));
+  return shortestMoveCount(
+    currentCountry(state),
+    state.config.destination,
+    allowsFlights(state.config),
+    closedSet(state.config)
+  );
 }

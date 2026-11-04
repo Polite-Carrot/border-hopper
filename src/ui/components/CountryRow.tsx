@@ -11,9 +11,11 @@ export interface CountryRowProps {
   isCurrent?: boolean;
   /** Marks a country already passed through. */
   isVisited?: boolean;
+  /** Visa Denied: its border is closed. */
+  isClosed?: boolean;
 }
 
-function CountryRowComponent({ country, onPress, isCurrent, isVisited }: CountryRowProps) {
+function CountryRowComponent({ country, onPress, isCurrent, isVisited, isClosed }: CountryRowProps) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -30,7 +32,11 @@ function CountryRowComponent({ country, onPress, isCurrent, isVisited }: Country
       </Text>
       {/* Territories say whose they are, so nobody wonders why Gibraltar is
           listed among countries -- and why it is never a destination. */}
-      {country.territory ? (
+      {isClosed ? (
+        <Text style={styles.closed} numberOfLines={1}>
+          Visa denied
+        </Text>
+      ) : country.territory ? (
         <Text style={styles.territory} numberOfLines={1}>
           {country.sovereign ? `${countryName(country.sovereign)} territory` : 'Territory'}
         </Text>
@@ -63,6 +69,7 @@ const styles = StyleSheet.create({
   name: { flex: 1, color: colors.text, fontFamily: fonts.body, fontSize: 16.5, letterSpacing: 0.1 },
   current: { color: colors.current, fontWeight: '600' },
   visited: { color: colors.textMuted },
+  closed: { color: colors.danger, fontFamily: fonts.body, fontSize: 12.5, fontWeight: '700' },
   territory: { color: colors.textFaint, fontFamily: fonts.body, fontSize: 12.5, maxWidth: '45%' },
   badge: {
     paddingHorizontal: 8,

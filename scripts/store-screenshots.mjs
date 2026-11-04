@@ -129,7 +129,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !ONLY || ONLY.includes(d
   });
 
   await scene(device, 'flight', async ({ page, shot }) => {
-    await page.getByText(/^Flight mode/).first().click();
+    await page.getByText(/^Flight$/).first().click();
     await page.waitForTimeout(1000);
     await shot('flight-picker');
     await page.getByText(/^Take off/).first().click();

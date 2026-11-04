@@ -592,7 +592,7 @@ in the second thousand (long routes need far-apart ends, and left alone
 Eswatini and Lesotho came round every 25 levels). The Americas can only give
 33 routes long enough, and get all of them.
 
-**Random** and **Flight mode** — both open the same sheet, differing only in
+**Random**, **Flight** and **Visa Denied** — all open the same sheet, differing only in
 which mode it starts on: they are the same game with a different rule, and two
 sheets that drifted apart would be worse than one. Pick how you travel, pick
 how far, and go. The difficulty bands shown change with the mode, because they
@@ -645,6 +645,25 @@ so the mode is never a land game in disguise.
 The departures board shows where you can fly from where you stand: the sea
 crossing, and every hub when you are in one. Land borders stay hidden; working
 those out is still the game.
+
+**Visa Denied** — a land game with some borders closed. Each game closes 1, 2
+or 3 countries (easy, medium, hard), every one of them on a shortest route that
+was still open, and each closure must make the journey longer: a closure
+nobody would have walked through is no obstacle. Countries with many borders
+are likelier to be closed, because they are the shortcuts — from Europe to
+Asia, 73% of best routes run through Russia or China, and those two are the
+most-closed countries. A closure that would leave no way through at all (with
+Russia and China closed, Mongolia and both Koreas are cut off by land) is never
+chosen, and the start, the destination and territories are never closed.
+
+The closed countries are shaded red with a no-entry sign, listed under the
+route at the top, and labelled "Visa denied" in the list. Trying one counts as
+a wrong turn: the explorer hops up to the border, two border officers pop up
+with their hands up, and they throw him back, spinning, into the country he
+came from (`src/ui/map/Refusal.tsx`; just the message with reduce motion on).
+Hints, the par and the best route on the result card all go round the closed
+borders. It lives in the New game sheet beside Land borders and Flight, and on
+the menu.
 
 **Daily challenge** — the same start and destination for every player, once a
 day.

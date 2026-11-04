@@ -38,6 +38,8 @@ export interface AnalyticsEvents {
     level?: number;
     start: string;
     destination: string;
+    /** Visa Denied only: how many borders are closed. */
+    closed?: number;
   };
 
   /** A game is won. `over_par` is 0 for a perfect route and never negative. */

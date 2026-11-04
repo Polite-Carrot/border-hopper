@@ -6,7 +6,7 @@ import { difficultyOptions } from '../components/difficulty';
 import { Button } from '../components/Button';
 import { Icon, type IconName } from '../components/Icon';
 
-export type RandomMode = 'classic' | 'flight';
+export type RandomMode = 'classic' | 'flight' | 'visa';
 
 export interface RandomGamePickerProps {
   /** Which mode the sheet opens on -- whichever menu button was pressed. */
@@ -20,6 +20,7 @@ export interface RandomGamePickerProps {
 const MODES: { value: RandomMode; label: string; icon: IconName }[] = [
   { value: 'classic', label: 'Land borders', icon: 'again' },
   { value: 'flight', label: 'Flight', icon: 'plane' },
+  { value: 'visa', label: 'Visa Denied', icon: 'noentry' },
 ];
 
 /**
@@ -31,6 +32,13 @@ const FLIGHT_NOTES = [
   { icon: '✈️', text: 'Hub airports are marked with a plane. From any hub you can fly to any other hub.' },
   { icon: '🌊', text: 'Short hops across water count too: Dover to Calais is 47km, Alaska to Russia 113km.' },
   { icon: '🚶', text: 'Everywhere else you cross borders on foot, so the trick is walking to the right hub.' },
+];
+
+/** Visa Denied, in three lines. */
+const VISA_NOTES = [
+  { icon: '⛔', text: 'Some countries on the way are refusing visas. They are marked on the map and listed at the top.' },
+  { icon: '👮', text: 'Try to cross into one and the border police send you straight back. It counts as a wrong turn.' },
+  { icon: '🧭', text: 'Find the long way round. The best possible route already avoids every closed border.' },
 ];
 
 /**
@@ -55,6 +63,7 @@ export function RandomGamePicker({ mode, difficulty, onStart, onCancel }: Random
   }, [entry]);
 
   const flights = chosenMode === 'flight';
+  const notes = flights ? FLIGHT_NOTES : chosenMode === 'visa' ? VISA_NOTES : null;
 
   return (
     <View style={styles.backdrop}>
@@ -110,9 +119,9 @@ export function RandomGamePicker({ mode, difficulty, onStart, onCancel }: Random
           })}
         </View>
 
-        {flights ? (
+        {notes ? (
           <View style={styles.notes}>
-            {FLIGHT_NOTES.map((note) => (
+            {notes.map((note) => (
               <View key={note.text} style={styles.note}>
                 <Text style={styles.noteIcon}>{note.icon}</Text>
                 <Text style={styles.noteText}>{note.text}</Text>
@@ -128,7 +137,7 @@ export function RandomGamePicker({ mode, difficulty, onStart, onCancel }: Random
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.chips}
           >
-            {difficultyOptions(flights).map((option) => {
+            {difficultyOptions(chosenMode).map((option) => {
               const selected = option.value === chosenDifficulty;
               return (
                 <Pressable
@@ -198,20 +207,21 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.7 },
 
   modes: { flexDirection: 'row', gap: spacing.sm },
+  // Icon over label, so three modes fit across a phone.
   mode: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
-    paddingVertical: 12,
+    gap: 5,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
     borderRadius: radius.lg,
     backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
     borderColor: colors.hairline,
   },
   modeOn: { borderColor: colors.current, backgroundColor: 'rgba(61, 189, 248, 0.14)' },
-  modeLabel: { color: colors.textMuted, fontFamily: fonts.body, fontSize: 14.5, fontWeight: '600' },
+  modeLabel: { color: colors.textMuted, fontFamily: fonts.body, fontSize: 13, fontWeight: '600', textAlign: 'center' },
   modeLabelOn: { color: colors.text },
 
   notes: {

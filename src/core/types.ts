@@ -64,7 +64,7 @@ export interface WorldData {
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
-export type GameMode = 'classic' | 'daily' | 'campaign' | 'flight';
+export type GameMode = 'classic' | 'daily' | 'campaign' | 'flight' | 'visa';
 
 export interface GameConfig {
   mode: GameMode;
@@ -79,6 +79,8 @@ export interface GameConfig {
   dailyKey?: string;
   /** Which campaign level this is, for campaign games. */
   level?: number;
+  /** Visa Denied: countries whose border is closed for this game. */
+  closed?: string[];
 }
 
 export interface GameState {
@@ -99,7 +101,7 @@ export interface GameState {
   finishedAt?: number;
 }
 
-export type MoveRejection = 'not-adjacent' | 'already-here' | 'finished' | 'unknown-country';
+export type MoveRejection = 'not-adjacent' | 'closed' | 'already-here' | 'finished' | 'unknown-country';
 
 export type MoveResult =
   | { ok: true; state: GameState; won: boolean }
@@ -115,6 +117,8 @@ export interface GameResult {
   wrongGuesses: number;
   /** Hints taken. Absent on results saved before hints existed. */
   hints?: number;
+  /** Visa Denied: the countries that were closed. */
+  closed?: string[];
   seconds: number;
   optimalMoves: number;
   /** True when the player matched the shortest possible route length, unaided. */

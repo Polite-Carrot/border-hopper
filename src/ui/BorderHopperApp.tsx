@@ -196,6 +196,7 @@ export function BorderHopperApp() {
       level: config.level,
       start: config.start,
       destination: config.destination,
+      closed: config.closed?.length,
     });
   }, [config]);
 
@@ -272,6 +273,10 @@ export function BorderHopperApp() {
 
   const startFlight = useCallback(() => {
     startRandom('flight', settings.difficulty);
+  }, [startRandom, settings.difficulty]);
+
+  const startVisa = useCallback(() => {
+    startRandom('visa', settings.difficulty);
   }, [startRandom, settings.difficulty]);
 
   const startDaily = useCallback(() => {
@@ -574,7 +579,7 @@ export function BorderHopperApp() {
         {!ready ? null : screen === 'game' && config ? (
           <GameScreen
             // A fresh game must not inherit the previous game's state.
-            key={`${config.mode}:${config.start}:${config.destination}:${config.dailyKey ?? ''}`}
+            key={`${config.mode}:${config.start}:${config.destination}:${config.dailyKey ?? ''}:${config.closed?.join('') ?? ''}`}
             config={config}
             reduceMotion={settings.reduceMotion}
             // The screen knows whether the game was finished; it is the only
@@ -588,7 +593,9 @@ export function BorderHopperApp() {
                     ? () => leaveGame(false)
                     : config.mode === 'flight'
                       ? startFlight
-                      : startClassic
+                      : config.mode === 'visa'
+                        ? startVisa
+                        : startClassic
               )
             }
             onComplete={handleComplete}
@@ -672,6 +679,7 @@ export function BorderHopperApp() {
             onCampaign={() => setScreen('campaign')}
             onRandom={() => setPicking('classic')}
             onFlight={() => setPicking('flight')}
+            onVisa={() => setPicking('visa')}
             onDaily={startDaily}
             onStats={() => setScreen('stats')}
             onSettings={() => setScreen('settings')}

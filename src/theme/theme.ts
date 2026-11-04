@@ -45,6 +45,8 @@ export const mapColors = {
   hubFill: 'rgba(7, 16, 29, 0.85)',
   /** A hinted country. */
   hint: '#FFCE6A',
+  /** Visa Denied: a country whose border is closed. */
+  closed: '#E5484D',
 } as const;
 
 export const radius = { sm: 8, md: 12, lg: 18, xl: 26, pill: 999 } as const;
