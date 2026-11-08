@@ -3,6 +3,7 @@ import { EMPTY_STATS, type Stats } from '../core/stats';
 import type { GameResult } from '../core/types';
 import type { CampaignProgress } from '../core/campaign';
 import { backfillPassport, type Passport } from '../core/passport';
+import { EMPTY_TOURS, type ToursProgress } from '../core/tours';
 
 /**
  * Local persistence. Everything the game remembers lives on the device; there
@@ -21,6 +22,7 @@ const KEYS = {
   consentAsked: 'borderbound:consent-asked:v1',
   campaign: 'borderbound:campaign:v1',
   passport: 'borderbound:passport:v1',
+  tours: 'borderbound:tours:v1',
 } as const;
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
@@ -124,6 +126,10 @@ export async function saveOnboarded(): Promise<void> {
 /** Campaign progress: the best result for each level the player has finished. */
 export const loadCampaign = (): Promise<CampaignProgress> => readJson<CampaignProgress>(KEYS.campaign, {});
 export const saveCampaign = (progress: CampaignProgress): Promise<void> => writeJson(KEYS.campaign, progress);
+
+/** Continent tours: finished levels and the badges earned. */
+export const loadTours = (): Promise<ToursProgress> => readJson<ToursProgress>(KEYS.tours, EMPTY_TOURS);
+export const saveTours = (progress: ToursProgress): Promise<void> => writeJson(KEYS.tours, progress);
 
 /**
  * The passport. The first time it is loaded on a device that has been playing

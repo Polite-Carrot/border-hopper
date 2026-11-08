@@ -3,6 +3,7 @@ import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View, useWin
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COUNTRIES, requireCountry } from '../../core/world';
 import { dateKey } from '../../core/daily';
+import { TOURS } from '../../core/tours';
 import { colors, fonts, radius, spacing } from '../../theme';
 import { WorldMap } from '../map/WorldMap';
 import { frameBoxes, makeStage } from '../map/camera';
@@ -10,6 +11,9 @@ import { Button } from '../components/Button';
 
 export interface MenuScreenProps {
   onCampaign: () => void;
+  onTours: () => void;
+  /** Tour badges earned, for the tours button. */
+  badges: number;
   onRandom: () => void;
   onFlight: () => void;
   onVisa: () => void;
@@ -34,7 +38,7 @@ export interface MenuScreenProps {
 const BACKDROP_TOUR = ['IT', 'ID', 'BR', 'KE', 'JP', 'NO'];
 
 export function MenuScreen({
-  onCampaign, onRandom, onFlight, onVisa, onDaily, onStats, onSettings, onPassport, stamps, dailyDone, dailyStreak,
+  onCampaign, onTours, badges, onRandom, onFlight, onVisa, onDaily, onStats, onSettings, onPassport, stamps, dailyDone, dailyStreak,
   campaignLevel, campaignDone, reduceMotion, removeAds = null,
 }: MenuScreenProps) {
   const { width, height } = useWindowDimensions();
@@ -99,6 +103,11 @@ export function MenuScreen({
               variant="primary"
               icon="play"
               onPress={onCampaign}
+            />
+            <Button
+              label={badges > 0 ? `Continent tours · ${badges} of ${TOURS.length}` : 'Continent tours'}
+              icon="globe"
+              onPress={onTours}
             />
             <View style={styles.row}>
               <Button label="Random" icon="again" onPress={onRandom} style={styles.half} />

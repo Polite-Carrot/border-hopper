@@ -128,7 +128,7 @@ export function SettingsScreen({
           }}
         />
         <Text style={styles.note}>
-          Your statistics, settings, campaign progress and passport are stored on this device.
+          Your statistics, settings, campaign and tour progress, and passport are stored on this device.
           There is no account, so a reset cannot be undone.
           {reminder ? ' The daily reminder stays as it is.' : ''}
         </Text>

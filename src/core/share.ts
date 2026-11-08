@@ -1,5 +1,6 @@
 import { distancesFrom } from './graph';
 import { countryFlag } from './world';
+import { tourById } from './tours';
 import { formatDuration, pluralise } from './format';
 import type { GameResult } from './types';
 
@@ -47,10 +48,13 @@ export function shareText(result: GameResult): string {
     ? `🌍 BORDER HOPPER — ${result.dailyKey}`
     : result.mode === 'campaign' && result.level !== undefined
       ? `🌍 BORDER HOPPER — Level ${result.level}`
-      : result.mode === 'visa'
-        ? '🌍 BORDER HOPPER — Visa Denied'
-        : '🌍 BORDER HOPPER';
-  const shared = result.mode === 'daily' || result.mode === 'campaign';
+      : result.mode === 'tour' && result.tour
+        ? `🌍 BORDER HOPPER — ${tourById(result.tour)?.name ?? 'Tour'}, level ${result.level}`
+        : result.mode === 'visa'
+          ? '🌍 BORDER HOPPER — Visa Denied'
+          : '🌍 BORDER HOPPER';
+  // Puzzles everyone plays the same way never show their route.
+  const shared = result.mode === 'daily' || result.mode === 'campaign' || result.mode === 'tour';
   const start = result.route[0];
   const end = result.route[result.route.length - 1];
   const lines = shared

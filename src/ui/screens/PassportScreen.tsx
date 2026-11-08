@@ -12,6 +12,8 @@ import { Explorer } from '../map/Explorer';
 import { Flag } from '../components/Flag';
 import { Icon } from '../components/Icon';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { TourBadge } from '../components/TourBadge';
+import { TOURS } from '../../core/tours';
 
 const AnimatedG = Animated.createAnimatedComponent(G);
 
@@ -21,6 +23,8 @@ export interface PassportScreenProps {
   onWear: (skin: string | null) => void;
   onBack: () => void;
   reduceMotion: boolean;
+  /** Continent tour badges earned, by tour, with the day each was won. */
+  tourBadges?: Record<string, string>;
 }
 
 /** The preview explorer, drawn this many times his size on the map. */
@@ -43,7 +47,7 @@ const PAGES: { continent: Continent; countries: Country[] }[] = CONTINENTS.map((
  * the start and everything passed through included. Tap a stamp to put its
  * flag on his jumper.
  */
-export function PassportScreen({ passport, onWear, onBack, reduceMotion }: PassportScreenProps) {
+export function PassportScreen({ passport, onWear, onBack, reduceMotion, tourBadges = {} }: PassportScreenProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const columns = width >= 560 ? 6 : 4;
@@ -119,6 +123,19 @@ export function PassportScreen({ passport, onWear, onBack, reduceMotion }: Passp
               ? 'Every country you travel through earns a stamp. Wear any stamp’s flag.'
               : 'Every country you travel through earns a stamp. Tap one to wear its flag.'}
           </Text>
+        </View>
+
+        {/* The tour badges get a page of their own, before the stamps. */}
+        <View style={styles.pageHeader}>
+          <Text style={styles.pageTitle}>TOUR BADGES</Text>
+          <Text style={styles.pageCount}>
+            {TOURS.filter((tour) => tourBadges[tour.id]).length}/{TOURS.length}
+          </Text>
+        </View>
+        <View style={styles.badgeRow}>
+          {TOURS.map((tour) => (
+            <TourBadge key={tour.id} tour={tour} earned={tourBadges[tour.id]} size={50} />
+          ))}
         </View>
 
         {PAGES.map(({ continent, countries }) => (
@@ -228,6 +245,7 @@ const styles = StyleSheet.create({
   pageTitle: { color: colors.textMuted, fontFamily: fonts.display, fontSize: 10.5, letterSpacing: 2, fontWeight: '700' },
   pageCount: { color: colors.textMuted, fontSize: 12, fontVariant: ['tabular-nums'] },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.xs },
   stamp: {
     alignItems: 'center',
     gap: 6,

@@ -592,6 +592,20 @@ in the second thousand (long routes need far-apart ends, and left alone
 Eswatini and Lesotho came round every 25 levels). The Americas can only give
 33 routes long enough, and get all of them.
 
+**Continent tours** — five short themed runs of land levels, each ending in a
+passport badge: Europe (30 levels), Africa (30), Asia (30), The Americas (25,
+Canada to Argentina: South America alone is too compact, every route there is
+two or three moves) and The Silk Road (20, every level from Europe into Asia).
+Every start and destination is in the tour's region, territories never; each
+opens on a hand-picked pair everyone knows (Spain to Italy, South Africa to
+Zambia, India to Thailand, the US to Guatemala, Greece to Iran) and climbs to
+the region's longest routes, drawing only on its better-known half for the
+first third. Levels open one at a time, like the campaign's, and finishing the
+last earns the badge, dated, on the result card, the tours screen and a page of
+the passport. Built once by `npm run build:tours` into
+`src/data/tours.generated.json`; once shipped, a tour's levels must not change,
+so add tours rather than rebuilding old ones. Reset all progress clears them.
+
 **Random**, **Flight** and **Visa Denied** — all open the same sheet, differing only in
 which mode it starts on: they are the same game with a different rule, and two
 sheets that drifted apart would be worse than one. Pick how you travel, pick

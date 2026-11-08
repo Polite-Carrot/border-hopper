@@ -7,6 +7,9 @@ import { shareText } from '../../core/share';
 import { track } from '../../core/analytics';
 import { CAMPAIGN_LENGTH } from '../../core/campaign';
 import { bestRoute } from '../../core/game';
+import { tourById } from '../../core/tours';
+import { dateKey } from '../../core/daily';
+import { TourBadge } from '../components/TourBadge';
 import { areNeighbours } from '../../core/graph';
 import type { GameResult } from '../../core/types';
 import { colors, fonts, radius, spacing } from '../../theme';
@@ -21,13 +24,15 @@ export interface ResultOverlayProps {
   newStamps?: readonly string[];
   onNewGame: () => void;
   onExit: () => void;
+  /** A tour badge this game just earned. */
+  badgeEarned?: string | null;
 }
 
 /**
  * The finish. It rises over the map rather than replacing it, so the last
  * country the player reached is still visible behind the numbers.
  */
-export function ResultOverlay({ result, newStamps = [], onNewGame, onExit }: ResultOverlayProps) {
+export function ResultOverlay({ result, newStamps = [], onNewGame, onExit, badgeEarned = null }: ResultOverlayProps) {
   const insets = useSafeAreaInsets();
   const entry = useRef(new Animated.Value(0)).current;
 
@@ -41,6 +46,9 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit }: Res
   }, [entry]);
 
   const hints = result.hints ?? 0;
+  const tour = result.mode === 'tour' && result.tour ? tourById(result.tour) : undefined;
+  const earnedTour = badgeEarned ? tourById(badgeEarned) : undefined;
+  const lastTourLevel = tour !== undefined && result.level !== undefined && result.level >= tour.levels.length;
   // One shortest way there, when the player's was longer: the geography the
   // game is really about. A hinted route that was already shortest is shown
   // as the player's own.
@@ -79,6 +87,8 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit }: Res
         <Text style={styles.eyebrow}>
           {result.mode === 'campaign'
             ? `LEVEL ${result.level} OF ${CAMPAIGN_LENGTH}`
+            : tour
+              ? `${tour.name.toUpperCase()} · LEVEL ${result.level} OF ${tour.levels.length}`
             : result.mode === 'daily'
               ? `DAILY · ${result.dailyKey}`
               : result.mode === 'visa'
@@ -127,6 +137,14 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit }: Res
           {hints > 0 ? ` · 💡 ${pluralise(hints, 'hint')}` : ''}
         </Text>
 
+        {earnedTour ? (
+          <View style={styles.badge} accessibilityLabel={`${earnedTour.name} tour complete: badge earned`}>
+            <Text style={styles.stampsTitle}>TOUR COMPLETE</Text>
+            <TourBadge tour={earnedTour} earned={dateKey()} size={88} />
+            <Text style={styles.stampsHint}>{earnedTour.name} badge added to your passport.</Text>
+          </View>
+        ) : null}
+
         {newStamps.length > 0 ? (
           <View style={styles.stamps} accessibilityLabel={`New passport stamps: ${newStamps.map(countryName).join(', ')}`}>
             <Text style={styles.stampsTitle}>
@@ -153,16 +171,20 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit }: Res
                 ? result.level !== undefined && result.level < CAMPAIGN_LENGTH
                   ? `Level ${result.level + 1}`
                   : 'Back to campaign'
-                : 'New game'
+                : tour
+                  ? lastTourLevel
+                    ? 'Back to tours'
+                    : `Level ${(result.level ?? 0) + 1}`
+                  : 'New game'
             }
             variant="primary"
-            icon={result.mode === 'campaign' ? 'play' : 'again'}
+            icon={result.mode === 'campaign' || tour ? 'play' : 'again'}
             onPress={onNewGame}
           />
           <View style={styles.secondaryRow}>
             <Button label="Share" icon="share" onPress={onShare} style={styles.half} />
             <Button
-              label={result.mode === 'campaign' ? 'Levels' : 'Menu'}
+              label={result.mode === 'campaign' || tour ? 'Levels' : 'Menu'}
               onPress={onExit}
               style={styles.half}
             />
@@ -205,6 +227,17 @@ function RouteChips({
 }
 
 const styles = StyleSheet.create({
+  badge: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 206, 106, 0.55)',
+    backgroundColor: 'rgba(255, 206, 106, 0.1)',
+  },
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(5, 10, 18, 0.95)' },
   content: { paddingHorizontal: spacing.xl, alignItems: 'center', gap: spacing.md, flexGrow: 1, justifyContent: 'center' },
   eyebrow: { color: colors.textMuted, fontFamily: fonts.display, fontSize: 10.5, letterSpacing: 2.4, fontWeight: '700' },

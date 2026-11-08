@@ -59,7 +59,8 @@
     "sync:native": "npm run build:web && npx cap sync",
     "open:ios": "npx cap open ios",
     "open:android": "npx cap open android",
-    "assets:native": "capacitor-assets generate --ios --android --assetPath resources"
+    "assets:native": "capacitor-assets generate --ios --android --assetPath resources",
+    "build:tours": "tsx scripts/build-tours.ts"
   },
   "private": true,
   "description": "A geography game about crossing the world one land border at a time"

@@ -40,6 +40,8 @@ export interface AnalyticsEvents {
     destination: string;
     /** Visa Denied only: how many borders are closed. */
     closed?: number;
+    /** Continent tours only: which tour. */
+    tour?: string;
   };
 
   /** A game is won. `over_par` is 0 for a perfect route and never negative. */
@@ -94,6 +96,9 @@ export interface AnalyticsEvents {
 
   /** The player got to the end of the campaign ladder. */
   campaign_complete: { seconds_total: number; perfect_levels: number };
+
+  /** A continent tour finished, and its badge earned. */
+  tour_complete: { tour: string; perfect_levels: number };
 
   /** A finished game was shared, and from which mode. */
   result_shared: { mode: string; level?: number; optimal: boolean };

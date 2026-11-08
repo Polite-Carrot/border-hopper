@@ -11,7 +11,7 @@ import { EMPTY_STATS, recordGameAbandoned, recordGameCompleted, recordGameStarte
 import type { GameConfig, GameResult } from '../core/types';
 import { EMPTY_PASSPORT, chooseSkin, stamp, stampCount, type Passport } from '../core/passport';
 import {
-  DEFAULT_SETTINGS, loadCampaign, loadDailyResults, loadOnboarded, loadPassport, loadSettings, loadStats,
+  DEFAULT_SETTINGS, loadCampaign, loadTours, saveTours, loadDailyResults, loadOnboarded, loadPassport, loadSettings, loadStats,
   loadConsentAsked, resetEverything, saveCampaign, saveConsentAsked, saveDailyResults,
   saveOnboarded, savePassport, saveSettings, saveStats,
   type DailyResults, type Settings,
@@ -37,11 +37,15 @@ import { PassportScreen } from './screens/PassportScreen';
 import { ConsentPrompt } from './screens/ConsentPrompt';
 import { BootScreen } from './screens/BootScreen';
 import { ReminderOffer } from './screens/ReminderOffer';
+import { ToursScreen } from './screens/ToursScreen';
+import {
+  EMPTY_TOURS, badgeCount, recordTourLevel, tourById, tourGame, type ToursProgress,
+} from '../core/tours';
 
 /** Finished games, in any mode, after which the reminder is offered anyway. */
 const REMINDER_AFTER_GAMES = 10;
 
-type Screen = 'menu' | 'game' | 'campaign' | 'stats' | 'settings' | 'privacy' | 'passport' | 'daily-done';
+type Screen = 'menu' | 'game' | 'campaign' | 'tours' | 'stats' | 'settings' | 'privacy' | 'passport' | 'daily-done';
 
 /**
  * The whole app. Screens are a single piece of state rather than a navigation
@@ -87,13 +91,18 @@ export function BorderHopperApp() {
   const [purchaseMessage, setPurchaseMessage] = useState<string | null>(null);
   /** "Thank you!" stays on the menu button this long after buying from it. */
   const [thanksUntil, setThanksUntil] = useState(0);
+  const [tours, setTours] = useState<ToursProgress>(EMPTY_TOURS);
+  /** The tour whose levels the tours screen shows, or null for the list. */
+  const [selectedTour, setSelectedTour] = useState<string | null>(null);
+  /** A tour badge the game just finished earned, for the result card. */
+  const [badgeEarned, setBadgeEarned] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
-      const [savedStats, savedSettings, savedDaily, savedCampaign, onboarded, consentAsked, savedPassport] =
+      const [savedStats, savedSettings, savedDaily, savedCampaign, onboarded, consentAsked, savedPassport, savedTours] =
         await Promise.all([
           loadStats(), loadSettings(), loadDailyResults(), loadCampaign(), loadOnboarded(),
-          loadConsentAsked(), loadPassport(dateKey()), getReminders().load(), getPurchases().load(),
+          loadConsentAsked(), loadPassport(dateKey()), loadTours(), getReminders().load(), getPurchases().load(),
         ]);
       passportRef.current = savedPassport;
       setPassport(savedPassport);
@@ -101,6 +110,7 @@ export function BorderHopperApp() {
       setSettings(savedSettings);
       setDailyResults(savedDaily);
       setCampaign(savedCampaign);
+      setTours(savedTours);
       setNeedsOnboarding(!onboarded);
       setNeedsConsent(!consentAsked);
       setReminder(getReminders().state());
@@ -245,6 +255,17 @@ export function BorderHopperApp() {
     [stats, persistStats]
   );
 
+  const startTourLevel = useCallback(
+    (id: string, level: number) => {
+      setSelectedTour(id);
+      setBadgeEarned(null);
+      setConfig(tourGame(id, level));
+      setScreen('game');
+      persistStats(recordGameStarted(stats));
+    },
+    [stats, persistStats]
+  );
+
   /**
    * Starts a one-off game in an explicitly chosen mode and difficulty, and
    * remembers the difficulty so the sheet opens on it next time. The sheet is
@@ -320,6 +341,19 @@ export function BorderHopperApp() {
           });
         }
       }
+      if (result.mode === 'tour' && result.tour) {
+        const next = recordTourLevel(tours, result);
+        setTours(next);
+        void saveTours(next);
+        // The badge, the moment the tour's last gap closes.
+        if (!tours.badges[result.tour] && next.badges[result.tour]) {
+          setBadgeEarned(result.tour);
+          track('tour_complete', {
+            tour: result.tour,
+            perfect_levels: Object.values(next.levels[result.tour] ?? {}).filter((level) => level.optimal).length,
+          });
+        }
+      }
       if (result.mode === 'daily' && result.dailyKey) {
         const next = { ...dailyResults, [result.dailyKey]: result };
         setDailyResults(next);
@@ -337,15 +371,16 @@ export function BorderHopperApp() {
           });
       }
     },
-    [stats, dailyResults, campaign, persistStats]
+    [stats, dailyResults, campaign, tours, persistStats]
   );
 
   const leaveGame = useCallback(
     (unfinished: boolean) => {
       if (unfinished) persistStats(recordGameAbandoned(stats));
-      const wasCampaign = config?.mode === 'campaign';
+      const from = config?.mode;
       setConfig(null);
-      setScreen(wasCampaign ? 'campaign' : 'menu');
+      setBadgeEarned(null);
+      setScreen(from === 'campaign' ? 'campaign' : from === 'tour' ? 'tours' : 'menu');
     },
     [stats, config, persistStats]
   );
@@ -564,6 +599,15 @@ export function BorderHopperApp() {
   const todayKey = dateKey();
   const campaignNext = nextLevel(campaign);
 
+  /** After a tour level, on to the next one, or back to the tours once it is done. */
+  const advanceTour = useCallback(() => {
+    const tour = config?.tour ? tourById(config.tour) : undefined;
+    const following = (config?.level ?? 0) + 1;
+    setBadgeEarned(null);
+    if (tour && following <= tour.levels.length) startTourLevel(tour.id, following);
+    else leaveGame(false);
+  }, [config, startTourLevel, leaveGame]);
+
   /** After a campaign level, go straight on to the next one. */
   const advanceCampaign = useCallback(() => {
     const level = config?.level;
@@ -579,7 +623,7 @@ export function BorderHopperApp() {
         {!ready ? null : screen === 'game' && config ? (
           <GameScreen
             // A fresh game must not inherit the previous game's state.
-            key={`${config.mode}:${config.start}:${config.destination}:${config.dailyKey ?? ''}:${config.closed?.join('') ?? ''}`}
+            key={`${config.mode}:${config.start}:${config.destination}:${config.dailyKey ?? ''}:${config.closed?.join('') ?? ''}:${config.tour ?? ''}:${config.level ?? ''}`}
             config={config}
             reduceMotion={settings.reduceMotion}
             // The screen knows whether the game was finished; it is the only
@@ -589,7 +633,9 @@ export function BorderHopperApp() {
               afterAd(
                 config.mode === 'campaign'
                   ? advanceCampaign
-                  : config.mode === 'daily'
+                  : config.mode === 'tour'
+                    ? advanceTour
+                    : config.mode === 'daily'
                     ? () => leaveGame(false)
                     : config.mode === 'flight'
                       ? startFlight
@@ -599,6 +645,7 @@ export function BorderHopperApp() {
               )
             }
             onComplete={handleComplete}
+            badgeEarned={badgeEarned}
             passport={passport}
             onStamp={stampCountries}
           />
@@ -607,6 +654,17 @@ export function BorderHopperApp() {
             progress={campaign}
             onPlayLevel={startLevel}
             onBack={() => setScreen('menu')}
+          />
+        ) : screen === 'tours' ? (
+          <ToursScreen
+            progress={tours}
+            selected={selectedTour}
+            onSelect={setSelectedTour}
+            onPlayLevel={startTourLevel}
+            onClose={() => {
+              setSelectedTour(null);
+              setScreen('menu');
+            }}
           />
         ) : screen === 'stats' ? (
           <StatsScreen stats={stats} onBack={() => setScreen('menu')} />
@@ -620,6 +678,8 @@ export function BorderHopperApp() {
               setSettings(DEFAULT_SETTINGS);
               setDailyResults({});
               setCampaign({});
+              setTours(EMPTY_TOURS);
+              setSelectedTour(null);
               passportRef.current = EMPTY_PASSPORT;
               setPassport(EMPTY_PASSPORT);
               // Erasing everything includes the answer: the card comes back
@@ -664,6 +724,7 @@ export function BorderHopperApp() {
           <PassportScreen
             passport={passport}
             onWear={wearSkin}
+            tourBadges={tours.badges}
             onBack={() => setScreen('menu')}
             reduceMotion={settings.reduceMotion}
           />
@@ -677,6 +738,8 @@ export function BorderHopperApp() {
         ) : (
           <MenuScreen
             onCampaign={() => setScreen('campaign')}
+            onTours={() => setScreen('tours')}
+            badges={badgeCount(tours)}
             onRandom={() => setPicking('classic')}
             onFlight={() => setPicking('flight')}
             onVisa={() => setPicking('visa')}

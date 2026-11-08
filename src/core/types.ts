@@ -64,7 +64,7 @@ export interface WorldData {
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
-export type GameMode = 'classic' | 'daily' | 'campaign' | 'flight' | 'visa';
+export type GameMode = 'classic' | 'daily' | 'campaign' | 'flight' | 'visa' | 'tour';
 
 export interface GameConfig {
   mode: GameMode;
@@ -81,6 +81,8 @@ export interface GameConfig {
   level?: number;
   /** Visa Denied: countries whose border is closed for this game. */
   closed?: string[];
+  /** Continent tours: which tour; `level` is the level within it. */
+  tour?: string;
 }
 
 export interface GameState {
@@ -119,6 +121,8 @@ export interface GameResult {
   hints?: number;
   /** Visa Denied: the countries that were closed. */
   closed?: string[];
+  /** Continent tours: which tour. */
+  tour?: string;
   seconds: number;
   optimalMoves: number;
   /** True when the player matched the shortest possible route length, unaided. */

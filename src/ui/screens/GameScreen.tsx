@@ -9,6 +9,7 @@ import { HUBS, flightsOf, isHub } from '../../core/graph';
 import { bestMatch, searchCountries } from '../../core/search';
 import { track } from '../../core/analytics';
 import { newStamps, type Passport } from '../../core/passport';
+import { tourById } from '../../core/tours';
 import { MAP_HEIGHT, MAP_WIDTH, countryFlag, countryName, requireCountry } from '../../core/world';
 import type { GameConfig, GameResult, GameState } from '../../core/types';
 import { colors, fonts, timing } from '../../theme';
@@ -58,10 +59,12 @@ export interface GameScreenProps {
   passport: Passport;
   /** Stamps countries into the passport the moment the explorer stands in them. */
   onStamp: (isos: string[]) => void;
+  /** A tour badge this game just earned, for the result card. */
+  badgeEarned?: string | null;
 }
 
 export function GameScreen({
-  config, reduceMotion, onExit, onNewGame, onComplete, passport, onStamp,
+  config, reduceMotion, onExit, onNewGame, onComplete, passport, onStamp, badgeEarned = null,
 }: GameScreenProps) {
   const layout = useLayout();
   const insets = useSafeAreaInsets();
@@ -417,6 +420,8 @@ export function GameScreen({
           caption={
             config.mode === 'campaign'
               ? `LEVEL ${config.level} · TRAVEL TO`
+              : config.mode === 'tour'
+                ? `${(tourById(config.tour ?? '')?.name ?? 'TOUR').toUpperCase()} ${config.level} · TRAVEL TO`
               : config.mode === 'daily'
                 ? 'DAILY · TRAVEL TO'
                 : config.mode === 'flight'
@@ -502,6 +507,7 @@ export function GameScreen({
           result={toResult(state)}
           newStamps={newStamps(passportAtStart, state.route)}
           onNewGame={onNewGame}
+          badgeEarned={badgeEarned}
           onExit={handleExit}
         />
       ) : null}

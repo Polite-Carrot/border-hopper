@@ -111,6 +111,7 @@ export function toResult(state: GameState, now: number = Date.now()): GameResult
     wrongGuesses: state.wrongGuesses.length,
     hints: state.hints,
     ...(state.config.closed ? { closed: state.config.closed } : {}),
+    ...(state.config.tour ? { tour: state.config.tour } : {}),
     seconds: elapsedSeconds(state, now),
     optimalMoves: state.config.optimalMoves,
     optimal: moves <= state.config.optimalMoves && state.hints === 0,
