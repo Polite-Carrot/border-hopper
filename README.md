@@ -14,7 +14,9 @@ From France, Spain is a legal move. So are Belgium, Germany and Italy.
 Portugal is not — it does not border France. Work out the route yourself.
 
 Stuck? **Hint** outlines the country to head for on the map; a second press
-names it. Either one costs the perfect route, and nothing else. When a route
+names it. Either one costs the perfect route, and each counts as a hint: a
+game has three (`MAX_HINTS` in `src/core/game.ts`), and the button shows how
+many are left. When a route
 was longer than it needed to be, the result card shows a best route
 underneath, and sharing the daily or a campaign level shows squares rather
 than countries (🟩 a move that got closer, 🟨 one that did not), so a friend
