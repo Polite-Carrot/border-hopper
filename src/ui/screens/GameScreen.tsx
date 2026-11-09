@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   allowsFlights, applyMove, createGame, currentCountry, elapsedSeconds, moveCount,
-  recordWrongGuess, takeHint, toResult, wasFlown,
+  recordWrongGuess, takeHint, hintsLeft, toResult, wasFlown,
 } from '../../core/game';
 import { HUBS, flightsOf, isHub } from '../../core/graph';
 import { bestMatch, searchCountries } from '../../core/search';
@@ -317,7 +317,8 @@ export function GameScreen({
       : flying
         ? 'Take a flight from here.'
         : 'Head for the country outlined in gold.';
-    setToast({ message, token: Date.now(), tone: 'hint' });
+    const last = hintsLeft(next) === 0 ? ' That was your last hint.' : '';
+    setToast({ message: message + last, token: Date.now(), tone: 'hint' });
     haptic('light');
     track('hint_used', {
       mode: config.mode,
@@ -404,6 +405,7 @@ export function GameScreen({
       {state.status === 'playing' && phase === 'playing' ? (
         <HintButton
           next={!state.hint ? 'outline' : state.hint.named ? 'done' : 'name'}
+          left={hintsLeft(state)}
           onPress={handleHint}
           style={{ left: hintSpot.x, top: hintSpot.y }}
         />

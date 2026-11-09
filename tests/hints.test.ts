@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyMove, bestRoute, createGame, nextStep, takeHint, toResult } from '../src/core/game';
+import { MAX_HINTS, applyMove, bestRoute, createGame, hintsLeft, nextStep, takeHint, toResult } from '../src/core/game';
 import { canTravel, shortestMoveCount } from '../src/core/graph';
 import { generateGame } from '../src/core/generate';
 import type { GameConfig, GameState } from '../src/core/types';
@@ -57,6 +57,25 @@ describe('hints', () => {
     expect(result.moves).toBe(result.optimalMoves);
     expect(result.hints).toBe(1);
     expect(result.optimal).toBe(false);
+  });
+
+  it('stop at three a game, outline and name each counting', () => {
+    expect(MAX_HINTS).toBe(3);
+    let state = game('PT', 'PL');
+    expect(hintsLeft(state)).toBe(3);
+    state = takeHint(takeHint(state));
+    expect(hintsLeft(state)).toBe(1);
+    state = move(state, state.hint!.iso2);
+    state = takeHint(state);
+    expect(state.hints).toBe(3);
+    expect(hintsLeft(state)).toBe(0);
+    // The outline is showing, but its name would be a fourth hint.
+    expect(takeHint(state)).toBe(state);
+    // Nor does moving on bring any back.
+    state = move(state, state.hint!.iso2);
+    expect(state.hint).toBeUndefined();
+    expect(takeHint(state)).toBe(state);
+    expect(hintsLeft(state)).toBe(0);
   });
 
   it('say when the next step is a flight', () => {

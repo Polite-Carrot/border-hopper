@@ -139,13 +139,25 @@ export function nextStep(state: GameState): string | null {
 }
 
 /**
+ * Hints allowed in one game. Every press counts: showing where to head is
+ * one, naming it another. Enough to get unstuck once or twice; not enough to
+ * be walked the whole way there.
+ */
+export const MAX_HINTS = 3;
+
+/** Hints still to take this game. */
+export function hintsLeft(state: GameState): number {
+  return Math.max(0, MAX_HINTS - state.hints);
+}
+
+/**
  * Takes the next hint for where the player stands. The first shows where to
  * head (an outline on the map); the second gives its name. Each counts once,
- * and asking again after both changes nothing.
+ * and asking again after both, or once MAX_HINTS are used, changes nothing.
  */
 export function takeHint(state: GameState): GameState {
   if (state.status !== 'playing') return state;
-  if (state.hint?.named) return state;
+  if (state.hint?.named || hintsLeft(state) === 0) return state;
   if (state.hint) return { ...state, hints: state.hints + 1, hint: { ...state.hint, named: true } };
   const step = nextStep(state);
   if (!step) return state;
