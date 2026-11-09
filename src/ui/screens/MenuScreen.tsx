@@ -107,6 +107,11 @@ export function MenuScreen({
               onPress={onCampaign}
             />
             <Button
+              label={visaLevel === null ? 'Visa Denied · complete' : `Visa Denied · level ${visaLevel}`}
+              icon="noentry"
+              onPress={onVisa}
+            />
+            <Button
               label={badges > 0 ? `Continent tours · ${badges} of ${TOURS.length}` : 'Continent tours'}
               icon="globe"
               onPress={onTours}
@@ -115,11 +120,6 @@ export function MenuScreen({
               <Button label="Random" icon="again" onPress={onRandom} style={styles.half} />
               <Button label="Flight" icon="plane" onPress={onFlight} style={styles.half} />
             </View>
-            <Button
-              label={visaLevel === null ? 'Visa Denied · complete' : `Visa Denied · level ${visaLevel}`}
-              icon="noentry"
-              onPress={onVisa}
-            />
             <Button
               label={dailyDone ? 'Daily challenge · done' : 'Daily challenge'}
               icon="calendar"
