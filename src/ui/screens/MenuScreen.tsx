@@ -17,6 +17,8 @@ export interface MenuScreenProps {
   onRandom: () => void;
   onFlight: () => void;
   onVisa: () => void;
+  /** The Visa Denied level the player is up to, or null once all are done. */
+  visaLevel: number | null;
   onDaily: () => void;
   onStats: () => void;
   onSettings: () => void;
@@ -38,7 +40,7 @@ export interface MenuScreenProps {
 const BACKDROP_TOUR = ['IT', 'ID', 'BR', 'KE', 'JP', 'NO'];
 
 export function MenuScreen({
-  onCampaign, onTours, badges, onRandom, onFlight, onVisa, onDaily, onStats, onSettings, onPassport, stamps, dailyDone, dailyStreak,
+  onCampaign, onTours, badges, onRandom, onFlight, onVisa, visaLevel, onDaily, onStats, onSettings, onPassport, stamps, dailyDone, dailyStreak,
   campaignLevel, campaignDone, reduceMotion, removeAds = null,
 }: MenuScreenProps) {
   const { width, height } = useWindowDimensions();
@@ -113,7 +115,11 @@ export function MenuScreen({
               <Button label="Random" icon="again" onPress={onRandom} style={styles.half} />
               <Button label="Flight" icon="plane" onPress={onFlight} style={styles.half} />
             </View>
-            <Button label="Visa Denied" icon="noentry" onPress={onVisa} />
+            <Button
+              label={visaLevel === null ? 'Visa Denied · complete' : `Visa Denied · level ${visaLevel}`}
+              icon="noentry"
+              onPress={onVisa}
+            />
             <Button
               label={dailyDone ? 'Daily challenge · done' : 'Daily challenge'}
               icon="calendar"

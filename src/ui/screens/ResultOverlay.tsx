@@ -6,6 +6,7 @@ import { formatDuration, pluralise } from '../../core/format';
 import { shareText } from '../../core/share';
 import { track } from '../../core/analytics';
 import { CAMPAIGN_LENGTH } from '../../core/campaign';
+import { VISA_LENGTH } from '../../core/visaCampaign';
 import { bestRoute } from '../../core/game';
 import { tourById } from '../../core/tours';
 import { dateKey } from '../../core/daily';
@@ -49,6 +50,10 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit, badge
   const tour = result.mode === 'tour' && result.tour ? tourById(result.tour) : undefined;
   const earnedTour = badgeEarned ? tourById(badgeEarned) : undefined;
   const lastTourLevel = tour !== undefined && result.level !== undefined && result.level >= tour.levels.length;
+  // A Visa Denied campaign level, rather than a random Visa Denied game.
+  const visaLevel = result.mode === 'visa' ? result.level : undefined;
+  // Part of a ladder of levels: carries on to the next, and back to the list.
+  const ladder = result.mode === 'campaign' || tour !== undefined || visaLevel !== undefined;
   // One shortest way there, when the player's was longer: the geography the
   // game is really about. A hinted route that was already shortest is shown
   // as the player's own.
@@ -91,7 +96,9 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit, badge
               ? `${tour.name.toUpperCase()} · LEVEL ${result.level} OF ${tour.levels.length}`
             : result.mode === 'daily'
               ? `DAILY · ${result.dailyKey}`
-              : result.mode === 'visa'
+              : visaLevel !== undefined
+                ? `VISA DENIED · LEVEL ${visaLevel} OF ${VISA_LENGTH}`
+                : result.mode === 'visa'
                 ? 'VISA DENIED · ROUTE COMPLETE'
                 : 'ROUTE COMPLETE'}
         </Text>
@@ -175,16 +182,20 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit, badge
                   ? lastTourLevel
                     ? 'Back to tours'
                     : `Level ${(result.level ?? 0) + 1}`
-                  : 'New game'
+                  : visaLevel !== undefined
+                    ? visaLevel < VISA_LENGTH
+                      ? `Level ${visaLevel + 1}`
+                      : 'Back to Visa Denied'
+                    : 'New game'
             }
             variant="primary"
-            icon={result.mode === 'campaign' || tour ? 'play' : 'again'}
+            icon={ladder ? 'play' : 'again'}
             onPress={onNewGame}
           />
           <View style={styles.secondaryRow}>
             <Button label="Share" icon="share" onPress={onShare} style={styles.half} />
             <Button
-              label={result.mode === 'campaign' || tour ? 'Levels' : 'Menu'}
+              label={ladder ? 'Levels' : 'Menu'}
               onPress={onExit}
               style={styles.half}
             />

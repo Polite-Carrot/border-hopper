@@ -21,4 +21,5 @@ jobs:
         run: |
           npm run build:data
           npm run build:campaign
-          git diff --exit-code src/data/world.generated.json src/data/campaign.generated.json
+          npm run build:visa
+          git diff --exit-code src/data/world.generated.json src/data/campaign.generated.json src/data/visa-campaign.generated.json

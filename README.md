@@ -621,9 +621,10 @@ the passport. Built once by `npm run build:tours` into
 `src/data/tours.generated.json`; once shipped, a tour's levels must not change,
 so add tours rather than rebuilding old ones. Reset all progress clears them.
 
-**Random**, **Flight** and **Visa Denied** — all open the same sheet, differing only in
-which mode it starts on: they are the same game with a different rule, and two
-sheets that drifted apart would be worse than one. Pick how you travel, pick
+**Random** and **Flight** — both open the same sheet, differing only in which
+mode it starts on: they are the same game with a different rule, and two
+sheets that drifted apart would be worse than one. The sheet also offers random
+Visa Denied games. Pick how you travel, pick
 how far, and go. The difficulty bands shown change with the mode, because they
 genuinely differ — a hard walk is 5–7 moves and a hard flight is 6–8.
 
@@ -691,8 +692,22 @@ a wrong turn: the explorer hops up to the border, two border officers pop up
 with their hands up, and they throw him back, spinning, into the country he
 came from (`src/ui/map/Refusal.tsx`; just the message with reduce motion on).
 Hints, the par and the best route on the result card all go round the closed
-borders. It lives in the New game sheet beside Land borders and Flight, and on
-the menu.
+borders.
+
+The menu's Visa Denied button opens **the Visa Denied campaign**: 100 fixed
+levels that open one at a time, like the campaign's. One closed border for
+levels 1–25, two to 60, three to 90 and four to 100; start and destination
+three borders apart at first and eight by the end, before the closures; and
+the detours the closures force growing from a step or two to as many as six.
+Early levels use countries everyone knows. Level 1, chosen by hand, is France
+to Ukraine with Germany closed. Which countries close is rotated so it is not
+Russia every time, and the levels move around the world. The Americas get only
+a couple: their one long chain of countries leaves few ways round anything.
+Its progress is kept apart from the campaign's, and its results share without
+the route, like every other fixed level. Built once by `npm run build:visa`
+into `src/data/visa-campaign.generated.json`; once shipped, its levels must
+not change, so extend it rather than rebuild it. Random Visa Denied games are
+still in the Random sheet.
 
 **Daily challenge** — the same start and destination for every player, once a
 day.

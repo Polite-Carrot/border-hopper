@@ -23,6 +23,7 @@ const KEYS = {
   campaign: 'borderbound:campaign:v1',
   passport: 'borderbound:passport:v1',
   tours: 'borderbound:tours:v1',
+  visaCampaign: 'borderbound:visa-campaign:v1',
 } as const;
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
@@ -126,6 +127,10 @@ export async function saveOnboarded(): Promise<void> {
 /** Campaign progress: the best result for each level the player has finished. */
 export const loadCampaign = (): Promise<CampaignProgress> => readJson<CampaignProgress>(KEYS.campaign, {});
 export const saveCampaign = (progress: CampaignProgress): Promise<void> => writeJson(KEYS.campaign, progress);
+
+/** The Visa Denied campaign: best result per finished level. */
+export const loadVisaCampaign = (): Promise<CampaignProgress> => readJson<CampaignProgress>(KEYS.visaCampaign, {});
+export const saveVisaCampaign = (progress: CampaignProgress): Promise<void> => writeJson(KEYS.visaCampaign, progress);
 
 /** Continent tours: finished levels and the badges earned. */
 export const loadTours = (): Promise<ToursProgress> => readJson<ToursProgress>(KEYS.tours, EMPTY_TOURS);

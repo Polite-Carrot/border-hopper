@@ -1,10 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  CAMPAIGN_LENGTH, campaignLevel, completedCount, isLevelComplete, isLevelUnlocked, nextLevel,
-  type CampaignProgress,
-} from '../../core/campaign';
+import { CAMPAIGN_LENGTH, campaignLevel, type CampaignProgress } from '../../core/campaign';
 import { countryFlag } from '../../core/world';
 import { colors, fonts, radius, spacing } from '../../theme';
 import { ScreenHeader } from '../components/ScreenHeader';
@@ -14,44 +11,55 @@ export interface CampaignScreenProps {
   progress: CampaignProgress;
   onPlayLevel: (level: number) => void;
   onBack: () => void;
+  /** Which ladder: the campaign unless told otherwise (Visa Denied). */
+  title?: string;
+  /** One line under the progress bar: the ladder's rule, if it has one. */
+  note?: string;
+  length?: number;
+  /** The level's destination and best possible moves. */
+  entry?: (level: number) => { destination: string; moves: number } | undefined;
 }
 
 const COLUMNS = 5;
 const TILE_GAP = spacing.sm;
 
 /**
- * The campaign ladder. Levels open one at a time, and a finished one can be
- * replayed to improve on it.
+ * A ladder of levels: the campaign, or the Visa Denied campaign. Levels open
+ * one at a time, and a finished one can be replayed to improve on it.
  */
-export function CampaignScreen({ progress, onPlayLevel, onBack }: CampaignScreenProps) {
+export function CampaignScreen({
+  progress, onPlayLevel, onBack, title = 'Campaign', note, length = CAMPAIGN_LENGTH, entry = campaignLevel,
+}: CampaignScreenProps) {
   const insets = useSafeAreaInsets();
   const layout = useLayout();
   const listRef = useRef<FlatList<number>>(null);
 
-  const levels = useMemo(() => Array.from({ length: CAMPAIGN_LENGTH }, (_, i) => i + 1), []);
-  const current = nextLevel(progress);
-  const done = completedCount(progress);
+  const levels = useMemo(() => Array.from({ length }, (_, i) => i + 1), [length]);
+  const complete = (level: number) => progress[level] !== undefined;
+  const current = levels.find((level) => !complete(level)) ?? null;
+  const done = levels.filter(complete).length;
 
   const contentWidth = Math.min(560, layout.width) - spacing.lg * 2;
   const tileSize = Math.floor((contentWidth - TILE_GAP * (COLUMNS - 1)) / COLUMNS);
   const rowHeight = tileSize + TILE_GAP;
   // Open on the level the player is up to rather than back at level one.
-  const initialRow = Math.max(0, Math.floor(((current ?? CAMPAIGN_LENGTH) - 1) / COLUMNS) - 2);
+  const initialRow = Math.max(0, Math.floor(((current ?? length) - 1) / COLUMNS) - 2);
 
   return (
     <View style={styles.root} onLayout={layout.onLayout}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
-        <ScreenHeader title="Campaign" onBack={onBack} />
+        <ScreenHeader title={title} onBack={onBack} />
         <View style={styles.summary}>
           <Text style={styles.progress}>
-            {done} <Text style={styles.progressTotal}>/ {CAMPAIGN_LENGTH}</Text>
+            {done} <Text style={styles.progressTotal}>/ {length}</Text>
           </Text>
           <Text style={styles.summaryLabel}>
-            {current === null ? 'Campaign complete' : `Up to level ${current}`}
+            {current === null ? `${title} complete` : `Up to level ${current}`}
           </Text>
           <View style={styles.bar}>
-            <View style={[styles.barFill, { width: `${(done / CAMPAIGN_LENGTH) * 100}%` }]} />
+            <View style={[styles.barFill, { width: `${(done / length) * 100}%` }]} />
           </View>
+          {note ? <Text style={styles.note}>{note}</Text> : null}
         </View>
       </View>
 
@@ -76,9 +84,10 @@ export function CampaignScreen({ progress, onPlayLevel, onBack }: CampaignScreen
         renderItem={({ item: level }) => (
           <LevelTile
             level={level}
+            entry={entry(level)}
             size={tileSize}
-            complete={isLevelComplete(progress, level)}
-            unlocked={isLevelUnlocked(progress, level)}
+            complete={complete(level)}
+            unlocked={level === 1 || complete(level - 1)}
             isNext={level === current}
             optimal={progress[level]?.optimal ?? false}
             onPress={() => onPlayLevel(level)}
@@ -91,6 +100,7 @@ export function CampaignScreen({ progress, onPlayLevel, onBack }: CampaignScreen
 
 interface LevelTileProps {
   level: number;
+  entry: { destination: string; moves: number } | undefined;
   size: number;
   complete: boolean;
   unlocked: boolean;
@@ -99,8 +109,7 @@ interface LevelTileProps {
   onPress: () => void;
 }
 
-function LevelTile({ level, size, complete, unlocked, isNext, optimal, onPress }: LevelTileProps) {
-  const entry = campaignLevel(level);
+function LevelTile({ level, entry, size, complete, unlocked, isNext, optimal, onPress }: LevelTileProps) {
   const label = complete
     ? `Level ${level}, complete`
     : unlocked
@@ -153,6 +162,7 @@ const styles = StyleSheet.create({
   },
   progressTotal: { color: colors.textMuted, fontSize: 18, fontWeight: '600' },
   summaryLabel: { color: colors.textMuted, fontSize: 12.5, letterSpacing: 0.6, marginTop: 2 },
+  note: { color: colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: spacing.md },
   bar: {
     height: 4,
     borderRadius: radius.pill,
