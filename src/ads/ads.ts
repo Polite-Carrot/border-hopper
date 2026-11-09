@@ -1,9 +1,20 @@
 import type { UnityAdsClient } from '@politecarrot/capacitor-unity-ads';
 import { adDue, noteAdShown, noteGameFinished, shouldPrepare, startPacing, type AdPacing } from './policy';
 
-/** Border Hopper's Unity project. Both apps live under one Unity project. */
+/**
+ * The iOS app's ads come through Unity LevelPlay: its app key and interstitial
+ * ad unit, from the LevelPlay dashboard. Unity Ads is one of the networks
+ * LevelPlay mediates, set up there with the iOS Unity game ID 800388470.
+ */
+export const LEVELPLAY_CONFIG = {
+  ios: { appKey: '28869d645', interstitial: '8phyx3pjsc71l7iy' },
+} as const;
+
+/**
+ * The Android app still uses Unity Ads directly, until it moves to LevelPlay
+ * as well. Both apps live under one Unity project.
+ */
 export const UNITY_CONFIG = {
-  ios: { gameId: '800388470', interstitial: 'BP_Interstitial_iOS' },
   android: { gameId: '800388471', interstitial: 'BP_Interstitial_Android' },
   // Real ads. To see test ads on a phone, register it under Unity Dashboard
   // -> Monetization -> Settings -> Test device instead of changing this.
@@ -40,12 +51,13 @@ const warn = (error: unknown) =>
   console.warn('Ads:', (error as { message?: string } | null)?.message ?? error);
 
 /**
- * The game's side of the studio's Unity Ads package: when ads may show and
- * the consent signals. The package owns the SDK, ATT and playback.
+ * The game's side of the ads: when they may show and the consent signals.
+ * The client owns the SDK, ATT and playback: the studio's Unity Ads package
+ * on Android, and the same package's JS driving the LevelPlay plugin on iOS.
  *
  * `adsRemoved` is read on every call, so a Remove Ads purchase takes effect at
  * once and a refund brings ads back, with no restart either way. Someone who
- * owns it at launch never has Unity started at all.
+ * owns it at launch never has the ads SDK started at all.
  */
 export function createAds(
   client: Client,

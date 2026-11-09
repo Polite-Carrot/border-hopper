@@ -70,15 +70,19 @@
 	     buy and, just as importantly, what declining does not cost. -->
 	<key>NSUserTrackingUsageDescription</key>
 	<string>This lets us show ads matched to your interests instead of generic ones. We do not collect your name, email, contacts, photos or location, and your progress never leaves your device. Decline and the game plays exactly the same, with generic ads.</string>
-	<!-- SKAdNetwork identifier for Unity Ads, as in the studio's other games.
-	     Lets Apple's conversion API attribute installs from Unity-served ads.
-	     Unity lists further partner IDs in its dashboard if mediation is ever
-	     enabled. -->
+	<!-- SKAdNetwork identifiers: Unity Ads and ironSource, the two networks
+	     LevelPlay serves this app through. They let Apple's conversion API
+	     attribute installs from their ads. Add each further network's ID
+	     (LevelPlay's dashboard lists them) when one is turned on. -->
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>
 			<key>SKAdNetworkIdentifier</key>
 			<string>4dzt52r2t5.skadnetwork</string>
+		</dict>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>su67r6k2v3.skadnetwork</string>
 		</dict>
 	</array>
 	<!-- Firebase Analytics starts with collection off so nothing goes out

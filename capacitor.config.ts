@@ -20,6 +20,20 @@ const config: CapacitorConfig = {
   // so the native window underneath it only has to be the same black.
   backgroundColor: '#000000',
   ios: {
+    // Every plugin except the studio's Unity Ads one: the iOS app's ads come
+    // through Unity LevelPlay instead (packages/capacitor-levelplay), whose
+    // Unity Ads adapter brings its own, newer copy of the Unity Ads SDK. Both
+    // in one app would not link. A plugin added to package.json has to be
+    // added here too, or iOS leaves it out. Android takes every plugin but
+    // LevelPlay, which has no Android side yet.
+    includePlugins: [
+      '@capacitor-firebase/analytics',
+      '@capacitor/haptics',
+      '@capacitor/local-notifications',
+      '@capacitor/preferences',
+      '@capgo/native-purchases',
+      '@politecarrot/capacitor-levelplay',
+    ],
     contentInset: 'never',
     backgroundColor: '#000000',
     // The game never scrolls the page; without this, drags rubber-band the whole WebView.

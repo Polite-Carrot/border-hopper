@@ -120,10 +120,10 @@ export function BorderHopperApp() {
       const purchases = getPurchases();
       purchases.start();
       setPurchase(purchases.status());
-      // The player's saved choice goes to Unity before anything else does.
+      // The player's saved choice goes to the ads SDK before anything else does.
       // Someone who has already answered the consent card is not asked about
-      // tracking again here; this only reads what they said last time. Unity
-      // is never started for someone who has removed ads.
+      // tracking again here; this only reads what they said last time. The
+      // ads SDK is never started for someone who has removed ads.
       const ads = getAds();
       await ads.start(savedSettings.personalisedAds);
       if (consentAsked && !purchases.adsRemoved()) await ads.tracking(false);
