@@ -1,0 +1,19 @@
+{
+  "name": "@politecarrot/capacitor-levelplay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unity LevelPlay interstitials and App Tracking Transparency for Border Hopper's iOS app.",
+  "license": "UNLICENSED",
+  "files": [
+    "Package.swift",
+    "ios/Sources"
+  ],
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^8.0.0"
+  }
+}

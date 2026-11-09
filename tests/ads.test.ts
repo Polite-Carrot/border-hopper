@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { MIN_GAMES, MIN_MILLIS, adDue, noteAdShown, noteGameFinished, shouldPrepare, startPacing } from '../src/ads/policy';
-import { UNITY_CONFIG, createAds } from '../src/ads/ads';
+import { LEVELPLAY_CONFIG, UNITY_CONFIG, createAds } from '../src/ads/ads';
 
 describe('ad pacing', () => {
   it('waits for both two minutes and three finished games', () => {
@@ -148,7 +148,8 @@ describe('ads in the game', () => {
 
   it('ships real ads with the Border Hopper placements', () => {
     expect(UNITY_CONFIG.testMode).toBe(false);
-    expect(UNITY_CONFIG.ios).toEqual({ gameId: '800388470', interstitial: 'BP_Interstitial_iOS' });
+    expect(LEVELPLAY_CONFIG.ios).toEqual({ appKey: '28869d645', interstitial: '8phyx3pjsc71l7iy' });
     expect(UNITY_CONFIG.android).toEqual({ gameId: '800388471', interstitial: 'BP_Interstitial_Android' });
+    expect('ios' in UNITY_CONFIG).toBe(false);
   });
 });
