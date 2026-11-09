@@ -193,28 +193,8 @@ function generateVisaGame(options: GenerateOptions): GameConfig {
       rand
     );
 
-    const closed = new Set<string>();
-    while (closed.size < wanted) {
-      const fromStart = distancesFrom(start.iso2, false, closed);
-      const fromEnd = distancesFrom(destination, false, closed);
-      const now = fromStart.get(destination)!;
-      // Everywhere on some shortest route that is still open.
-      const options: { iso: string; detour: number }[] = [];
-      for (const [iso, d] of fromStart) {
-        if (iso === start.iso2 || iso === destination || d + (fromEnd.get(iso) ?? Infinity) !== now) continue;
-        if (COUNTRIES_BY_CODE.get(iso)?.territory) continue;
-        const after = shortestMoveCount(start.iso2, destination, false, new Set([...closed, iso]));
-        if (after !== null && after > now && after <= VISA_MAX_MOVES) options.push({ iso, detour: after });
-      }
-      if (options.length === 0) break;
-      const pick = weightedPick(
-        options,
-        options.map(({ iso }) => COUNTRIES_BY_CODE.get(iso)!.neighbours.length ** 1.5),
-        rand
-      );
-      closed.add(pick.iso);
-    }
-    if (closed.size < wanted) continue;
+    const closed = closeBorders(start.iso2, destination, wanted, rand);
+    if (!closed) continue;
 
     return {
       mode: 'visa',
@@ -226,6 +206,45 @@ function generateVisaGame(options: GenerateOptions): GameConfig {
     };
   }
   throw new Error('No Visa Denied game could be generated');
+}
+
+/**
+ * Closes `wanted` borders between `start` and `destination`, one at a time,
+ * each on a shortest route that is still open and each making the journey
+ * longer, without ever cutting it off or stretching it past
+ * VISA_MAX_MOVES. Which one is closed is a weighted draw: by default the
+ * countries with the most borders, since they are the shortcuts. Null if
+ * fewer than `wanted` could be closed.
+ */
+export function closeBorders(
+  start: string,
+  destination: string,
+  wanted: number,
+  rand: () => number,
+  weight: (country: Country) => number = (country) => country.neighbours.length ** 1.5
+): Set<string> | null {
+  const closed = new Set<string>();
+  while (closed.size < wanted) {
+    const fromStart = distancesFrom(start, false, closed);
+    const fromEnd = distancesFrom(destination, false, closed);
+    const now = fromStart.get(destination)!;
+    // Everywhere on some shortest route that is still open.
+    const options: { iso: string; detour: number }[] = [];
+    for (const [iso, d] of fromStart) {
+      if (iso === start || iso === destination || d + (fromEnd.get(iso) ?? Infinity) !== now) continue;
+      if (COUNTRIES_BY_CODE.get(iso)?.territory) continue;
+      const after = shortestMoveCount(start, destination, false, new Set([...closed, iso]));
+      if (after !== null && after > now && after <= VISA_MAX_MOVES) options.push({ iso, detour: after });
+    }
+    if (options.length === 0) return null;
+    const pick = weightedPick(
+      options,
+      options.map(({ iso }) => weight(COUNTRIES_BY_CODE.get(iso)!)),
+      rand
+    );
+    closed.add(pick.iso);
+  }
+  return closed;
 }
 
 const COUNTRIES_BY_CODE = new Map(COUNTRIES.map((c) => [c.iso2, c]));

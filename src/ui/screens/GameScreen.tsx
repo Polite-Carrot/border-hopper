@@ -427,7 +427,9 @@ export function GameScreen({
                 : config.mode === 'flight'
                   ? 'FLIGHT · TRAVEL TO'
                   : config.mode === 'visa'
-                    ? 'VISA DENIED · TRAVEL TO'
+                    ? config.level !== undefined
+                      ? `VISA DENIED ${config.level} · TRAVEL TO`
+                      : 'VISA DENIED · TRAVEL TO'
                     : 'TRAVEL TO'
           }
           onExit={handleExit}

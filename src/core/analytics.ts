@@ -96,6 +96,7 @@ export interface AnalyticsEvents {
 
   /** The player got to the end of the campaign ladder. */
   campaign_complete: { seconds_total: number; perfect_levels: number };
+  visa_campaign_complete: { seconds_total: number; perfect_levels: number };
 
   /** A continent tour finished, and its badge earned. */
   tour_complete: { tour: string; perfect_levels: number };

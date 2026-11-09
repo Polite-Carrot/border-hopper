@@ -11,7 +11,7 @@ import { EMPTY_STATS, recordGameAbandoned, recordGameCompleted, recordGameStarte
 import type { GameConfig, GameResult } from '../core/types';
 import { EMPTY_PASSPORT, chooseSkin, stamp, stampCount, type Passport } from '../core/passport';
 import {
-  DEFAULT_SETTINGS, loadCampaign, loadTours, saveTours, loadDailyResults, loadOnboarded, loadPassport, loadSettings, loadStats,
+  DEFAULT_SETTINGS, loadCampaign, loadTours, saveTours, loadVisaCampaign, saveVisaCampaign, loadDailyResults, loadOnboarded, loadPassport, loadSettings, loadStats,
   loadConsentAsked, resetEverything, saveCampaign, saveConsentAsked, saveDailyResults,
   saveOnboarded, savePassport, saveSettings, saveStats,
   type DailyResults, type Settings,
@@ -38,6 +38,7 @@ import { ConsentPrompt } from './screens/ConsentPrompt';
 import { BootScreen } from './screens/BootScreen';
 import { ReminderOffer } from './screens/ReminderOffer';
 import { ToursScreen } from './screens/ToursScreen';
+import { VISA_LENGTH, visaGame, visaLevel, visaNextLevel, recordVisaLevel } from '../core/visaCampaign';
 import {
   EMPTY_TOURS, badgeCount, recordTourLevel, tourById, tourGame, type ToursProgress,
 } from '../core/tours';
@@ -45,7 +46,7 @@ import {
 /** Finished games, in any mode, after which the reminder is offered anyway. */
 const REMINDER_AFTER_GAMES = 10;
 
-type Screen = 'menu' | 'game' | 'campaign' | 'tours' | 'stats' | 'settings' | 'privacy' | 'passport' | 'daily-done';
+type Screen = 'menu' | 'game' | 'campaign' | 'visa' | 'tours' | 'stats' | 'settings' | 'privacy' | 'passport' | 'daily-done';
 
 /**
  * The whole app. Screens are a single piece of state rather than a navigation
@@ -58,6 +59,7 @@ export function BorderHopperApp() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [dailyResults, setDailyResults] = useState<DailyResults>({});
   const [campaign, setCampaign] = useState<CampaignProgress>({});
+  const [visaCampaign, setVisaCampaign] = useState<CampaignProgress>({});
   const [passport, setPassport] = useState<Passport>(EMPTY_PASSPORT);
   // The latest passport, for stamping. Two moves can land before React
   // re-renders, and stamping from a stale copy would drop the first.
@@ -99,17 +101,20 @@ export function BorderHopperApp() {
 
   useEffect(() => {
     void (async () => {
-      const [savedStats, savedSettings, savedDaily, savedCampaign, onboarded, consentAsked, savedPassport, savedTours] =
-        await Promise.all([
-          loadStats(), loadSettings(), loadDailyResults(), loadCampaign(), loadOnboarded(),
-          loadConsentAsked(), loadPassport(dateKey()), loadTours(), getReminders().load(), getPurchases().load(),
-        ]);
+      const [
+        savedStats, savedSettings, savedDaily, savedCampaign, onboarded, consentAsked, savedPassport, savedTours, savedVisa,
+      ] = await Promise.all([
+        loadStats(), loadSettings(), loadDailyResults(), loadCampaign(), loadOnboarded(),
+        loadConsentAsked(), loadPassport(dateKey()), loadTours(), loadVisaCampaign(),
+        getReminders().load(), getPurchases().load(),
+      ]);
       passportRef.current = savedPassport;
       setPassport(savedPassport);
       setStats(savedStats);
       setSettings(savedSettings);
       setDailyResults(savedDaily);
       setCampaign(savedCampaign);
+      setVisaCampaign(savedVisa);
       setTours(savedTours);
       setNeedsOnboarding(!onboarded);
       setNeedsConsent(!consentAsked);
@@ -255,6 +260,15 @@ export function BorderHopperApp() {
     [stats, persistStats]
   );
 
+  const startVisaLevel = useCallback(
+    (level: number) => {
+      setConfig(visaGame(level));
+      setScreen('game');
+      persistStats(recordGameStarted(stats));
+    },
+    [stats, persistStats]
+  );
+
   const startTourLevel = useCallback(
     (id: string, level: number) => {
       setSelectedTour(id);
@@ -341,6 +355,18 @@ export function BorderHopperApp() {
           });
         }
       }
+      if (result.mode === 'visa' && result.level !== undefined) {
+        const next = recordVisaLevel(visaCampaign, result);
+        setVisaCampaign(next);
+        void saveVisaCampaign(next);
+        if (visaNextLevel(visaCampaign) !== null && visaNextLevel(next) === null) {
+          const levels = Object.values(next);
+          track('visa_campaign_complete', {
+            seconds_total: levels.reduce((total, level) => total + level.seconds, 0),
+            perfect_levels: levels.filter((level) => level.optimal).length,
+          });
+        }
+      }
       if (result.mode === 'tour' && result.tour) {
         const next = recordTourLevel(tours, result);
         setTours(next);
@@ -371,16 +397,18 @@ export function BorderHopperApp() {
           });
       }
     },
-    [stats, dailyResults, campaign, tours, persistStats]
+    [stats, dailyResults, campaign, visaCampaign, tours, persistStats]
   );
 
   const leaveGame = useCallback(
     (unfinished: boolean) => {
       if (unfinished) persistStats(recordGameAbandoned(stats));
       const from = config?.mode;
+      // A Visa Denied level goes back to its ladder; a random one to the menu.
+      const visaLadder = from === 'visa' && config?.level !== undefined;
       setConfig(null);
       setBadgeEarned(null);
-      setScreen(from === 'campaign' ? 'campaign' : from === 'tour' ? 'tours' : 'menu');
+      setScreen(from === 'campaign' ? 'campaign' : from === 'tour' ? 'tours' : visaLadder ? 'visa' : 'menu');
     },
     [stats, config, persistStats]
   );
@@ -608,6 +636,13 @@ export function BorderHopperApp() {
     else leaveGame(false);
   }, [config, startTourLevel, leaveGame]);
 
+  /** After a Visa Denied level, on to the next, or back to the ladder after the last. */
+  const advanceVisa = useCallback(() => {
+    const following = (config?.level ?? 0) + 1;
+    if (following <= VISA_LENGTH) startVisaLevel(following);
+    else leaveGame(false);
+  }, [config, startVisaLevel, leaveGame]);
+
   /** After a campaign level, go straight on to the next one. */
   const advanceCampaign = useCallback(() => {
     const level = config?.level;
@@ -640,7 +675,9 @@ export function BorderHopperApp() {
                     : config.mode === 'flight'
                       ? startFlight
                       : config.mode === 'visa'
-                        ? startVisa
+                        ? config.level !== undefined
+                          ? advanceVisa
+                          : startVisa
                         : startClassic
               )
             }
@@ -653,6 +690,16 @@ export function BorderHopperApp() {
           <CampaignScreen
             progress={campaign}
             onPlayLevel={startLevel}
+            onBack={() => setScreen('menu')}
+          />
+        ) : screen === 'visa' ? (
+          <CampaignScreen
+            title="Visa Denied"
+            note="Some borders are closed. Find the long way round."
+            length={VISA_LENGTH}
+            entry={visaLevel}
+            progress={visaCampaign}
+            onPlayLevel={startVisaLevel}
             onBack={() => setScreen('menu')}
           />
         ) : screen === 'tours' ? (
@@ -678,6 +725,7 @@ export function BorderHopperApp() {
               setSettings(DEFAULT_SETTINGS);
               setDailyResults({});
               setCampaign({});
+              setVisaCampaign({});
               setTours(EMPTY_TOURS);
               setSelectedTour(null);
               passportRef.current = EMPTY_PASSPORT;
@@ -742,7 +790,8 @@ export function BorderHopperApp() {
             badges={badgeCount(tours)}
             onRandom={() => setPicking('classic')}
             onFlight={() => setPicking('flight')}
-            onVisa={() => setPicking('visa')}
+            onVisa={() => setScreen('visa')}
+            visaLevel={visaNextLevel(visaCampaign)}
             onDaily={startDaily}
             onStats={() => setScreen('stats')}
             onSettings={() => setScreen('settings')}

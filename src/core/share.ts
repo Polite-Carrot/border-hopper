@@ -34,10 +34,10 @@ export function moveSquares(result: Pick<GameResult, 'mode' | 'route' | 'closed'
 /**
  * Result text for sharing.
  *
- * The daily and the campaign levels are the same puzzle for everyone, so
- * their results never show the route: a friend who has not played yet would
- * be reading the answer. They get the start, the destination and a square per
- * move instead. A random game is nobody else's puzzle, so it shows the route
+ * The daily and every fixed level -- the campaign, the tours and the Visa
+ * Denied campaign -- are the same puzzle for everyone, so their results
+ * never show the route: a friend who has not played yet would be reading the
+ * answer. They get the start, the destination and a square per move instead. A random game is nobody else's puzzle, so it shows the route
  * as flags -- which name no countries either.
  *
  * It ends with the link. A result posted into a group chat is the main way
@@ -51,10 +51,16 @@ export function shareText(result: GameResult): string {
       : result.mode === 'tour' && result.tour
         ? `🌍 BORDER HOPPER — ${tourById(result.tour)?.name ?? 'Tour'}, level ${result.level}`
         : result.mode === 'visa'
-          ? '🌍 BORDER HOPPER — Visa Denied'
+          ? result.level !== undefined
+            ? `🌍 BORDER HOPPER — Visa Denied, level ${result.level}`
+            : '🌍 BORDER HOPPER — Visa Denied'
           : '🌍 BORDER HOPPER';
   // Puzzles everyone plays the same way never show their route.
-  const shared = result.mode === 'daily' || result.mode === 'campaign' || result.mode === 'tour';
+  const shared =
+    result.mode === 'daily' ||
+    result.mode === 'campaign' ||
+    result.mode === 'tour' ||
+    (result.mode === 'visa' && result.level !== undefined);
   const start = result.route[0];
   const end = result.route[result.route.length - 1];
   const lines = shared

@@ -69,7 +69,15 @@ export function nextLevel(progress: CampaignProgress): number | null {
  */
 export function recordLevel(progress: CampaignProgress, result: GameResult): CampaignProgress {
   if (result.mode !== 'campaign' || result.level === undefined) return progress;
-  const previous = progress[result.level];
+  return keepBetter(progress, result.level, result);
+}
+
+/**
+ * Stores `result` as `level`'s score unless the score already there is
+ * better. Shared by every ladder of levels: the campaign and Visa Denied.
+ */
+export function keepBetter(progress: CampaignProgress, level: number, result: GameResult): CampaignProgress {
+  const previous = progress[level];
   const better =
     !previous ||
     result.moves < previous.moves ||
@@ -79,6 +87,6 @@ export function recordLevel(progress: CampaignProgress, result: GameResult): Cam
     ...progress,
     // A star once earned stays: a faster replay with a hint is a better time,
     // not a reason to take the unaided perfect route away.
-    [result.level]: { moves: result.moves, seconds: result.seconds, optimal: result.optimal || Boolean(previous?.optimal) },
+    [level]: { moves: result.moves, seconds: result.seconds, optimal: result.optimal || Boolean(previous?.optimal) },
   };
 }

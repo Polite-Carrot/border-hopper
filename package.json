@@ -61,7 +61,8 @@
     "open:ios": "npx cap open ios",
     "open:android": "npx cap open android",
     "assets:native": "capacitor-assets generate --ios --android --assetPath resources",
-    "build:tours": "tsx scripts/build-tours.ts"
+    "build:tours": "tsx scripts/build-tours.ts",
+    "build:visa": "tsx scripts/build-visa-campaign.ts"
   },
   "private": true,
   "description": "A geography game about crossing the world one land border at a time"
