@@ -27,6 +27,16 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
  */
 const COPIES = [-1, 0, 1] as const;
 
+/**
+ * Which copy of the world (-1, 0 or 1) puts a point at map x nearest `focusX`.
+ * The camera keeps within one world of home and the gestures within half a
+ * world of the camera, so that copy is the one on screen.
+ */
+function copyNear(x: number | undefined, focusX: number): number {
+  if (x === undefined) return 0;
+  return Math.max(-1, Math.min(1, Math.round((focusX - x) / MAP_WIDTH)));
+}
+
 /** Clock reading for a traveller standing still: past the end of any trip. */
 const AT_REST = 1e6;
 
@@ -301,6 +311,8 @@ export function WorldMap({
   // ground -- the explorer and the destination reticle -- so they stay the same
   // size on screen however far in or out the map goes.
   const userScale = userTransform?.scale;
+  // Where the camera is headed, in map units: markers go on the copy nearest it.
+  const focusX = to.current.x;
   const counterScale = useMemo(() => (userScale ? Animated.divide(1, userScale) : 1), [userScale]);
 
   return (
@@ -344,73 +356,69 @@ export function WorldMap({
             ))}
           </AnimatedG>
 
-          {/* Markers sit outside the camera group so they keep a constant size. */}
-          {closed
-            ? COPIES.map((copy) =>
-                closed.map((iso) => (
-                  <ClosedMarker
-                    key={`closed-${copy}-${iso}`}
-                    country={getCountry(iso)}
-                    copy={copy}
-                    camera={transform}
-                    counterScale={counterScale}
-                  />
-                ))
-              )
-            : null}
+          {/*
+            Markers sit outside the camera group so they keep a constant size.
+            Each is drawn once, on the copy of the world nearest where the
+            camera is headed -- the one on screen -- rather than on all three:
+            every marker drawn is one more thing to move on every frame of a
+            glide, and flight mode alone has some twenty airports.
+          */}
+          {closed?.map((iso) => {
+            const country = getCountry(iso);
+            return (
+              <ClosedMarker
+                key={`closed-${iso}`}
+                country={country}
+                copy={copyNear(country?.anchor[0], focusX)}
+                camera={transform}
+                counterScale={counterScale}
+              />
+            );
+          })}
 
-          {hubs
-            ? COPIES.map((copy) =>
-                hubs.map((iso) => (
-                  <HubMarker
-                    key={`hub-${copy}-${iso}`}
-                    country={getCountry(iso)}
-                    copy={copy}
-                    camera={transform}
-                    counterScale={counterScale}
-                  />
-                ))
-              )
-            : null}
-          {COPIES.map((copy) => (
-            <DestinationMarker
-              key={copy}
-              copy={copy}
-              destination={destination}
+          {hubs?.map((iso) => {
+            const country = getCountry(iso);
+            return (
+              <HubMarker
+                key={`hub-${iso}`}
+                country={country}
+                copy={copyNear(country?.anchor[0], focusX)}
+                camera={transform}
+                counterScale={counterScale}
+              />
+            );
+          })}
+          <DestinationMarker
+            copy={copyNear(destination?.centroid[0], focusX)}
+            destination={destination}
+            camera={transform}
+            counterScale={counterScale}
+          />
+
+          {/* The explorer's trips are planned on the copy nearest the camera already. */}
+          {refused && showTraveller ? (
+            <Refusal
+              from={refused.from}
+              turn={refused.turn}
+              clock={refusalClock}
               camera={transform}
+              copy={0}
+              skin={skin}
               counterScale={counterScale}
             />
-          ))}
+          ) : null}
 
-          {refused && showTraveller
-            ? COPIES.map((copy) => (
-                <Refusal
-                  key={`refusal-${copy}`}
-                  from={refused.from}
-                  turn={refused.turn}
-                  clock={refusalClock}
-                  camera={transform}
-                  copy={copy}
-                  skin={skin}
-                  counterScale={counterScale}
-                />
-              ))
-            : null}
-
-          {currentTrip && showTraveller && !refused
-            ? COPIES.map((copy) => (
-                <Traveller
-                  key={`traveller-${copy}`}
-                  trip={currentTrip}
-                  clock={clock}
-                  progress={progress}
-                  camera={transform}
-                  copy={copy}
-                  skin={skin}
-                  counterScale={counterScale}
-                />
-              ))
-            : null}
+          {currentTrip && showTraveller && !refused ? (
+            <Traveller
+              trip={currentTrip}
+              clock={clock}
+              progress={progress}
+              camera={transform}
+              copy={0}
+              skin={skin}
+              counterScale={counterScale}
+            />
+          ) : null}
 
           {current ? (
             <AnimatedCircle
