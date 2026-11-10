@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   allowsFlights, applyMove, createGame, currentCountry, elapsedSeconds, moveCount,
-  recordWrongGuess, takeHint, hintsLeft, toResult, wasFlown,
+  recordWrongGuess, toResult, wasFlown,
 } from '../../core/game';
-import { HUBS, flightsOf, isHub } from '../../core/graph';
+import { flightsOf } from '../../core/graph';
 import { bestMatch, searchCountries } from '../../core/search';
 import { track } from '../../core/analytics';
 import { newStamps, type Passport } from '../../core/passport';
-import { tourById } from '../../core/tours';
-import { MAP_HEIGHT, MAP_WIDTH, countryFlag, countryName, requireCountry } from '../../core/world';
+import { MAP_HEIGHT, MAP_WIDTH, requireCountry } from '../../core/world';
 import type { GameConfig, GameResult, GameState } from '../../core/types';
-import { colors, fonts, timing } from '../../theme';
+import { colors, timing } from '../../theme';
 import { play } from '../../audio/sounds';
 import { WorldMap } from '../map/WorldMap';
 import { useMapGestures } from '../map/useMapGestures';
@@ -23,8 +22,6 @@ import { OffscreenTarget } from '../components/OffscreenTarget';
 import { RouteTrail } from '../components/RouteTrail';
 import { Toast } from '../components/Toast';
 import { MAP_CONTROLS_SIZE, MapControls } from '../components/MapControls';
-import { HINT_BUTTON_SIZE, HintButton } from '../components/HintButton';
-import { Icon } from '../components/Icon';
 import { COUNTRY_ROW_HEIGHT } from '../components/CountryRow';
 import { onScreenKeyboardHeight } from '../components/OnScreenKeyboard';
 import { ResultOverlay } from './ResultOverlay';
@@ -34,8 +31,6 @@ import { haptic } from '../hooks/useHaptics';
 
 const HUD_HEIGHT = 46;
 const TRAIL_HEIGHT = 40;
-/** Visa Denied's row of closed countries, under the trail. */
-const CLOSED_HEIGHT = 28;
 /** The search field row plus the padding above it. */
 const SEARCH_BLOCK = 58;
 /** The panel's top padding plus the drag handle and its margin. */
@@ -59,12 +54,10 @@ export interface GameScreenProps {
   passport: Passport;
   /** Stamps countries into the passport the moment the explorer stands in them. */
   onStamp: (isos: string[]) => void;
-  /** A tour badge this game just earned, for the result card. */
-  badgeEarned?: string | null;
 }
 
 export function GameScreen({
-  config, reduceMotion, onExit, onNewGame, onComplete, passport, onStamp, badgeEarned = null,
+  config, reduceMotion, onExit, onNewGame, onComplete, passport, onStamp,
 }: GameScreenProps) {
   const layout = useLayout();
   const insets = useSafeAreaInsets();
@@ -72,10 +65,8 @@ export function GameScreen({
 
   const [state, setState] = useState<GameState>(() => createGame(config));
   const [query, setQuery] = useState('');
-  const [toast, setToast] = useState<{ message: string; token: number; tone?: 'hint' } | null>(null);
+  const [toast, setToast] = useState<{ message: string; token: number } | null>(null);
   const [invalidIso, setInvalidIso] = useState<string | null>(null);
-  /** The closed border just tried, for the police to send him back from. */
-  const [refusal, setRefusal] = useState<{ iso: string; token: number } | null>(null);
   const [arrivalToken, setArrivalToken] = useState(0);
   const [phase, setPhase] = useState<'establishing' | 'playing'>('establishing');
   const [showResult, setShowResult] = useState(false);
@@ -96,9 +87,8 @@ export function GameScreen({
   const travelDuration = reduceMotion ? 0 : timing.travel;
 
   // ---- layout ------------------------------------------------------------
-  const closed = config.closed ?? [];
-  const topInset = insets.top + HUD_HEIGHT + TRAIL_HEIGHT + 18 + (closed.length ? CLOSED_HEIGHT : 0);
-  const safeBottom = docked ? insets.bottom : Math.max(insets.bottom, 10);
+  const topInset = insets.top + HUD_HEIGHT + TRAIL_HEIGHT + 18;
+  const safeBottom = Math.max(insets.bottom, docked ? 12 : 16);
   const panelInnerWidth = docked ? layout.panelWidth : layout.width;
 
   /**
@@ -175,13 +165,6 @@ export function GameScreen({
     width: MAP_CONTROLS_SIZE.width,
     height: MAP_CONTROLS_SIZE.height,
   };
-  // Bottom left of the clear map, opposite the zoom controls.
-  const hintSpot = {
-    x: stage.visible.x + 14,
-    y: stage.visible.y + stage.visible.height - HINT_BUTTON_SIZE.height - 14,
-    width: HINT_BUTTON_SIZE.width,
-    height: HINT_BUTTON_SIZE.height,
-  };
 
   // Travelling to a new country earns the full camera move. Everything else
   // that nudges the camera -- the keyboard opening, a rotation -- should just
@@ -213,15 +196,10 @@ export function GameScreen({
       const result = applyMove(state, target);
 
       if (!result.ok) {
-        if (result.reason === 'not-adjacent' || result.reason === 'closed') {
+        if (result.reason === 'not-adjacent') {
           setState((previous) => recordWrongGuess(previous, target));
           setInvalidIso(target);
           setTimeout(() => setInvalidIso((value) => (value === target ? null : value)), 750);
-        }
-        // A real border, but closed: he tries it and is thrown back.
-        if (result.reason === 'closed' && !reduceMotion) {
-          setRefusal({ iso: target, token: Date.now() });
-          setQuery('');
         }
         // Where people believe in a border that is not there. Enough of these
         // is the answer to "which countries do players get stuck on".
@@ -270,7 +248,7 @@ export function GameScreen({
         setTimeout(() => setShowResult(true), travelDuration + 250);
       }
     },
-    [state, onComplete, onStamp, travelDuration, gestures, config, iso, reduceMotion]
+    [state, onComplete, onStamp, travelDuration, gestures, config, iso]
   );
 
   /**
@@ -298,36 +276,6 @@ export function GameScreen({
     }
     onExit(unfinished);
   }, [state, config, onExit]);
-
-  /**
-   * A hint for where the player stands: first the country to head for,
-   * outlined on the map, then its name. A flight gets said in words straight
-   * away, since its destination is usually off the screen.
-   */
-  const handleHint = useCallback(() => {
-    const next = takeHint(state);
-    if (next === state || !next.hint) return;
-    setState(next);
-    const target = next.hint.iso2;
-    const flying = wasFlown(config, iso, target);
-    const message = next.hint.named
-      ? flying
-        ? `Fly to ${countryName(target)}.`
-        : `Next stop: ${countryName(target)}.`
-      : flying
-        ? 'Take a flight from here.'
-        : 'Head for the country outlined in gold.';
-    const last = hintsLeft(next) === 0 ? ' That was your last hint.' : '';
-    setToast({ message: message + last, token: Date.now(), tone: 'hint' });
-    haptic('light');
-    track('hint_used', {
-      mode: config.mode,
-      level: config.level,
-      at: iso,
-      named: next.hint.named,
-      moves_in: state.route.length - 1,
-    });
-  }, [state, config, iso]);
 
   const handleSubmit = useCallback(() => {
     const match = bestMatch(query);
@@ -371,10 +319,6 @@ export function GameScreen({
         flown={lastMoveFlown}
         skin={passport.skin}
         arrivalToken={arrivalToken}
-        hintIso={state.hint?.iso2 ?? null}
-        closed={closed.length ? closed : undefined}
-        refusal={refusal}
-        hubs={allowsFlights(config) ? HUBS : undefined}
         userTransform={gestures.transform}
         panHandlers={gestures.panHandlers}
         containerRef={gestures.containerRef}
@@ -388,7 +332,7 @@ export function GameScreen({
           destinationCentroid={requireCountry(config.destination).centroid}
           camera={camera}
           stage={stage}
-          keepClear={[controls, hintSpot]}
+          keepClear={controls}
         />
       ) : null}
 
@@ -402,15 +346,6 @@ export function GameScreen({
         canRecentre={gestures.adjusted}
       />
 
-      {state.status === 'playing' && phase === 'playing' ? (
-        <HintButton
-          next={!state.hint ? 'outline' : state.hint.named ? 'done' : 'name'}
-          left={hintsLeft(state)}
-          onPress={handleHint}
-          style={{ left: hintSpot.x, top: hintSpot.y }}
-        />
-      ) : null}
-
       <View
         style={[styles.top, { paddingTop: insets.top + 6, right: docked ? layout.panelWidth : 0 }]}
         pointerEvents="box-none"
@@ -422,50 +357,24 @@ export function GameScreen({
           caption={
             config.mode === 'campaign'
               ? `LEVEL ${config.level} · TRAVEL TO`
-              : config.mode === 'tour'
-                ? `${(tourById(config.tour ?? '')?.name ?? 'TOUR').toUpperCase()} ${config.level} · TRAVEL TO`
               : config.mode === 'daily'
                 ? 'DAILY · TRAVEL TO'
                 : config.mode === 'flight'
                   ? 'FLIGHT · TRAVEL TO'
-                  : config.mode === 'visa'
-                    ? config.level !== undefined
-                      ? `VISA DENIED ${config.level} · TRAVEL TO`
-                      : 'VISA DENIED · TRAVEL TO'
-                    : 'TRAVEL TO'
+                  : 'TRAVEL TO'
           }
           onExit={handleExit}
         />
         <View style={styles.trail}>
           <RouteTrail route={state.route} destination={config.destination} flights={allowsFlights(config)} />
         </View>
-        {closed.length ? (
-          <View style={styles.closedRow} accessibilityLabel={`Closed borders: ${closed.map(countryName).join(', ')}`}>
-            <Icon name="noentry" size={14} color={colors.danger} />
-            <Text style={styles.closedTitle}>CLOSED</Text>
-            {closed.map((code) => (
-              <View key={code} style={styles.closedChip}>
-                <Text style={styles.closedFlag}>{countryFlag(code)}</Text>
-                <Text style={styles.closedName} numberOfLines={1}>{countryName(code)}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
       </View>
 
       <View
-        // Mistakes come up by the search field they were typed into, above
-        // the hint button's row; hints at the top, clear of the outline they
-        // point at, which is usually near the middle.
-        style={[
-          styles.toastSlot,
-          toast?.tone === 'hint'
-            ? { top: stage.visible.y + 6 }
-            : { bottom: (docked ? 0 : panelHeight) + 16 + HINT_BUTTON_SIZE.height + 10 },
-        ]}
+        style={[styles.toastSlot, { bottom: (docked ? 0 : panelHeight) + 16 }]}
         pointerEvents="none"
       >
-        <Toast message={toast?.message ?? null} token={toast?.token ?? 0} tone={toast?.tone} />
+        <Toast message={toast?.message ?? null} token={toast?.token ?? 0} />
       </View>
 
       <View
@@ -494,13 +403,11 @@ export function GameScreen({
           onHideKeyboard={() => setKeyboardUp(false)}
           currentIso={iso}
           visited={visited}
-          closed={closed}
           listHeight={renderedListHeight}
           reservedHeight={reserved}
           keyboardUp={keyboardUp}
           keyboardWidth={panelInnerWidth}
           flights={allowsFlights(config) ? flightsOf(iso) : null}
-          hub={allowsFlights(config) && isHub(iso)}
           docked={docked}
           bottomInset={safeBottom}
         />
@@ -511,7 +418,6 @@ export function GameScreen({
           result={toResult(state)}
           newStamps={newStamps(passportAtStart, state.route)}
           onNewGame={onNewGame}
-          badgeEarned={badgeEarned}
           onExit={handleExit}
         />
       ) : null}
@@ -523,29 +429,6 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   top: { position: 'absolute', top: 0, left: 0, right: 0 },
   trail: { marginTop: 10, height: TRAIL_HEIGHT, justifyContent: 'center' },
-  closedRow: {
-    height: CLOSED_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
-    overflow: 'hidden',
-  },
-  closedTitle: { color: colors.danger, fontFamily: fonts.display, fontSize: 10, fontWeight: '800', letterSpacing: 1.6 },
-  closedChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    backgroundColor: 'rgba(229, 72, 77, 0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(229, 72, 77, 0.45)',
-    flexShrink: 1,
-  },
-  closedFlag: { fontSize: 12 },
-  closedName: { color: '#FFB3B5', fontFamily: fonts.body, fontSize: 12, fontWeight: '600', flexShrink: 1 },
   toastSlot: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   bottomPanel: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   sidebar: { position: 'absolute', top: 0, right: 0, bottom: 0 },

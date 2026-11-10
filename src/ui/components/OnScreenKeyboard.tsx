@@ -14,12 +14,14 @@ const ROWS = [
 
 const GAP = 6;
 const PAD = 5;
+/** Side margin, so the end keys clear the screen's rounded corners. */
+const SIDE = 10;
 const COLUMNS = 10;
 const SUGGESTION_STRIP = 46;
 
 /** Key size for a given panel width, so the keyboard fills it edge to edge. */
 function keyMetrics(width: number) {
-  const keyWidth = (width - PAD * 2 - GAP * (COLUMNS - 1)) / COLUMNS;
+  const keyWidth = (width - SIDE * 2 - GAP * (COLUMNS - 1)) / COLUMNS;
   const keyHeight = Math.max(46, Math.min(62, keyWidth * 1.55));
   return { keyWidth, keyHeight };
 }
@@ -36,8 +38,8 @@ export function onScreenKeyboardHeight(width: number, bottomInset = 0): number {
 
 export interface OnScreenKeyboardProps {
   width: number;
-  /** Safe-area space below the keys, so the bottom row clears the phone's rounded corners. */
-  bottomInset?: number;
+  /** Room kept below the keys for the home indicator and the screen's curved corners. */
+  bottomInset: number;
   /** Top matches for the current query, offered above the keys. */
   suggestions: readonly Country[];
   onKey: (character: string) => void;
@@ -48,7 +50,7 @@ export interface OnScreenKeyboardProps {
 }
 
 function KeyboardComponent({
-  width, bottomInset = 0, suggestions, onKey, onBackspace, onSubmit, onHide, onPickSuggestion,
+  width, bottomInset, suggestions, onKey, onBackspace, onSubmit, onHide, onPickSuggestion,
 }: OnScreenKeyboardProps) {
   const { keyWidth, keyHeight } = keyMetrics(width);
 
@@ -167,7 +169,7 @@ function KeyboardComponent({
 export const OnScreenKeyboard = memo(KeyboardComponent);
 
 const styles = StyleSheet.create({
-  keyboard: { paddingHorizontal: PAD, paddingBottom: PAD },
+  keyboard: { paddingHorizontal: SIDE },
   strip: {
     height: SUGGESTION_STRIP,
     flexDirection: 'row',

@@ -12,7 +12,7 @@ const config: ExpoConfig = {
   name: 'Border Hopper',
   slug: 'border-hopper',
   scheme: 'borderhopper',
-  version: '1.0.0',
+  version: '1.0.1',
   orientation: 'default',
   icon: './assets/icon.png',
   userInterfaceStyle: 'dark',
