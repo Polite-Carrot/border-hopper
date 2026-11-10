@@ -264,9 +264,18 @@ game to their home screen.
 
 ## The map
 
-The camera frames the country you are in and animates to the next one; that
-animation is a single group transform, so travelling costs one prop update per
-frame however much of the world is on screen.
+The camera frames the country you are in and animates to the next one.
+
+The countries are a layer of their own (`src/ui/map/BaseMap.tsx`), drawn once
+for a view with some spare map around the screen and then moved and zoomed
+with a CSS transform: no redrawing while the camera glides or a finger drags.
+They are drawn again, sharp, once the view settles, and mid-move only if it
+zooms or pans too far from where they were drawn. Before this, the world sat
+inside the SVG group the camera animates, and an iPhone's WebView re-measured
+and repainted every outline on every frame, which made the app stutter where
+the website did not. The route, hint, markers and explorer stay in an SVG on
+top, which is cheap to redraw; both read the same Animated values, so they
+cannot drift apart.
 
 You can drag and pinch it yourself at any time, and **the map wraps**: keep
 dragging west past Alaska and you arrive in Russia, round and round without
