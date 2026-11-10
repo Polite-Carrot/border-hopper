@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius, spacing } from '../../theme';
 import { countryFlag, countryName } from '../../core/world';
@@ -7,14 +8,16 @@ import { Icon } from './Icon';
 export interface GameHudProps {
   destination: string;
   moves: number;
-  seconds: number;
+  /** When the game started, and finished if it has: the clock counts between them. */
+  startedAt: number;
+  finishedAt?: number;
   /** Short label above the destination: the mode, or the campaign level. */
   caption: string;
   onExit: () => void;
 }
 
 /** Destination, moves and clock. Nothing else competes with the map. */
-export function GameHud({ destination, moves, seconds, caption, onExit }: GameHudProps) {
+export function GameHud({ destination, moves, startedAt, finishedAt, caption, onExit }: GameHudProps) {
   return (
     <View style={styles.bar}>
       <Pressable
@@ -40,10 +43,26 @@ export function GameHud({ destination, moves, seconds, caption, onExit }: GameHu
       <View style={styles.counters}>
         <Text style={styles.counter}>{moves}</Text>
         <Text style={styles.counterLabel}>{moves === 1 ? 'move' : 'moves'}</Text>
-        <Text style={styles.clock}>{formatDuration(seconds)}</Text>
+        <Clock startedAt={startedAt} finishedAt={finishedAt} />
       </View>
     </View>
   );
+}
+
+/**
+ * The game clock. It ticks on its own, so only this text redraws each
+ * second: when the screen held the time, every tick re-rendered the whole
+ * game screen, map and all, which an iPhone feels as a hitch once a second.
+ */
+function Clock({ startedAt, finishedAt }: { startedAt: number; finishedAt?: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (finishedAt !== undefined) return;
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, [finishedAt]);
+  const seconds = Math.max(0, Math.round(((finishedAt ?? now) - startedAt) / 1000));
+  return <Text style={styles.clock}>{formatDuration(seconds)}</Text>;
 }
 
 const styles = StyleSheet.create({
