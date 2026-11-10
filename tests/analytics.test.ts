@@ -110,6 +110,7 @@ describe('the events themselves', () => {
       'game_start', 'game_complete', 'game_abandoned', 'wrong_guess', 'flight_taken',
       'campaign_complete', 'result_shared', 'onboarding_complete', 'consent_changed',
       'skin_changed', 'ad_shown', 'reminder_changed', 'reminder_offer', 'hint_used', 'tour_complete',
+      'visa_campaign_complete', 'remove_ads', 'remove_ads_restore', 'app_error',
     ];
     for (const name of names) {
       expect(name.length, name).toBeLessThanOrEqual(40);

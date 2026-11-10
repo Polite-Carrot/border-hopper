@@ -38,6 +38,7 @@ import { ConsentPrompt } from './screens/ConsentPrompt';
 import { BootScreen } from './screens/BootScreen';
 import { ReminderOffer } from './screens/ReminderOffer';
 import { ToursScreen } from './screens/ToursScreen';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { VISA_LENGTH, visaGame, visaLevel, visaNextLevel, recordVisaLevel } from '../core/visaCampaign';
 import {
   EMPTY_TOURS, badgeCount, recordTourLevel, tourById, tourGame, type ToursProgress,
@@ -655,6 +656,15 @@ export function BorderHopperApp() {
     <SafeAreaProvider>
       <StatusBar barStyle="light-content" backgroundColor={colors.background} />
       <View style={styles.root}>
+        <ErrorBoundary
+          where={screen}
+          onReset={() => {
+            setConfig(null);
+            setPicking(null);
+            setBadgeEarned(null);
+            setScreen('menu');
+          }}
+        >
         {!ready ? null : screen === 'game' && config ? (
           <GameScreen
             // A fresh game must not inherit the previous game's state.
@@ -805,6 +815,7 @@ export function BorderHopperApp() {
             removeAds={menuRemoveAds(purchase, thanksUntil, () => void buyRemoveAds('menu'))}
           />
         )}
+        </ErrorBoundary>
 
         {ready && !booting && needsOnboarding ? <OnboardingOverlay onStart={finishOnboarding} /> : null}
 

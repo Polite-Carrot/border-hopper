@@ -154,6 +154,13 @@ export interface AnalyticsEvents {
 
   /** Restore was tapped, and whether it found a purchase. */
   remove_ads_restore: { found: boolean };
+
+  /**
+   * Something broke: a screen failed to draw (`where` is the screen, and
+   * `component` the part of it that threw) or an error nothing caught
+   * (`where` is "global"). The message is cut to Firebase's 100 characters.
+   */
+  app_error: { where: string; message: string; component?: string };
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvents;
