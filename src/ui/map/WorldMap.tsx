@@ -1,11 +1,11 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop, Use } from 'react-native-svg';
-import { MAP_HEIGHT, MAP_WIDTH, getCountry } from '../../core/world';
+import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import { MAP_WIDTH, getCountry } from '../../core/world';
 import { mapColors } from '../../theme';
 import { ICON_PATHS } from '../components/Icon';
 import { nearestTurn, recentre, type Camera, type Stage } from './camera';
-import { BaseLayer } from './BaseLayer';
+import { BaseMap } from './BaseMap';
 import { PATH_BY_KEY, nearestOutlinePoint } from './shapes';
 import { Traveller, tripLength } from './Traveller';
 import { nearestCopy, planTrip, type Trip } from './trip';
@@ -15,15 +15,16 @@ const AnimatedG = Animated.createAnimatedComponent(G);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /**
- * The map is drawn once into `<Defs>` and stamped three times side by side, so
- * dragging west past Alaska arrives in Russia instead of running out of world.
- * The projection is equirectangular precisely so these copies meet cleanly.
+ * The world is three copies side by side, so dragging west past Alaska arrives
+ * in Russia instead of running out of world. The projection is
+ * equirectangular precisely so these copies meet cleanly. The countries
+ * themselves are drawn by `BaseMap`; what is drawn here -- highlights and
+ * markers -- follows the same three copies.
  *
  * Three is enough because the gestures wrap the pan offset back inside one
  * canvas width (see `useMapGestures`): the middle copy is never more than half
  * a world from home, and the outer two cover whatever that exposes.
  */
-const WORLD_ID = 'bh-world';
 const COPIES = [-1, 0, 1] as const;
 
 /** Clock reading for a traveller standing still: past the end of any trip. */
@@ -87,9 +88,9 @@ export interface WorldMapProps {
 /**
  * The world, drawn once and moved under a camera.
  *
- * The camera animates a single group transform rather than re-projecting or
- * re-rendering geometry, so travelling between countries costs one prop update
- * per frame no matter how much of the world is on screen.
+ * The camera never re-projects or re-renders geometry. The countries move as
+ * one layer shifted by the graphics chip (`BaseMap`); the highlights and
+ * markers on top move with a single SVG group transform.
  */
 export function WorldMap({
   stage,
@@ -306,24 +307,15 @@ export function WorldMap({
     <>
     <Animated.View
       ref={containerRef}
-      style={StyleSheet.absoluteFill}
+      style={[StyleSheet.absoluteFill, styles.ocean]}
       pointerEvents={panHandlers ? 'auto' : 'none'}
       {...(panHandlers ?? {})}
     >
-      <Svg width={stage.width} height={stage.height}>
-        <Rect x={0} y={0} width={stage.width} height={stage.height} fill={mapColors.ocean} />
-        {/*
-          Only the never-changing base map is shared through <use>. Anything
-          that changes during play lives outside <Defs>: touching a <Defs>
-          child makes the browser rebuild every copy of the whole world.
-        */}
-        <Defs>
-          <G id={WORLD_ID}>
-          <Rect x={0} y={0} width={MAP_WIDTH} height={MAP_HEIGHT} fill="transparent" />
-          <BaseLayer />
-          </G>
-        </Defs>
+      {/* The countries: a layer of their own, moved without being redrawn. */}
+      <BaseMap stage={stage} ocean={mapColors.ocean} camera={transform} progress={progress} user={userTransform} />
 
+      {/* Everything that changes during play, drawn over the countries. */}
+      <Svg width={stage.width} height={stage.height} style={StyleSheet.absoluteFill}>
         <AnimatedG
           originX={stageCentre.x}
           originY={stageCentre.y}
@@ -338,9 +330,6 @@ export function WorldMap({
             translateX={transform.x as unknown as number}
             translateY={transform.y as unknown as number}
           >
-            {COPIES.map((copy) => (
-              <Use key={copy} href={`#${WORLD_ID}`} x={copy * MAP_WIDTH} />
-            ))}
             {COPIES.map((copy) => (
               <Highlights
                 key={`highlights-${copy}`}
@@ -466,6 +455,7 @@ export function WorldMap({
 }
 
 const styles = StyleSheet.create({
+  ocean: { backgroundColor: mapColors.ocean, overflow: 'hidden' },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0 },
 });
 
