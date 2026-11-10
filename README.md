@@ -696,20 +696,36 @@ came from (`src/ui/map/Refusal.tsx`; just the message with reduce motion on).
 Hints, the par and the best route on the result card all go round the closed
 borders.
 
-The menu's Visa Denied button opens **the Visa Denied campaign**: 100 fixed
-levels that open one at a time, like the campaign's. One closed border for
-levels 1–25, two to 60, three to 90 and four to 100; start and destination
-three borders apart at first and eight by the end, before the closures; and
-the detours the closures force growing from a step or two to as many as six.
-Early levels use countries everyone knows. Level 1, chosen by hand, is France
-to Ukraine with Germany closed. Which countries close is rotated so it is not
-Russia every time, and the levels move around the world. The Americas get only
-a couple: their one long chain of countries leaves few ways round anything.
-Its progress is kept apart from the campaign's, and its results share without
-the route, like every other fixed level. Built once by `npm run build:visa`
-into `src/data/visa-campaign.generated.json`; once shipped, its levels must
-not change, so extend it rather than rebuild it. Random Visa Denied games are
-still in the Random sheet.
+The menu's Visa Denied button opens **the Visa Denied campaign**: 1000 fixed
+levels that open one at a time, like the campaign's. Its progress is kept
+apart from the campaign's, and its results share without the route, like every
+other fixed level. Random Visa Denied games are still in the Random sheet.
+
+*Levels 1–100* climb three ways at once: one closed border for levels 1–25,
+two to 60, three to 90 and four to 100; start and destination three borders
+apart at first and eight by the end, before the closures; and countries
+everyone knows first. Level 1, chosen by hand, is France to Ukraine with
+Germany closed. They are frozen as they shipped in
+`scripts/data/visa-campaign-part-one.json`.
+
+*Levels 101–1000* come in nine waves of 100. Each wave climbs on its own, from
+fewer closures on a shorter journey to more on a longer one, and both ends rise
+from wave to wave. Journeys average about 9 moves in the first wave and 13 in
+the last; closures about 3 a level in the first three waves and nearly 4 after,
+up to 5.
+Levels take turns between Europe, Asia, Africa, the whole map and the
+Americas, because left to distance alone nearly every long journey crosses
+from Africa or Europe into Asia through the same few countries. For the same
+reason no country is closed again within four levels or in more than about a
+tenth of all levels, unless nothing else will do. The Americas get few levels
+in the end: their one long chain of countries leaves little room to close
+anything, so their turn usually passes to the whole map.
+
+No journey and, after level 100, no set of closures is used twice, and no
+level is longer than 14 moves. Built by `npm run build:visa` into
+`src/data/visa-campaign.generated.json`; it takes several minutes. Shipped
+levels must never change, so to add more, freeze what has shipped as a new
+part and build on after it.
 
 **Daily challenge** — the same start and destination for every player, once a
 day.

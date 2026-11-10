@@ -211,17 +211,26 @@ function generateVisaGame(options: GenerateOptions): GameConfig {
 /**
  * Closes `wanted` borders between `start` and `destination`, one at a time,
  * each on a shortest route that is still open and each making the journey
- * longer, without ever cutting it off or stretching it past
- * VISA_MAX_MOVES. Which one is closed is a weighted draw: by default the
- * countries with the most borders, since they are the shortcuts. Null if
- * fewer than `wanted` could be closed.
+ * longer, without ever cutting it off or stretching it past `longest` moves
+ * (VISA_MAX_MOVES unless told otherwise). Countries in `exclude` are never
+ * closed. Which one is closed is a weighted draw: by default the countries
+ * with the most borders, since they are the shortcuts. Null if fewer than
+ * `wanted` could be closed.
  */
 export function closeBorders(
   start: string,
   destination: string,
   wanted: number,
   rand: () => number,
-  weight: (country: Country) => number = (country) => country.neighbours.length ** 1.5
+  {
+    weight = (country: Country) => country.neighbours.length ** 1.5,
+    exclude,
+    longest = VISA_MAX_MOVES,
+  }: {
+    weight?: (country: Country) => number;
+    exclude?: (iso: string) => boolean;
+    longest?: number;
+  } = {}
 ): Set<string> | null {
   const closed = new Set<string>();
   while (closed.size < wanted) {
@@ -232,9 +241,9 @@ export function closeBorders(
     const options: { iso: string; detour: number }[] = [];
     for (const [iso, d] of fromStart) {
       if (iso === start || iso === destination || d + (fromEnd.get(iso) ?? Infinity) !== now) continue;
-      if (COUNTRIES_BY_CODE.get(iso)?.territory) continue;
+      if (COUNTRIES_BY_CODE.get(iso)?.territory || exclude?.(iso)) continue;
       const after = shortestMoveCount(start, destination, false, new Set([...closed, iso]));
-      if (after !== null && after > now && after <= VISA_MAX_MOVES) options.push({ iso, detour: after });
+      if (after !== null && after > now && after <= Math.min(longest, VISA_MAX_MOVES)) options.push({ iso, detour: after });
     }
     if (options.length === 0) return null;
     const pick = weightedPick(
