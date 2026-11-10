@@ -506,31 +506,22 @@ must never cost somebody their game.
 
 In the apps, events go to **Firebase Analytics** (`src/analytics/firebase.ts`
 installs it as the sink), which starts with collection off and is switched
-on and off with "Send usage data". The personalised-ads switch goes to the
-ads SDK (LevelPlay on iOS, Unity Ads on Android) and to Firebase's
-ad-consent signals. Both switches are the only
+on and off with "Send usage data". The personalised-ads switch goes to Unity
+Ads and to Firebase's ad-consent signals. Both switches are the only
 authority on their question, and anything added later has to read them
 first.
 
 ### Ads
 
-Interstitials, with Border Hopper's own IDs in `src/ads/ads.ts`. They only
-exist in the iOS and Android apps; on the website every call is a no-op.
+Interstitials from **Unity Ads**, through the studio's shared
+`@politecarrot/capacitor-unity-ads` package (pinned to the same commit as
+Color Sort), with Border Hopper's own game IDs and placements in
+`src/ads/ads.ts`. They only exist in the iOS and Android apps; on the website
+every call is a no-op.
 
-- **iOS: Unity LevelPlay** (app key `28869d645`, interstitial ad unit
-  `8phyx3pjsc71l7iy`), through the app's own plugin in
-  `packages/capacitor-levelplay`: LevelPlay 9.7.0 and its Unity Ads adapter
-  5.13.0, by Swift Package Manager. The plugin answers the same calls as the
-  studio's Unity Ads plugin, so the studio package's JS client drives it
-  unchanged (`src/ads/index.ts`). The studio's Unity Ads plugin is left out of
-  the iOS app (`ios.includePlugins` in `capacitor.config.ts`): the adapter
-  brings its own copy of the Unity Ads SDK. LevelPlay needs `-ObjC` in the
-  app target's Other Linker Flags, which is set. Unity Ads is one of the
-  networks LevelPlay mediates, set up in the LevelPlay dashboard with the iOS
-  Unity game ID 800388470.
-- **Android: Unity Ads** directly, through the studio's shared
-  `@politecarrot/capacitor-unity-ads` package (pinned to the same commit as
-  Color Sort), until it moves to LevelPlay too.
+A Unity LevelPlay plugin for iOS is parked in `packages/capacitor-levelplay`,
+not wired in: on TestFlight, loading a LevelPlay ad turned the game screen
+black from the third level on. Its README says how to switch it back on.
 
 **When:** only when a player leaves a finished game from its result card
 (next level, new game, menu), and only if it has been at least **two minutes
@@ -544,12 +535,10 @@ none has loaded by the time it is allowed, the game carries straight on and
 the next one is tried later.
 
 **Consent:** the saved personalised-ads choice is applied before the SDK
-starts. On iPhone, ads are only personalised with both that switch on and
-Apple's tracking allowed; the client re-checks before every load, and
-LevelPlay passes the answer on as GDPR consent and the CCPA "do not sell"
-flag. To see test ads on an Android phone, register it under Unity Dashboard
-→ Monetization → Settings → Test device; on iPhone, add it as a test device
-in the LevelPlay dashboard. The build itself always requests real ads.
+starts. On iPhone, Unity only personalises with both that switch on and
+Apple's tracking allowed; the package re-checks before every load. To see
+test ads on a phone, register it under Unity Dashboard → Monetization →
+Settings → Test device; the build itself always requests real ads.
 
 Off is the default because a player who has never been asked has not agreed,
 and because a player upgrading from a build without these switches has not

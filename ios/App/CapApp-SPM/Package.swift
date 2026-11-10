@@ -17,7 +17,7 @@ let package = Package(
         .package(name: "CapacitorLocalNotifications", path: "../../../node_modules/@capacitor/local-notifications"),
         .package(name: "CapacitorPreferences", path: "../../../node_modules/@capacitor/preferences"),
         .package(name: "CapgoNativePurchases", path: "../../../node_modules/@capgo/native-purchases"),
-        .package(name: "PolitecarrotCapacitorLevelplay", path: "../../../packages/capacitor-levelplay")
+        .package(name: "PolitecarrotCapacitorUnityAds", path: "../../../node_modules/@politecarrot/capacitor-unity-ads")
     ],
     targets: [
         .target(
@@ -30,7 +30,7 @@ let package = Package(
                 .product(name: "CapacitorLocalNotifications", package: "CapacitorLocalNotifications"),
                 .product(name: "CapacitorPreferences", package: "CapacitorPreferences"),
                 .product(name: "CapgoNativePurchases", package: "CapgoNativePurchases"),
-                .product(name: "PolitecarrotCapacitorLevelplay", package: "PolitecarrotCapacitorLevelplay")
+                .product(name: "PolitecarrotCapacitorUnityAds", package: "PolitecarrotCapacitorUnityAds")
             ]
         )
     ]

@@ -19,6 +19,8 @@ export interface ControlPanelProps {
   onHideKeyboard: () => void;
   currentIso: string;
   visited: readonly string[];
+  /** Visa Denied: closed countries, labelled in the list. */
+  closed?: readonly string[];
   /** Height of the results list while it is showing. */
   listHeight: number;
   /**
@@ -32,6 +34,8 @@ export interface ControlPanelProps {
   keyboardWidth: number;
   /** Flights from the current country, in flight mode only. */
   flights?: readonly { iso2: string; km: number }[] | null;
+  /** Whether the current country is a hub airport. */
+  hub?: boolean;
   /** Docks to the side instead of the bottom on wide screens. */
   docked: boolean;
   bottomInset: number;
@@ -51,10 +55,11 @@ export interface ControlPanelProps {
  */
 export function ControlPanel({
   query, results, onSelect, onFocusSearch, onClearSearch, onKey, onBackspace, onSubmit,
-  onHideKeyboard, currentIso, visited, listHeight, reservedHeight, keyboardUp,
-  keyboardWidth, flights, docked, bottomInset,
+  onHideKeyboard, currentIso, visited, closed = [], listHeight, reservedHeight, keyboardUp,
+  keyboardWidth, flights, hub = false, docked, bottomInset,
 }: ControlPanelProps) {
   const visitedSet = new Set(visited);
+  const closedSet = new Set(closed);
 
   const list = (
     <View style={{ height: listHeight }}>
@@ -82,6 +87,7 @@ export function ControlPanel({
               onPress={onSelect}
               isCurrent={item.iso2 === currentIso}
               isVisited={visitedSet.has(item.iso2)}
+              isClosed={closedSet.has(item.iso2)}
             />
           )}
         />
@@ -97,7 +103,7 @@ export function ControlPanel({
         <SearchField value={query} focused={keyboardUp} onPress={onFocusSearch} onClear={onClearSearch} />
       </View>
 
-      {flights && !keyboardUp ? <FlightStrip flights={flights} onSelect={onSelect} /> : null}
+      {flights && !keyboardUp ? <FlightStrip flights={flights} hub={hub} onSelect={onSelect} /> : null}
 
       <View style={{ height: reservedHeight }}>
         {keyboardUp ? (
