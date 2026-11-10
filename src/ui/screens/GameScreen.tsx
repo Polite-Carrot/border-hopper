@@ -79,7 +79,6 @@ export function GameScreen({
   const [arrivalToken, setArrivalToken] = useState(0);
   const [phase, setPhase] = useState<'establishing' | 'playing'>('establishing');
   const [showResult, setShowResult] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
   // Kept from the moment the game began: the passport prop updates with every
   // stamp, and against that nothing would ever look new.
   const [passportAtStart] = useState(passport);
@@ -197,13 +196,6 @@ export function GameScreen({
     const timer = setTimeout(() => setPhase('playing'), reduceMotion ? 250 : ESTABLISH_HOLD);
     return () => clearTimeout(timer);
   }, [reduceMotion]);
-
-  // ---- clock -------------------------------------------------------------
-  useEffect(() => {
-    if (state.status !== 'playing') return;
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(tick);
-  }, [state.status]);
 
   // ---- moves -------------------------------------------------------------
   const results = useMemo(() => searchCountries(query), [query]);
@@ -348,7 +340,6 @@ export function GameScreen({
   const visited = state.route.slice(0, -1);
   const previous = state.route[state.route.length - 2];
   const lastMoveFlown = previous !== undefined && wasFlown(config, previous, iso);
-  const seconds = elapsedSeconds(state, now);
   // A short result list shrinks the panel instead of leaving dead space below it.
   const renderedListHeight = docked
     ? listHeight
@@ -418,7 +409,8 @@ export function GameScreen({
         <GameHud
           destination={config.destination}
           moves={moveCount(state)}
-          seconds={seconds}
+          startedAt={state.startedAt}
+          finishedAt={state.finishedAt}
           caption={
             config.mode === 'campaign'
               ? `LEVEL ${config.level} · TRAVEL TO`
