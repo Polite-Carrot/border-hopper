@@ -1,15 +1,17 @@
-import { playHop, playJingle } from './synth';
+import { playHop, playJingle, playThud, playWhistle } from './synth';
 
 /**
  * Every place that should make a noise calls through here, so the rest of the
  * game never touches audio directly.
  *
- * Two sounds are wired: a hop for each border crossed and a jingle on arrival.
+ * Four sounds are wired: a hop for each border crossed, a jingle on arrival,
+ * and Visa Denied's police -- a whistle as they turn him back and a thud as he
+ * lands.
  * The other names stay silent on purpose -- a click on every button and a buzz
  * on every wrong guess are the fastest way to get the sound switched off, and
  * haptics already cover mistakes.
  */
-export type Sound = 'tap' | 'select' | 'move' | 'invalid' | 'arrive' | 'win';
+export type Sound = 'tap' | 'select' | 'move' | 'invalid' | 'arrive' | 'win' | 'whistle' | 'thud';
 
 /**
  * Overall loudness. Measured by rendering the real synth offline: the jingle
@@ -68,7 +70,7 @@ function audio(): { ctx: AudioContext; out: GainNode } | null {
 
 export function play(sound: Sound): void {
   if (!enabled) return;
-  if (sound !== 'move' && sound !== 'win') return;
+  if (sound !== 'move' && sound !== 'win' && sound !== 'whistle' && sound !== 'thud') return;
   const live = audio();
   if (!live) return;
   try {
@@ -76,6 +78,8 @@ export function play(sound: Sound): void {
     // A hair in the future, so the first note is never clipped by scheduling.
     const at = live.ctx.currentTime + 0.01;
     if (sound === 'move') playHop(live.ctx, live.out, at);
+    else if (sound === 'whistle') playWhistle(live.ctx, live.out, at);
+    else if (sound === 'thud') playThud(live.ctx, live.out, at);
     else playJingle(live.ctx, live.out, at);
   } catch {
     // Sound is a nicety; it must never cost a move.

@@ -14,6 +14,7 @@ import { MAP_HEIGHT, MAP_WIDTH, countryFlag, countryName, requireCountry } from 
 import type { GameConfig, GameResult, GameState } from '../../core/types';
 import { colors, fonts, timing } from '../../theme';
 import { play } from '../../audio/sounds';
+import { REFUSAL_LANDED, REFUSAL_POLICE } from '../map/Refusal';
 import { WorldMap } from '../map/WorldMap';
 import { useMapGestures } from '../map/useMapGestures';
 import { frameBoxes, makeStage, worldCamera } from '../map/camera';
@@ -197,6 +198,22 @@ export function GameScreen({
     return () => clearTimeout(timer);
   }, [reduceMotion]);
 
+  // ---- the border police --------------------------------------------------
+  // In time with the throw-back on the map: a whistle as the police step up,
+  // and a thud and a heavy bump as he lands back where he started.
+  useEffect(() => {
+    if (!refusal) return;
+    const timers = [
+      setTimeout(() => play('whistle'), REFUSAL_POLICE),
+      setTimeout(() => {
+        play('thud');
+        haptic('heavy');
+      }, REFUSAL_LANDED),
+    ];
+    return () => timers.forEach(clearTimeout);
+    // One whistle per attempt.
+  }, [refusal?.token]);
+
   // ---- moves -------------------------------------------------------------
   const results = useMemo(() => searchCountries(query), [query]);
 
@@ -210,10 +227,13 @@ export function GameScreen({
           setInvalidIso(target);
           setTimeout(() => setInvalidIso((value) => (value === target ? null : value)), 750);
         }
-        // A real border, but closed: he tries it and is thrown back.
+        // A real border, but closed: he tries it and is thrown back. With
+        // reduce motion on there is no throw, so the whistle says it alone.
         if (result.reason === 'closed' && !reduceMotion) {
           setRefusal({ iso: target, token: Date.now() });
           setQuery('');
+        } else if (result.reason === 'closed') {
+          play('whistle');
         }
         // Where people believe in a border that is not there. Enough of these
         // is the answer to "which countries do players get stuck on".
