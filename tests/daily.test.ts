@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VISA_DAILY_FROM, dailyGame, dateKey, isVisaDaily, previousDateKey } from '../src/core/daily';
+import { VISA_DAILY_FROM, dailyGame, dateKey, isVisaDaily, msUntilNextDaily, nextDateKey, previousDateKey, formatCountdown } from '../src/core/daily';
 import { verifyConfig } from '../src/core/generate';
 import { shortestMoveCount } from '../src/core/graph';
 
@@ -85,5 +85,25 @@ describe('daily challenge', () => {
   it('keeps the days between as ordinary land journeys', () => {
     const key = '2026-11-13';
     expect(dailyGame(key).closed).toBeUndefined();
+  });
+
+  it('steps forward a day, across month and year boundaries', () => {
+    expect(nextDateKey('2026-11-11')).toBe('2026-11-12');
+    expect(nextDateKey('2026-11-30')).toBe('2026-12-01');
+    expect(nextDateKey('2026-12-31')).toBe('2027-01-01');
+    expect(nextDateKey('2028-02-28')).toBe('2028-02-29');
+  });
+
+  it('counts down to local midnight, when the next daily arrives', () => {
+    expect(msUntilNextDaily(new Date(2026, 10, 11, 23, 59, 30))).toBe(30_000);
+    expect(msUntilNextDaily(new Date(2026, 10, 11, 0, 0, 0))).toBe(24 * 3600_000);
+    expect(msUntilNextDaily(new Date(2026, 10, 11, 18, 15, 0))).toBe((5 * 60 + 45) * 60_000);
+  });
+
+  it('shows the countdown as hours, minutes and seconds', () => {
+    expect(formatCountdown(30_000)).toBe('00:00:30');
+    expect(formatCountdown((5 * 3600 + 12 * 60 + 33) * 1000)).toBe('05:12:33');
+    expect(formatCountdown(24 * 3600_000)).toBe('24:00:00');
+    expect(formatCountdown(1)).toBe('00:00:01');
   });
 });

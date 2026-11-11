@@ -17,6 +17,7 @@ import { colors, fonts, radius, spacing } from '../../theme';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { StatTile } from '../components/StatTile';
+import { NextDaily } from '../components/NextDaily';
 import { Flag } from '../components/Flag';
 
 export interface ResultOverlayProps {
@@ -171,6 +172,12 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit, badge
           </View>
         ) : null}
 
+        {result.mode === 'daily' ? (
+          <View style={styles.nextDaily}>
+            <NextDaily />
+          </View>
+        ) : null}
+
         <View style={styles.actions}>
           <Button
             label={
@@ -238,6 +245,7 @@ function RouteChips({
 }
 
 const styles = StyleSheet.create({
+  nextDaily: { alignSelf: 'stretch', marginTop: spacing.lg },
   badge: {
     alignSelf: 'stretch',
     alignItems: 'center',
