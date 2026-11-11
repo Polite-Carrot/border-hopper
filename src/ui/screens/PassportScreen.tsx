@@ -12,6 +12,8 @@ import { Explorer } from '../map/Explorer';
 import { Flag } from '../components/Flag';
 import { Icon } from '../components/Icon';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { STREAK_BADGES, streakBadgeEarned } from '../../core/streaks';
+import { EMPTY_STATS, type Stats } from '../../core/stats';
 import { TourBadge } from '../components/TourBadge';
 import { TOURS } from '../../core/tours';
 
@@ -25,6 +27,8 @@ export interface PassportScreenProps {
   reduceMotion: boolean;
   /** Continent tour badges earned, by tour, with the day each was won. */
   tourBadges?: Record<string, string>;
+  /** For the daily-streak badges. */
+  stats?: Stats;
 }
 
 /** The preview explorer, drawn this many times his size on the map. */
@@ -47,7 +51,9 @@ const PAGES: { continent: Continent; countries: Country[] }[] = CONTINENTS.map((
  * the start and everything passed through included. Tap a stamp to put its
  * flag on his jumper.
  */
-export function PassportScreen({ passport, onWear, onBack, reduceMotion, tourBadges = {} }: PassportScreenProps) {
+export function PassportScreen({
+  passport, onWear, onBack, reduceMotion, tourBadges = {}, stats = EMPTY_STATS,
+}: PassportScreenProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const columns = width >= 560 ? 6 : 4;
@@ -137,6 +143,23 @@ export function PassportScreen({ passport, onWear, onBack, reduceMotion, tourBad
             <TourBadge key={tour.id} tour={tour} earned={tourBadges[tour.id]} size={50} />
           ))}
         </View>
+
+        <View style={styles.pageHeader}>
+          <Text style={styles.pageTitle}>STREAK BADGES</Text>
+          <Text style={styles.pageCount}>
+            {STREAK_BADGES.filter((badge) => streakBadgeEarned(stats, badge.days)).length}/{STREAK_BADGES.length}
+          </Text>
+        </View>
+        <View style={styles.badgeRow}>
+          {STREAK_BADGES.map((badge) => (
+            <TourBadge key={badge.days} tour={badge} earned={streakBadgeEarned(stats, badge.days)} size={50} />
+          ))}
+        </View>
+        <Text style={styles.hint}>
+          Play the daily challenge {STREAK_BADGES.slice(0, -1).map((badge) => badge.days).join(', ')} or{' '}
+          {STREAK_BADGES[STREAK_BADGES.length - 1].days} days in a row for a badge.
+          {stats.dailyStreak > 0 ? ` You are on ${stats.dailyStreak}.` : ''}
+        </Text>
 
         {PAGES.map(({ continent, countries }) => (
           <View key={continent}>

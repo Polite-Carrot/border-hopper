@@ -38,6 +38,7 @@ import { ConsentPrompt } from './screens/ConsentPrompt';
 import { BootScreen } from './screens/BootScreen';
 import { ReminderOffer } from './screens/ReminderOffer';
 import { ToursScreen } from './screens/ToursScreen';
+import { newStreakBadges } from '../core/streaks';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { VISA_LENGTH, visaGame, visaLevel, visaNextLevel, recordVisaLevel } from '../core/visaCampaign';
 import {
@@ -99,6 +100,8 @@ export function BorderHopperApp() {
   const [selectedTour, setSelectedTour] = useState<string | null>(null);
   /** A tour badge the game just finished earned, for the result card. */
   const [badgeEarned, setBadgeEarned] = useState<string | null>(null);
+  /** A daily-streak badge the game just finished earned (its streak length), for the result card. */
+  const [streakEarned, setStreakEarned] = useState<number | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -329,6 +332,9 @@ export function BorderHopperApp() {
   const handleComplete = useCallback(
     (result: GameResult) => {
       const nextStats = recordGameCompleted(stats, result);
+      const streakBadges = newStreakBadges(stats, nextStats);
+      setStreakEarned(streakBadges.length ? streakBadges[streakBadges.length - 1].days : null);
+      for (const badge of streakBadges) track('streak_badge', { days: badge.days });
       persistStats(nextStats);
       getAds().noteGameFinished();
       track('game_complete', {
@@ -693,6 +699,7 @@ export function BorderHopperApp() {
             }
             onComplete={handleComplete}
             badgeEarned={badgeEarned}
+            streakEarned={streakEarned}
             passport={passport}
             onStamp={stampCountries}
           />
@@ -783,6 +790,7 @@ export function BorderHopperApp() {
             passport={passport}
             onWear={wearSkin}
             tourBadges={tours.badges}
+            stats={stats}
             onBack={() => setScreen('menu')}
             reduceMotion={settings.reduceMotion}
           />

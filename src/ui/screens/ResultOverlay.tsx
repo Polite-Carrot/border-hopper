@@ -9,6 +9,7 @@ import { CAMPAIGN_LENGTH } from '../../core/campaign';
 import { VISA_LENGTH } from '../../core/visaCampaign';
 import { bestRoute } from '../../core/game';
 import { tourById } from '../../core/tours';
+import { STREAK_BADGES } from '../../core/streaks';
 import { dateKey } from '../../core/daily';
 import { TourBadge } from '../components/TourBadge';
 import { areNeighbours } from '../../core/graph';
@@ -28,13 +29,17 @@ export interface ResultOverlayProps {
   onExit: () => void;
   /** A tour badge this game just earned. */
   badgeEarned?: string | null;
+  /** A daily-streak badge this game just earned: its streak length. */
+  streakEarned?: number | null;
 }
 
 /**
  * The finish. It rises over the map rather than replacing it, so the last
  * country the player reached is still visible behind the numbers.
  */
-export function ResultOverlay({ result, newStamps = [], onNewGame, onExit, badgeEarned = null }: ResultOverlayProps) {
+export function ResultOverlay({
+  result, newStamps = [], onNewGame, onExit, badgeEarned = null, streakEarned = null,
+}: ResultOverlayProps) {
   const insets = useSafeAreaInsets();
   const entry = useRef(new Animated.Value(0)).current;
 
@@ -50,6 +55,7 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit, badge
   const hints = result.hints ?? 0;
   const tour = result.mode === 'tour' && result.tour ? tourById(result.tour) : undefined;
   const earnedTour = badgeEarned ? tourById(badgeEarned) : undefined;
+  const earnedStreak = streakEarned ? STREAK_BADGES.find((badge) => badge.days === streakEarned) : undefined;
   const lastTourLevel = tour !== undefined && result.level !== undefined && result.level >= tour.levels.length;
   // A Visa Denied campaign level, rather than a random Visa Denied game.
   const visaLevel = result.mode === 'visa' ? result.level : undefined;
@@ -150,6 +156,16 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit, badge
             <Text style={styles.stampsTitle}>TOUR COMPLETE</Text>
             <TourBadge tour={earnedTour} earned={dateKey()} size={88} />
             <Text style={styles.stampsHint}>{earnedTour.name} badge added to your passport.</Text>
+          </View>
+        ) : null}
+
+        {earnedStreak ? (
+          <View style={styles.badge} accessibilityLabel={`${earnedStreak.days}-day streak: ${earnedStreak.name} badge earned`}>
+            <Text style={styles.stampsTitle}>{earnedStreak.days}-DAY STREAK</Text>
+            <TourBadge tour={earnedStreak} earned={dateKey()} size={88} />
+            <Text style={styles.stampsHint}>
+              {earnedStreak.days} dailies in a row. {earnedStreak.name} badge added to your passport.
+            </Text>
           </View>
         ) : null}
 

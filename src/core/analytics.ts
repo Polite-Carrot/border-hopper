@@ -161,6 +161,9 @@ export interface AnalyticsEvents {
    * (`where` is "global"). The message is cut to Firebase's 100 characters.
    */
   app_error: { where: string; message: string; component?: string };
+
+  /** A daily-streak badge was earned: 7, 30 or 100 days in a row. */
+  streak_badge: { days: number };
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvents;

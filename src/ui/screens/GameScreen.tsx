@@ -63,10 +63,12 @@ export interface GameScreenProps {
   onStamp: (isos: string[]) => void;
   /** A tour badge this game just earned, for the result card. */
   badgeEarned?: string | null;
+  /** A daily-streak badge this game just earned: its streak length. */
+  streakEarned?: number | null;
 }
 
 export function GameScreen({
-  config, reduceMotion, onExit, onNewGame, onComplete, passport, onStamp, badgeEarned = null,
+  config, reduceMotion, onExit, onNewGame, onComplete, passport, onStamp, badgeEarned = null, streakEarned = null,
 }: GameScreenProps) {
   const layout = useLayout();
   const insets = useSafeAreaInsets();
@@ -544,6 +546,7 @@ export function GameScreen({
           newStamps={newStamps(passportAtStart, state.route)}
           onNewGame={onNewGame}
           badgeEarned={badgeEarned}
+          streakEarned={streakEarned}
           onExit={handleExit}
         />
       ) : null}
