@@ -3,7 +3,8 @@ import { colors, fonts } from '../../theme';
 import type { Tour } from '../../core/tours';
 
 export interface TourBadgeProps {
-  tour: Tour;
+  /** A tour, or anything else drawn as a passport badge: a name and an emblem. */
+  tour: Pick<Tour, 'name' | 'emoji'>;
   /** The day it was earned, or undefined while it is still to win. */
   earned?: string;
   size?: number;
@@ -20,7 +21,11 @@ export function TourBadge({ tour, earned, size = 64, label = true }: TourBadgePr
   return (
     <View
       style={[styles.wrap, { width: size + 16 }]}
-      accessibilityLabel={earned ? `${tour.name} badge, earned ${earned}` : `${tour.name} badge, not earned yet`}
+      accessibilityLabel={
+        earned
+          ? `${tour.name} badge, earned${earned === 'earned' ? '' : ` ${earned}`}`
+          : `${tour.name} badge, not earned yet`
+      }
     >
       <View
         style={[
@@ -44,7 +49,7 @@ export function TourBadge({ tour, earned, size = 64, label = true }: TourBadgePr
           <Text style={[styles.name, !earned && styles.faint]} numberOfLines={2}>
             {tour.name}
           </Text>
-          {earned ? <Text style={styles.date}>{earned}</Text> : null}
+          {earned ? <Text style={styles.date}>{earned === 'earned' ? 'Earned' : earned}</Text> : null}
         </>
       ) : null}
     </View>

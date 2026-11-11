@@ -1,4 +1,5 @@
 import { previousDateKey } from './daily';
+import { awardStreakBadges } from './streaks';
 import type { GameResult } from './types';
 
 /** Everything persisted about a player's history. Plain data, stored as JSON. */
@@ -15,6 +16,8 @@ export interface Stats {
   dailyStreak: number;
   longestDailyStreak: number;
   lastDailyKey: string | null;
+  /** Daily-streak badges earned, by streak length: the day each was earned. */
+  streakBadges?: Record<number, string>;
 }
 
 export const EMPTY_STATS: Stats = {
@@ -60,6 +63,7 @@ export function recordGameCompleted(stats: Stats, result: GameResult): Stats {
     next.dailyStreak = continuing ? stats.dailyStreak + 1 : 1;
     next.longestDailyStreak = Math.max(stats.longestDailyStreak, next.dailyStreak);
     next.lastDailyKey = result.dailyKey;
+    return awardStreakBadges(next, result.dailyKey);
   }
 
   return next;
