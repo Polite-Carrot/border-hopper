@@ -12,6 +12,9 @@ const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
 const OUT = 380;
 const CAUGHT = 600;
 const LANDED = 1180;
+/** When the police appear, and when he lands back home: for the sound and the bump. */
+export const REFUSAL_POLICE = OUT;
+export const REFUSAL_LANDED = LANDED;
 export const REFUSAL_TIME = 1500;
 
 const HOP_HEIGHT = 20;

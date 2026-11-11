@@ -153,3 +153,66 @@ export function playJingle(ctx: Context, out: AudioNode, at: number): number {
 
   return 9 * beat + 1.25;
 }
+
+/**
+ * The border police: two short blasts on a whistle. A pea whistle's sound is
+ * a high tone warbling fast as the pea rattles, so it is a sine near 2.6kHz
+ * with a quick vibrato, each blast cut sharply at both ends. Quieter than
+ * the hop at its peak: a steady high tone carries, and at the same level it
+ * measured 7dB louder on average.
+ *
+ * Returns how long it lasts.
+ */
+export function playWhistle(ctx: Context, out: AudioNode, at: number): number {
+  const blasts = [
+    { start: 0, length: 0.13 },
+    { start: 0.19, length: 0.26 },
+  ];
+  for (const { start, length } of blasts) {
+    const t = at + start;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(0.14, t + 0.012);
+    env.gain.setValueAtTime(0.14, t + length - 0.03);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + length);
+    env.connect(out);
+
+    const tone = ctx.createOscillator();
+    tone.type = 'sine';
+    tone.frequency.setValueAtTime(2600, t);
+    const pea = ctx.createOscillator();
+    const depth = ctx.createGain();
+    pea.frequency.value = 38;
+    depth.gain.value = 140;
+    pea.connect(depth).connect(tone.frequency);
+    tone.connect(env);
+    for (const osc of [tone, pea]) {
+      osc.start(t);
+      osc.stop(t + length + 0.02);
+    }
+  }
+  return 0.45;
+}
+
+/**
+ * Landing back where he started: a soft, low thump, a sine falling quickly
+ * from 150Hz to 55Hz.
+ *
+ * Returns how long it lasts.
+ */
+export function playThud(ctx: Context, out: AudioNode, at: number): number {
+  const length = 0.2;
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, at);
+  env.gain.exponentialRampToValueAtTime(0.7, at + 0.008);
+  env.gain.exponentialRampToValueAtTime(0.0001, at + length);
+  env.connect(out);
+  const tone = ctx.createOscillator();
+  tone.type = 'sine';
+  tone.frequency.setValueAtTime(150, at);
+  tone.frequency.exponentialRampToValueAtTime(55, at + 0.12);
+  tone.connect(env);
+  tone.start(at);
+  tone.stop(at + length + 0.02);
+  return length;
+}

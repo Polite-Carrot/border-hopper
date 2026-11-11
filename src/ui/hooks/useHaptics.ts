@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { Haptics as NativeHaptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import * as Haptics from 'expo-haptics';
 
-export type HapticKind = 'light' | 'success' | 'error';
+export type HapticKind = 'light' | 'heavy' | 'success' | 'error';
 
 let enabled = true;
 
@@ -25,6 +25,7 @@ export function haptic(kind: HapticKind): void {
   try {
     if (Capacitor.isNativePlatform()) {
       if (kind === 'light') void NativeHaptics.impact({ style: ImpactStyle.Light }).catch(() => {});
+      else if (kind === 'heavy') void NativeHaptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
       else
         void NativeHaptics.notification({
           type: kind === 'success' ? NotificationType.Success : NotificationType.Error,
@@ -33,6 +34,7 @@ export function haptic(kind: HapticKind): void {
     }
     if (Platform.OS === 'web') return;
     if (kind === 'light') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    else if (kind === 'heavy') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     else if (kind === 'success') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     else void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
   } catch {

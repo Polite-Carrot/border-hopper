@@ -10,7 +10,7 @@ const calls: string[] = [];
 vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));
 vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => native.value } }));
 vi.mock('@capacitor/haptics', () => ({
-  ImpactStyle: { Light: 'LIGHT' },
+  ImpactStyle: { Light: 'LIGHT', Heavy: 'HEAVY' },
   NotificationType: { Success: 'SUCCESS', Error: 'ERROR' },
   Haptics: {
     impact: async ({ style }: { style: string }) => void calls.push(`impact:${style}`),
@@ -18,7 +18,7 @@ vi.mock('@capacitor/haptics', () => ({
   },
 }));
 vi.mock('expo-haptics', () => ({
-  ImpactFeedbackStyle: { Light: 'light' },
+  ImpactFeedbackStyle: { Light: 'light', Heavy: 'heavy' },
   NotificationFeedbackType: { Success: 'success', Error: 'error' },
   impactAsync: async () => void calls.push('expo'),
   notificationAsync: async () => void calls.push('expo'),
@@ -38,7 +38,8 @@ describe('haptics', () => {
     haptic('light');
     haptic('success');
     haptic('error');
-    expect(calls).toEqual(['impact:LIGHT', 'notify:SUCCESS', 'notify:ERROR']);
+    haptic('heavy');
+    expect(calls).toEqual(['impact:LIGHT', 'notify:SUCCESS', 'notify:ERROR', 'impact:HEAVY']);
   });
 
   it('stays still in a plain browser', () => {
