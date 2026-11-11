@@ -95,7 +95,7 @@ export function ResultOverlay({ result, newStamps = [], onNewGame, onExit, badge
             : tour
               ? `${tour.name.toUpperCase()} · LEVEL ${result.level} OF ${tour.levels.length}`
             : result.mode === 'daily'
-              ? `DAILY · ${result.dailyKey}`
+              ? `DAILY · ${result.dailyKey}${result.closed?.length ? ' · VISA DENIED' : ''}`
               : visaLevel !== undefined
                 ? `VISA DENIED · LEVEL ${visaLevel} OF ${VISA_LENGTH}`
                 : result.mode === 'visa'

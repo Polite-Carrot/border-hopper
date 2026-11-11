@@ -726,7 +726,15 @@ levels must never change, so to add more, freeze what has shipped as a new
 part and build on after it.
 
 **Daily challenge** — the same start and destination for every player, once a
-day.
+day. From 12 November 2026 every other daily is a **Visa Denied** one: the
+same journey for everyone with the same borders closed, chosen just as a
+random Visa Denied game's are. The menu says so ("Daily challenge · Visa
+Denied"), and so do the game, the result card and the share. It is still the
+daily in every other way: one a day, the streak, the spoiler-free share.
+Days before then keep exactly the puzzles they had (`VISA_DAILY_FROM` in
+`src/core/daily.ts`; a test holds them to it). Players on an app version from
+before this change still get an ordinary daily on those days, so share the
+date with friends on the same version.
 
 ## How a random game is generated
 
