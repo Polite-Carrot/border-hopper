@@ -5,6 +5,7 @@ import type { Settings } from '../../storage/storage';
 import { difficultyOptions } from '../components/difficulty';
 import { Button } from '../components/Button';
 import { Icon, type IconName } from '../components/Icon';
+import { VISA_NOTES } from '../components/visaNotes';
 
 export type RandomMode = 'classic' | 'flight' | 'visa';
 
@@ -34,12 +35,6 @@ const FLIGHT_NOTES = [
   { icon: '🚶', text: 'Everywhere else you cross borders on foot, so the trick is walking to the right hub.' },
 ];
 
-/** Visa Denied, in three lines. */
-const VISA_NOTES = [
-  { icon: '⛔', text: 'Some countries on the way are refusing visas. They are marked on the map and listed at the top.' },
-  { icon: '👮', text: 'Try to cross into one and the border police send you straight back. It counts as a wrong turn.' },
-  { icon: '🧭', text: 'Find the long way round. The best possible route already avoids every closed border.' },
-];
 
 /**
  * Sets up a one-off game: how you travel, and how far.
