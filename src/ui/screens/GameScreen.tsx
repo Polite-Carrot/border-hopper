@@ -417,7 +417,9 @@ export function GameScreen({
               : config.mode === 'tour'
                 ? `${(tourById(config.tour ?? '')?.name ?? 'TOUR').toUpperCase()} ${config.level} · TRAVEL TO`
               : config.mode === 'daily'
-                ? 'DAILY · TRAVEL TO'
+                ? config.closed?.length
+                  ? 'VISA DENIED DAILY · TRAVEL TO'
+                  : 'DAILY · TRAVEL TO'
                 : config.mode === 'flight'
                   ? 'FLIGHT · TRAVEL TO'
                   : config.mode === 'visa'

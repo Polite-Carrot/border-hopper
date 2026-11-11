@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { dailyGame, dateKey, previousDateKey } from '../src/core/daily';
+import { VISA_DAILY_FROM, dailyGame, dateKey, isVisaDaily, previousDateKey } from '../src/core/daily';
+import { verifyConfig } from '../src/core/generate';
 import { shortestMoveCount } from '../src/core/graph';
 
 describe('daily challenge', () => {
@@ -45,5 +46,44 @@ describe('daily challenge', () => {
       Array.from({ length: 90 }, (_, i) => dailyGame(dateKey(new Date(2026, 0, 1 + i))).difficulty)
     );
     expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it('has no closed borders before Visa Denied dailies began', () => {
+    expect(VISA_DAILY_FROM).toBe('2026-11-12');
+    for (const key of ['2026-01-01', '2026-09-21', '2026-11-10', '2026-11-11']) {
+      expect(isVisaDaily(key), key).toBe(false);
+      expect(dailyGame(key).closed, key).toBeUndefined();
+    }
+  });
+
+  it('closes borders every other day from then on', () => {
+    const days = Array.from({ length: 20 }, (_, i) => dateKey(new Date(2026, 10, 12 + i)));
+    days.forEach((key, i) => expect(isVisaDaily(key), key).toBe(i % 2 === 0));
+    // Across a month end and a year end, still strictly alternating.
+    // 30 November is 18 days on, 1 December 19; 31 December 49, 1 January 50.
+    expect(isVisaDaily('2026-11-30')).toBe(true);
+    expect(isVisaDaily('2026-12-01')).toBe(false);
+    expect(isVisaDaily('2026-12-31')).toBe(false);
+    expect(isVisaDaily('2027-01-01')).toBe(true);
+  });
+
+  it('makes a Visa Denied daily a proper daily with closed borders, solvable and scored right', () => {
+    for (let i = 0; i < 60; i += 2) {
+      const key = dateKey(new Date(2026, 10, 12 + i));
+      const config = dailyGame(key);
+      expect(config.mode, key).toBe('daily');
+      expect(config.dailyKey, key).toBe(key);
+      expect(config.closed?.length, key).toBeGreaterThan(0);
+      expect(config.closed, key).not.toContain(config.start);
+      expect(config.closed, key).not.toContain(config.destination);
+      expect(verifyConfig(config), key).toBe(true);
+      expect(config.optimalMoves).toBeGreaterThan(shortestMoveCount(config.start, config.destination)!);
+      expect(dailyGame(key)).toEqual(config);
+    }
+  });
+
+  it('keeps the days between as ordinary land journeys', () => {
+    const key = '2026-11-13';
+    expect(dailyGame(key).closed).toBeUndefined();
   });
 });

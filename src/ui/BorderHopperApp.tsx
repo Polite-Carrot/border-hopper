@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Capacitor } from '@capacitor/core';
-import { dailyGame, dateKey } from '../core/daily';
+import { dailyGame, dateKey, isVisaDaily } from '../core/daily';
 import {
   CAMPAIGN_LENGTH, campaignGame, nextLevel, recordLevel, type CampaignProgress,
 } from '../core/campaign';
@@ -808,6 +808,7 @@ export function BorderHopperApp() {
             onPassport={() => setScreen('passport')}
             stamps={stampCount(passport)}
             dailyDone={Boolean(dailyResults[todayKey])}
+            dailyVisa={isVisaDaily(todayKey)}
             dailyStreak={stats.dailyStreak}
             campaignLevel={campaignNext}
             campaignDone={Object.keys(campaign).length}

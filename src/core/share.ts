@@ -45,7 +45,7 @@ export function moveSquares(result: Pick<GameResult, 'mode' | 'route' | 'closed'
  */
 export function shareText(result: GameResult): string {
   const header = result.dailyKey
-    ? `🌍 BORDER HOPPER — ${result.dailyKey}`
+    ? `🌍 BORDER HOPPER — ${result.dailyKey}${result.closed?.length ? ' · Visa Denied' : ''}`
     : result.mode === 'campaign' && result.level !== undefined
       ? `🌍 BORDER HOPPER — Level ${result.level}`
       : result.mode === 'tour' && result.tour
