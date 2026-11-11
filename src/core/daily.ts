@@ -17,6 +17,25 @@ export function dateKey(date: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+/** The next calendar day's key. */
+export function nextDateKey(key: string): string {
+  const [y, m, d] = key.split('-').map(Number);
+  return dateKey(new Date(y, m - 1, d + 1));
+}
+
+/** Milliseconds until the next daily: local midnight. */
+export function msUntilNextDaily(now: Date = new Date()): number {
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return Math.max(0, midnight.getTime() - now.getTime());
+}
+
+/** "05:12:33": hours, minutes and seconds left. */
+export function formatCountdown(ms: number): string {
+  const total = Math.ceil(ms / 1000);
+  const parts = [Math.floor(total / 3600), Math.floor((total % 3600) / 60), total % 60];
+  return parts.map((n) => String(n).padStart(2, '0')).join(':');
+}
+
 /** The previous calendar day's key, used for daily streak continuity. */
 export function previousDateKey(key: string): string {
   const [y, m, d] = key.split('-').map(Number);

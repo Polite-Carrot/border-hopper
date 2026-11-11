@@ -7,6 +7,7 @@ import { colors, fonts, spacing } from '../../theme';
 import { Button } from '../components/Button';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { StatTile } from '../components/StatTile';
+import { NextDaily } from '../components/NextDaily';
 
 export interface DailyDoneScreenProps {
   result: GameResult;
@@ -29,6 +30,9 @@ export function DailyDoneScreen({ result, dailyStreak, onBack, onPlayClassic }: 
         <ScreenHeader title="Daily challenge" onBack={onBack} />
         <Text style={styles.done}>TODAY IS DONE</Text>
         <Text style={styles.sub}>Come back tomorrow for a new pair of countries.</Text>
+        <View style={styles.next}>
+          <NextDaily />
+        </View>
 
         <View style={styles.route}>
           {result.route.map((iso, index) => (
@@ -65,6 +69,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxl,
   },
   sub: { color: colors.textMuted, fontSize: 14, textAlign: 'center', marginTop: spacing.sm },
+  next: { marginTop: spacing.lg },
   route: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginVertical: spacing.xl },
   routeText: { color: colors.text, fontSize: 14.5, fontWeight: '600' },
   grid: { flexDirection: 'row', gap: spacing.sm },
