@@ -28,6 +28,7 @@ import { HINT_BUTTON_SIZE, HintButton } from '../components/HintButton';
 import { Icon } from '../components/Icon';
 import { COUNTRY_ROW_HEIGHT } from '../components/CountryRow';
 import { onScreenKeyboardHeight } from '../components/OnScreenKeyboard';
+import { VisaIntro } from '../components/VisaIntro';
 import { ResultOverlay } from './ResultOverlay';
 import { usePhysicalKeys } from '../hooks/usePhysicalKeys';
 import { useLayout } from '../hooks/useLayoutMode';
@@ -79,6 +80,18 @@ export function GameScreen({
   const [refusal, setRefusal] = useState<{ iso: string; token: number } | null>(null);
   const [arrivalToken, setArrivalToken] = useState(0);
   const [phase, setPhase] = useState<'establishing' | 'playing'>('establishing');
+  // The Visa Denied campaign opens on its rules. The clock waits for them.
+  const [intro, setIntro] = useState(config.mode === 'visa' && config.level === 1);
+  const startAfterIntro = useCallback(() => {
+    setIntro(false);
+    // Anything typed while the card was up was never a move.
+    setQuery('');
+    setState((previous) =>
+      previous.route.length === 1 && previous.wrongGuesses.length === 0 && previous.hints === 0
+        ? { ...previous, startedAt: Date.now() }
+        : previous
+    );
+  }, []);
   const [showResult, setShowResult] = useState(false);
   // Kept from the moment the game began: the passport prop updates with every
   // stamp, and against that nothing would ever look new.
@@ -219,6 +232,7 @@ export function GameScreen({
 
   const handleSelect = useCallback(
     (target: string) => {
+      if (intro) return;
       const result = applyMove(state, target);
 
       if (!result.ok) {
@@ -282,7 +296,7 @@ export function GameScreen({
         setTimeout(() => setShowResult(true), travelDuration + 250);
       }
     },
-    [state, onComplete, onStamp, travelDuration, gestures, config, iso, reduceMotion]
+    [state, onComplete, onStamp, travelDuration, gestures, config, iso, reduceMotion, intro]
   );
 
   /**
@@ -521,6 +535,8 @@ export function GameScreen({
           bottomInset={safeBottom}
         />
       </View>
+
+      {intro ? <VisaIntro onStart={startAfterIntro} /> : null}
 
       {showResult ? (
         <ResultOverlay
