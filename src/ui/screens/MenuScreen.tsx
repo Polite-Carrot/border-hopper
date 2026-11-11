@@ -41,6 +41,9 @@ export interface MenuScreenProps {
 /** Regions the title-screen camera drifts between, so the map is the branding. */
 const BACKDROP_TOUR = ['IT', 'ID', 'BR', 'KE', 'JP', 'NO'];
 
+/** One empty route for the backdrop, the same every render, so it never redraws the map. */
+const NO_VISITS: readonly string[] = [];
+
 export function MenuScreen({
   onCampaign, onTours, badges, onRandom, onFlight, onVisa, visaLevel, dailyVisa = false, onDaily, onStats, onSettings, onPassport, stamps, dailyDone, dailyStreak,
   campaignLevel, campaignDone, reduceMotion, removeAds = null,
@@ -72,7 +75,7 @@ export function MenuScreen({
         duration={reduceMotion ? 0 : 5200}
         currentIso={iso}
         destinationIso=""
-        visited={[]}
+        visited={NO_VISITS}
         showTraveller={false}
       />
       <View style={styles.scrim} pointerEvents="none" />

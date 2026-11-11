@@ -3,6 +3,7 @@ import { Animated, StyleSheet, View } from 'react-native';
 import Svg, { Defs, G, Rect, Use } from 'react-native-svg';
 import { MAP_HEIGHT, MAP_WIDTH } from '../../core/world';
 import { BaseLayer } from './BaseLayer';
+import { Highlights, type HighlightsProps } from './Highlights';
 import type { Stage } from './camera';
 
 /**
@@ -23,8 +24,10 @@ import type { Stage } from './camera';
  * only when the view has zoomed too far from the anchor (it would go soft or
  * show its edges) or panned past the spare map.
  *
- * Everything that changes during play -- the route, the hint, the explorer,
- * markers -- stays in the SVG on top, which is cheap to redraw.
+ * The highlights -- route, current, destination, hint, closed, rejected --
+ * are drawn into the same layer, so they redraw with it once a move rather
+ * than once a frame. The explorer and the markers, which move during play,
+ * stay in the SVG on top, which is cheap to redraw.
  */
 
 /** Spare map drawn beyond each edge of the screen, as a share of its size. */
@@ -49,6 +52,13 @@ export interface BaseMapProps {
   progress: Animated.Value;
   /** The player's pinch and pan, applied about the middle of the stage. */
   user?: { scale: Animated.Value; translateX: Animated.Value; translateY: Animated.Value };
+  /** The route, current, destination, hinted, closed and rejected countries. */
+  visited: HighlightsProps['visited'];
+  destinationPath?: string;
+  currentPath?: string;
+  invalidPath?: string;
+  hintPath?: string;
+  closed?: readonly string[];
 }
 
 /** A view of the map: map point p lands on screen at t + k * p. */
@@ -64,7 +74,9 @@ const read = (node: Node | undefined, fallback: number): number => {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 };
 
-export const BaseMap = memo(function BaseMap({ stage, ocean, camera, progress, user }: BaseMapProps) {
+export const BaseMap = memo(function BaseMap({
+  stage, ocean, camera, progress, user, visited, destinationPath, currentPath, invalidPath, hintPath, closed,
+}: BaseMapProps) {
   const layer = useRef<View | null>(null);
   const latest = useRef({ stage, camera, user });
   latest.current = { stage, camera, user };
@@ -171,14 +183,23 @@ export const BaseMap = memo(function BaseMap({ stage, ocean, camera, progress, u
         k={anchor.k}
         tx={anchor.tx + mx}
         ty={anchor.ty + my}
+        visited={visited}
+        destinationPath={destinationPath}
+        currentPath={currentPath}
+        invalidPath={invalidPath}
+        hintPath={hintPath}
+        closed={closed}
       />
     </View>
   );
 });
 
-/** The world drawn for one view. Redrawn only when the anchor moves. */
+/**
+ * The world drawn for one view, highlights on top. Redrawn only when the
+ * anchor moves or a highlight changes -- once a move, not once a frame.
+ */
 const DrawnWorld = memo(function DrawnWorld({
-  width, height, left, top, ocean, k, tx, ty,
+  width, height, left, top, ocean, k, tx, ty, visited, destinationPath, currentPath, invalidPath, hintPath, closed,
 }: {
   width: number;
   height: number;
@@ -188,7 +209,7 @@ const DrawnWorld = memo(function DrawnWorld({
   k: number;
   tx: number;
   ty: number;
-}) {
+} & Omit<HighlightsProps, 'offset'>) {
   return (
     <Svg width={width} height={height} style={{ position: 'absolute', left, top }}>
       <Rect x={0} y={0} width={width} height={height} fill={ocean} />
@@ -201,6 +222,18 @@ const DrawnWorld = memo(function DrawnWorld({
       <G transform={`translate(${tx} ${ty}) scale(${k})`}>
         {COPIES.map((copy) => (
           <Use key={copy} href={`#${WORLD_ID}`} x={copy * MAP_WIDTH} />
+        ))}
+        {COPIES.map((copy) => (
+          <Highlights
+            key={`highlights-${copy}`}
+            offset={copy * MAP_WIDTH}
+            visited={visited}
+            destinationPath={destinationPath}
+            currentPath={currentPath}
+            invalidPath={invalidPath}
+            hintPath={hintPath}
+            closed={closed}
+          />
         ))}
       </G>
     </Svg>

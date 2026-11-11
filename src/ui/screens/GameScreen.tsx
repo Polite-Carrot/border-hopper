@@ -337,7 +337,9 @@ export function GameScreen({
     },
   });
 
-  const visited = state.route.slice(0, -1);
+  // Kept the same array between renders, or every keystroke in the search
+  // field would redraw the map's countries.
+  const visited = useMemo(() => state.route.slice(0, -1), [state.route]);
   const previous = state.route[state.route.length - 2];
   const lastMoveFlown = previous !== undefined && wasFlown(config, previous, iso);
   // A short result list shrinks the panel instead of leaving dead space below it.
