@@ -273,9 +273,13 @@ They are drawn again, sharp, once the view settles, and mid-move only if it
 zooms or pans too far from where they were drawn. Before this, the world sat
 inside the SVG group the camera animates, and an iPhone's WebView re-measured
 and repainted every outline on every frame, which made the app stutter where
-the website did not. The route, hint, markers and explorer stay in an SVG on
-top, which is cheap to redraw; both read the same Animated values, so they
-cannot drift apart.
+the website did not. The highlights -- route, current country, destination,
+hint, closed borders -- are drawn into the same layer, redrawn once a move
+rather than once a frame. The explorer and the markers, which move during
+play, stay in an SVG on top, each drawn once on the copy of the world on
+screen; both layers read the same Animated values, so they cannot drift
+apart. The game clock ticks in its own small component, so the rest of the
+screen does not re-render every second.
 
 You can drag and pinch it yourself at any time, and **the map wraps**: keep
 dragging west past Alaska and you arrive in Russia, round and round without
